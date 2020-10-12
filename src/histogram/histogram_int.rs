@@ -215,6 +215,44 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
     }
 }
 
+impl<T> HistogramPartition for HistogramInt<T> 
+where T: Clone
+{
+    fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
+    {
+        let mut result = Vec::with_capacity(n);
+        let size = self.hist.len() - 1;
+        let denominator = n + overlap;
+
+        for c in 0..n {
+            let left_index = c.checked_mul(size)
+                .ok_or(HistErrors::Overflow)?
+                / denominator;
+            
+            let right_index = (c + overlap + 1).checked_mul(size)
+                .ok_or(HistErrors::Overflow)?
+                / denominator;
+
+            if left_index >= right_index {
+                return Err(HistErrors::IntervalWidthZero);
+            }
+            
+            let borders = self
+                .borders()[left_index..right_index]
+                .to_vec();
+            let hist = vec![0; borders.len()];
+
+            let res = Self{
+                bin_borders: borders,
+                hist
+            };
+            
+            result.push(res);
+        }
+        Ok(result)
+    }
+}
+
 
 /// # Histogram for binning `usize` - alias for `HistogramInt<usize>`
 /// * you should use `HistUsizeFast` instead, if your bins are `[left, left+1,..., right]`
@@ -257,6 +295,8 @@ pub type HistI8 = HistogramInt<i8>;
 #[cfg(test)]
 mod tests{
     use super::*;
+    use rand::{SeedableRng, distributions::*};
+    use rand_pcg::Pcg64Mcg;
     use num_traits::Bounded;
     fn hist_test_normal<T>(left: T, right: T)
     where T: num_traits::Bounded + PartialOrd + CheckedSub 
@@ -328,5 +368,57 @@ mod tests{
             assert_eq!(hist.get_bin_index(&i).unwrap(), 1);
         }
         assert!(hist.get_bin_index(&20).is_err());
+    }
+
+    #[test]
+    fn overlapping_partition_test()
+    {
+
+        let mut rng = Pcg64Mcg::seed_from_u64(2314668);
+        let uni = Uniform::new_inclusive(-100, 100);
+        for overlap in 0..=3 {
+            for _ in 0..100 {
+                let (left, right) = loop {
+                    let mut num_1 = uni.sample(&mut rng);
+                    let mut num_2 = uni.sample(&mut rng);
+    
+                    if num_1 != num_2 {
+                        if num_2 < num_1 {
+                            std::mem::swap(&mut num_1, &mut num_2);
+                        }
+                        if (num_2 as isize - num_1 as isize) < (overlap as isize + 1) {
+                            continue;
+                        }
+                        break (num_1, num_2)
+                    }
+                };
+    
+                let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
+                let hist_i = HistI8::new_inclusive(left, right, hist_fast.bin_count()).unwrap();
+        
+                let overlapping_f = hist_fast.overlapping_partition(3, overlap);
+                let overlapping_i = hist_i.overlapping_partition(3, overlap);
+
+                if overlapping_i.is_err() {
+                    assert_eq!(overlapping_f.unwrap_err(), overlapping_i.unwrap_err());
+                    continue;
+                }
+
+                let overlapping_i = overlapping_i.unwrap();
+                let overlapping_f = overlapping_f.unwrap();
+        
+                for (a, b) in overlapping_f.into_iter().zip(overlapping_i)
+                {
+                    let border_clone_a = a.borders_clone().unwrap();
+                    let border_clone_b = b.borders_clone().unwrap();
+        
+                    for (b_a, b_b) in border_clone_a.into_iter().zip(border_clone_b)
+                    {
+                        assert_eq!(b_a, b_b);
+                    }
+                }
+            }
+        }
+        
     }
 }

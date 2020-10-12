@@ -18,7 +18,7 @@ impl From<HistErrors> for GlueErrors{
     }
 }
 
-pub(crate) fn norm_sum_to_1(glue_log_density: &mut Vec<f64>){
+pub(crate) fn norm_sum_to_1(glue_log_density: &mut[f64]){
     // prevent errors due to small or very large numbers
     subtract_max(glue_log_density);
 
