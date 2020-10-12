@@ -212,9 +212,9 @@ pub trait Metropolis<S, Res>: MarkovChain<S, Res> {
     /// with `ignore_energy_missmatch = true`
     ///
     /// # Example:
-    /// ```
-    /// use net_ensembles::sampling::{MetropolisSave, MetropolisState};
-    /// use net_ensembles::sampling::traits::{Metropolis, SimpleSample};
+    /// ```ignore
+    /// use sampling::{MetropolisSave, MetropolisState};
+    /// use sampling::traits::{Metropolis, SimpleSample};
     /// use net_ensembles::{ErEnsembleC, EmptyNode};
     /// use net_ensembles::traits::MeasurableGraphQuantities;
     /// // as an alternative to the above, you can use the import from the next line
@@ -222,6 +222,7 @@ pub trait Metropolis<S, Res>: MarkovChain<S, Res> {
     ///
     /// use net_ensembles::rand::SeedableRng; // reexported
     /// use rand_pcg::Pcg64;
+    /// use rand::SeedableRng;
     /// use serde_json;
     /// use std::fs::File;
     ///

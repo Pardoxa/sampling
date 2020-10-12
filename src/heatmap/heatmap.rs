@@ -593,7 +593,7 @@ where
     /// ```
     /// use rand_pcg::Pcg64;
     /// use rand::{SeedableRng, distributions::*};
-    /// use net_ensembles::sampling::*;
+    /// use sampling::*;
     /// use std::fs::File;
     /// use std::io::BufWriter;
     /// 
