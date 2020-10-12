@@ -1,6 +1,6 @@
-use crate::{rand::{Rng, seq::*}, *};
+use rand::{Rng, seq::*};
 use std::{marker::PhantomData, iter::*, io::Write};
-use crate::sampling::*;
+use crate::{*, traits::*};
 use std::{collections::*, cmp::*};
 use num_traits::{Bounded, ops::wrapping::*, identities::*};
 
@@ -970,44 +970,44 @@ where R: Rng,
 }
 
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand_pcg::Pcg64;
-    use crate::rand::SeedableRng;
-    #[test]
-    fn wl_creation() {
-        let mut rng = Pcg64::seed_from_u64(2239790);
-        let ensemble: ErEnsembleC<EmptyNode, _> = ErEnsembleC::new(
-            100,
-            3.01,
-            Pcg64::from_rng(&mut rng).unwrap()
-        );
-        let histogram = HistogramFast::new_inclusive(50, 100).unwrap();
-        let mut wl= WangLandauAdaptive::new(
-            0.00075,
-            ensemble,
-            Pcg64::from_rng(&mut rng).unwrap(),
-            30,
-            5,
-            50,
-            7,
-            0.075,
-            histogram,
-            1000
-        ).unwrap();
-
-        wl.init_mixed_heuristik(
-            3,
-            6400i16,
-            |e|  {
-                e.graph().q_core(3)
-            },
-            None
-        ).unwrap();
-
-        wl.wang_landau_convergence(
-            |e| e.graph().q_core(3)
-        );
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//    use super::*;
+//    use rand_pcg::Pcg64;
+//    use rand::SeedableRng;
+//    #[test]
+//    fn wl_creation() {
+//        let mut rng = Pcg64::seed_from_u64(2239790);
+//        let ensemble: ErEnsembleC<EmptyNode, _> = ErEnsembleC::new(
+//            100,
+//            3.01,
+//            Pcg64::from_rng(&mut rng).unwrap()
+//        );
+//        let histogram = HistogramFast::new_inclusive(50, 100).unwrap();
+//        let mut wl= WangLandauAdaptive::new(
+//            0.00075,
+//            ensemble,
+//            Pcg64::from_rng(&mut rng).unwrap(),
+//            30,
+//            5,
+//            50,
+//            7,
+//            0.075,
+//            histogram,
+//            1000
+//        ).unwrap();
+//
+//        wl.init_mixed_heuristik(
+//            3,
+//            6400i16,
+//            |e|  {
+//                e.graph().q_core(3)
+//            },
+//            None
+//        ).unwrap();
+//
+//        wl.wang_landau_convergence(
+//            |e| e.graph().q_core(3)
+//        );
+//    }
+//}

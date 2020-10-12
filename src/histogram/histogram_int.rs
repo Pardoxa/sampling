@@ -1,5 +1,5 @@
 use num_traits::{ops::{checked::*, wrapping::*}, cast::*, identities::*, Bounded};
-use crate::sampling::histogram::*;
+use crate::histogram::*;
 use std::{borrow::*, ops::*};
 
 

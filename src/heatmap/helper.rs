@@ -1,4 +1,4 @@
-use crate::sampling::*;
+use crate::*;
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

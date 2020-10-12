@@ -1,4 +1,4 @@
-use crate::sampling::*;
+use crate::*;
 use std::io::Write;
 use std::borrow::*;
 use transpose::*;

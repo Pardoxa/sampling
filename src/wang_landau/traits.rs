@@ -1,5 +1,5 @@
-use crate::sampling::wang_landau::*;
-use crate::sampling::Histogram;
+use crate::wang_landau::*;
+use crate::Histogram;
 use std::io::Write;
 /// # Traits for quantities that all Wang Landau simulations have
 /// * see also: `WangLandauHist`

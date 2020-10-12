@@ -1,6 +1,6 @@
-use crate::{rand::{Rng, seq::*}, *};
+use rand::{Rng, seq::*};
 use std::{marker::PhantomData, iter::*};
-use crate::sampling::*;
+use crate::{*, traits::*};
 use std::{collections::*, convert::*};
 use std::io::Write;
 

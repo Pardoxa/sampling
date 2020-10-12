@@ -1,5 +1,5 @@
 
-use crate::sampling::MetropolisState;
+use crate::MetropolisState;
 
 /// # Create a markov chain by doing markov steps
 pub trait MarkovChain<S, Res> {

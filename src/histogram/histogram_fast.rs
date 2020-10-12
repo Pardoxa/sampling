@@ -1,7 +1,7 @@
 
 
 use num_traits::{int::*, ops::{checked::*, saturating::*, wrapping::*}, cast::*, identities::*, Bounded};
-use crate::sampling::histogram::*;
+use crate::histogram::*;
 use std::{borrow::*, ops::*};
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

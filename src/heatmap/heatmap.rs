@@ -1,4 +1,4 @@
-use crate::sampling::*;
+use crate::*;
 use std::borrow::*;
 use transpose::*;
 use std::io::Write;
@@ -689,7 +689,7 @@ where
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64;
-    use crate::rand::{SeedableRng, distributions::*};
+    use rand::{SeedableRng, distributions::*};
     use super::*;
 
     #[test]

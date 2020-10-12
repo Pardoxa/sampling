@@ -1,5 +1,5 @@
 use num_traits::{float::*, cast::*, identities::*};
-use crate::sampling::histogram::*;
+use crate::histogram::*;
 use std::borrow::*;
 
 #[cfg(feature = "serde_support")]
@@ -217,7 +217,7 @@ pub type HistF64 = HistogramFloat<f64>;
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64Mcg;
-    use crate::rand::{distributions::*, SeedableRng};
+    use rand::{distributions::*, SeedableRng};
     use super::*;
     use num_traits::Bounded;
     #[test]

@@ -1,4 +1,4 @@
-use crate::sampling::*;
+use crate::*;
 use std::cmp::*;
 use std::io::Write;
 use std::fmt::Display;

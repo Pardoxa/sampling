@@ -219,7 +219,7 @@ where T: num_traits::Bounded + HasUnsignedVersion + WrappingSub + Bounded,
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64Mcg;
-    use crate::rand::{SeedableRng, distributions::*};
+    use rand::{SeedableRng, distributions::*};
     use super::*;
 
 

@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, io::Write};
-use crate::sampling::*;
-use crate::{rand::Rng, *};
+use crate::{*, traits::*};
+use rand::Rng;
 use num_traits::{Bounded, ops::wrapping::*, identities::*};
 
 #[cfg(feature = "serde_support")]
