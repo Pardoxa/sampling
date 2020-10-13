@@ -29,8 +29,10 @@
 /// let hist = HistUsizeFast::new_inclusive(0, n).unwrap();
 /// 
 /// // now the overlapping histograms for sampling
-/// // lets create 3 histograms. Overlap should be larger than 0. Normally, 1 is sufficient
+/// // lets create 3 histograms. The parameter Overlap should be larger than 0. Normally, 1 is sufficient
 /// let hist_list = hist.overlapping_partition(interval_count, 1).unwrap();
+/// // alternativly you could also create the histograms in the desired interval. 
+/// // Just make sure, that they overlap
 /// 
 /// // create rng to seed all other rngs
 /// let mut rng = Pcg64::seed_from_u64(834628956578);
@@ -50,12 +52,13 @@
 ///     .zip(hist_list.into_iter())
 ///     .map(|(ensemble, histogram)| {
 ///         WangLandau1T::new(
-///             0.00001, // arbitrary threshold, you have to try what is good for your model
+///             0.00001, // arbitrary threshold for `log_f`(see paper), 
+///                      // you have to try what is good for your model
 ///             ensemble,
 ///             Pcg64::from_rng(&mut rng).unwrap(),
 ///             1,  // stepsize 1 is sufficient for this problem
 ///             histogram,
-///             100
+///             100 // every 100 steps: check if WL can refine factor f
 ///         ).unwrap()
 ///     }).collect();
 /// 
@@ -77,7 +80,7 @@
 /// // You can do that in different ways.
 /// // I will show this by doing it differently for our three intervals
 /// 
-/// // First, the simplest one. Just simulate until it is converged.
+/// // First, the simplest one. Just simulate until the threshold for `log_f` is reached
 /// wl_list[0].wang_landau_convergence(
 ///     |coin_seq| Some(coin_seq.head_count())
 /// );
@@ -90,21 +93,21 @@
 ///     |_| start_time.elapsed().as_secs() <= 60
 /// );
 /// 
-/// // Now, lets see if our last two simulations did indeed finish:
-/// assert!(wl_list[1].is_finished());
-/// 
 /// // Or lets say, I want to limit the number of steps to 100_000
 /// wl_list[2].wang_landau_while(
 ///     |coin_seq| Some(coin_seq.head_count()),
 ///     |state| state.step_counter() <= 100_000 
 /// );
 /// 
+/// // Now, lets see if our last two simulations did indeed finish:
+/// // This one did
+/// assert!(wl_list[1].is_finished());
 /// // This simulation did not finish
 /// assert!(!wl_list[2].is_finished());
 /// 
-/// // If it did not finish, you could, e.g., store the state using serde.
+/// // If a simulation did not finish, you could, e.g., store the state (`wl_list[2]`) using serde.
+/// // Then you could continue the simulation later on.
 /// // I recommend the crate `bincode` for storing
-/// // Than you could continue the simulation later on.
 /// 
 /// // lets resume the simulation for now
 /// wl_list[2].wang_landau_convergence(
@@ -129,11 +132,11 @@
 /// glued.write(buf).unwrap();
 /// 
 /// // now, lets check if our results are actually any good.
-/// let log10_prob = glued.glued_log10_probability;
-/// 
 /// // lets compare that to the analytical result
+/// 
 /// // Since the library I am going to use lets me directly calculate the natural
 /// // logaritm of the probability, I first convert the base of our own results:
+/// let log10_prob = glued.glued_log10_probability;
 /// let ln_prob: Vec<_> = log10_prob.iter()
 ///                         .map(|&val| val / std::f64::consts::LOG10_E)
 ///                         .collect();
@@ -146,19 +149,19 @@
 ///     .collect();
 /// 
 /// // lets write that in a file, so we can use gnuplot to plot the result
+/// let comp_file = File::create("coin_flip_compare.dat").unwrap();
+/// let mut buf = BufWriter::new(comp_file);
+/// 
 /// // lets also calculate the maximum difference between the two solutions
 /// let mut max_ln_dif = std::f64::NEG_INFINITY;
 /// let mut max_dif = std::f64::NEG_INFINITY;
-/// 
-/// let comp_file = File::create("coin_flip_compare.dat").unwrap();
-/// let mut buf = BufWriter::new(comp_file);
 /// 
 /// writeln!(buf, "#head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif").unwrap();
 /// for (index, (numeric, analytic)) in ln_prob.iter().zip(ln_prob_true.iter()).enumerate()
 /// {
 ///     let ln_dif = numeric - analytic;
 ///     max_ln_dif = ln_dif.abs().max(max_ln_dif);
-///     let dif = 10_f64.powf(*numeric) - 10_f64.powf(*analytic);
+///     let dif = numeric.exp() - analytic.exp();
 ///     max_dif = dif.abs().max(max_dif);
 ///     writeln!(buf, "{} {:e} {:e} {:e} {:e}", index, numeric, analytic, ln_dif, dif).unwrap();
 /// }
@@ -169,8 +172,8 @@
 /// // in this case, the max difference of the natural logarithms 
 /// // of the probabilities is smaller than 0.03
 /// assert!(max_ln_dif < 0.03);
-/// // and the max absolut difference is smaler than 0.0002
-/// assert!(max_dif < 0.0002);
+/// // and the max absolut difference is smaller than 0.0009
+/// assert!(max_dif < 0.0009);
 /// 
 /// // But we can do better. Lets refine the results with entropic sampling
 /// // first, convert the wl simulations in entropic sampling simulations
@@ -181,7 +184,8 @@
 /// 
 /// 
 /// // Now, while doing that, lets also create a heatmap.
-/// // We want to see, how the number of heads correlates to the maximum number of heads in a row.
+/// // Lets say, we want to see, how the number of times `Head` occured in the sequence 
+/// // correlates to the maximum number of `Heads` in a row in that sequence.
 /// 
 /// // In this case, the heatmap is symetric and we already have a histogram of correct sice
 /// let mut heatmap = HeatmapU::new(
@@ -222,19 +226,19 @@
 /// 
 /// 
 /// // lets write that in a file, so we can use gnuplot to plot the result
+/// let comp_file = File::create("coin_flip_compare_entr.dat").unwrap();
+/// let mut buf = BufWriter::new(comp_file);
+/// 
 /// // lets also calculate the maximum difference between the two solutions
 /// let mut max_ln_dif = std::f64::NEG_INFINITY;
 /// let mut max_dif = std::f64::NEG_INFINITY;
-/// 
-/// let comp_file = File::create("coin_flip_compare_entr.dat").unwrap();
-/// let mut buf = BufWriter::new(comp_file);
 /// 
 /// writeln!(buf, "#head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif").unwrap();
 /// for (index, (numeric, analytic)) in ln_prob.iter().zip(ln_prob_true.iter()).enumerate()
 /// {
 ///     let ln_dif = numeric - analytic;
 ///     max_ln_dif = ln_dif.abs().max(max_ln_dif);
-///     let dif = 10_f64.powf(*numeric) - 10_f64.powf(*analytic);
+///     let dif = numeric.exp() - analytic.exp();
 ///     max_dif = dif.abs().max(max_dif);
 ///     writeln!(buf, "{} {:e} {:e} {:e} {:e}", index, numeric, analytic, ln_dif, dif).unwrap();
 /// }
@@ -243,10 +247,10 @@
 /// println!("Max_dif = {}", max_dif);
 /// 
 /// // in this case, the max difference of the natural logarithms 
-/// //of the probabilities is smaller than 0.03
+/// //of the probabilities is smaller than 0.026
 /// assert!(max_ln_dif < 0.026);
-/// // and the max absolut difference is smaller than 0.0002
-/// assert!(max_dif < 0.0002);
+/// // and the max absolut difference is smaller than 0.0007
+/// assert!(max_dif < 0.0007);
 /// 
 /// // That would be the final result for our probability 
 /// // density than. As you can see, it is very very 
@@ -257,7 +261,10 @@
 /// settings.x_label("#Heads")
 ///     .y_label("Max heads in row");
 /// 
-/// // lets normalize coloumwise 
+/// // lets normalize coloumwise
+/// // This way, the scale of our heatmap tells us the conditional probability
+/// // P(Number of heads in a rom | number of heads) of how many heads in a row were
+/// // part of that sequence given the total number of heads that occured in the sequence
 /// let heatmap = heatmap.heatmap_normalized_columns();
 /// 
 /// // now create gnuplot file
@@ -305,27 +312,27 @@
 /// * `coin_flip_compare.dat`
 /// ```dat
 /// #head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif
-/// 0 -1.388828799905469e1 -1.3862943611198906e1 -2.5344387855783523e-2 -7.772188311940828e-16
-/// 1 -1.0887739719298917e1 -1.0867211337644916e1 -2.0528381654001393e-2 -6.268091155915129e-13
-/// 2 -8.634922198037453e0 -8.615919539038421e0 -1.9002658999031752e-2 -1.0366778970563226e-10
-/// 3 -6.831523605466917e0 -6.824160069810366e0 -7.363535656550901e-3 -2.5203766490489347e-9
-/// 4 -5.387408050662062e0 -5.377241086874042e0 -1.0166963788019956e-2 -9.707162810471814e-8
-/// 5 -4.228753732129688e0 -4.214090277068356e0 -1.4663455061331376e-2 -2.0279190988354702e-6
-/// 6 -3.309229761738564e0 -3.2977995451941995e0 -1.1430216544364491e-2 -1.3084828294366159e-5
-/// 7 -2.6136661840452895e0 -2.6046523646342594e0 -9.013819411030077e-3 -5.104733362115005e-5
-/// 8 -2.126200139223462e0 -2.119144548852554e0 -7.0555903709079715e-3 -1.224845975559821e-4
-/// 9 -1.8334135153611106e0 -1.8314624764007785e0 -1.9510389603321077e-3 -6.60760388631991e-5
-/// 10 -1.7334259136932588e0 -1.736152296596451e0 2.7263829031922704e-3 1.1561499011536122e-4
-/// 11 -1.8288774785698227e0 -1.8314624764007768e0 2.5849978309540056e-3 8.800483546913228e-5
-/// 12 -2.1117408456012328e0 -2.1191445488525558e0 7.403703251323002e-3 1.306854548832944e-4
-/// 13 -2.5953878575070033e0 -2.6046523646342594e0 9.264507127256127e-3 5.358288980852064e-5
-/// 14 -3.2927070335630937e0 -3.2977995451942013e0 5.092511631107577e-3 5.9415111573627236e-6
-/// 15 -4.215545385590517e0 -4.214090277068356e0 -1.4551085221610194e-3 -2.0431179755230213e-7
-/// 16 -5.398901147605349e0 -5.377241086874038e0 -2.1660060731310438e-2 -2.0410293599884035e-7
-/// 17 -6.848878125455579e0 -6.824160069810366e0 -2.47180556452129e-2 -8.294104700024994e-9
-/// 18 -8.635430416019382e0 -8.61591953903842e0 -1.9510876980962877e-2 -1.0637853950176628e-10
-/// 19 -1.0896618692580171e1 -1.0867211337644916e1 -2.940735493525537e-2 -8.88872771576953e-13
-/// 20 -1.3847883761949843e1 -1.3862943611198906e1 1.5059849249063006e-2 4.837760740388638e-16
+/// 0 -1.388828799905469e1 -1.3862943611198906e1 -2.5344387855783523e-2 -2.3866572408958168e-8
+/// 1 -1.0887739719298917e1 -1.0867211337644916e1 -2.0528381654001393e-2 -3.875562455014197e-7
+/// 2 -8.634922198037453e0 -8.615919539038421e0 -1.9002658999031752e-2 -3.4107369181183742e-6
+/// 3 -6.831523605466917e0 -6.824160069810366e0 -7.363535656550901e-3 -7.976150535885006e-6
+/// 4 -5.387408050662062e0 -5.377241086874042e0 -1.0166963788019956e-2 -4.673898610979728e-5
+/// 5 -4.228753732129688e0 -4.214090277068356e0 -1.4663455061331376e-2 -2.152285704062097e-4
+/// 6 -3.309229761738564e0 -3.2977995451941995e0 -1.1430216544364491e-2 -4.201057612779821e-4
+/// 7 -2.6136661840452895e0 -2.6046523646342594e0 -9.013819411030077e-3 -6.633868338237203e-4
+/// 8 -2.126200139223462e0 -2.119144548852554e0 -7.0555903709079715e-3 -8.446355834740987e-4
+/// 9 -1.8334135153611106e0 -1.8314624764007785e0 -1.9510389603321077e-3 -3.122110722084126e-4
+/// 10 -1.7334259136932588e0 -1.736152296596451e0 2.7263829031922704e-3 4.810360764700705e-4
+/// 11 -1.8288774785698227e0 -1.8314624764007768e0 2.5849978309540056e-3 4.145983618321636e-4
+/// 12 -2.1117408456012328e0 -2.1191445488525558e0 7.403703251323002e-3 8.927398170218287e-4
+/// 13 -2.5953878575070033e0 -2.6046523646342594e0 9.264507127256127e-3 6.880967171132152e-4
+/// 14 -3.2927070335630937e0 -3.2977995451942013e0 5.092511631107577e-3 1.8872184723020546e-4
+/// 15 -4.215545385590517e0 -4.214090277068356e0 -1.4551085221610194e-3 -2.1499249324725273e-5
+/// 16 -5.398901147605349e0 -5.377241086874038e0 -2.1660060731310438e-2 -9.900533675925687e-5
+/// 17 -6.848878125455579e0 -6.824160069810366e0 -2.47180556452129e-2 -2.6543784456516638e-5
+/// 18 -8.635430416019382e0 -8.61591953903842e0 -1.9510876980962877e-2 -3.5010687071566015e-6
+/// 19 -1.0896618692580171e1 -1.0867211337644916e1 -2.940735493525537e-2 -5.52733731038154e-7
+/// 20 -1.3847883761949843e1 -1.3862943611198906e1 1.5059849249063006e-2 1.4470882595462752e-8
 /// ```
 /// * `coin_flip_log_density_entropic.dat`
 /// ```csv
@@ -360,27 +367,27 @@
 /// * `coin_flip_compare_entr.dat`
 /// ```txt
 /// #head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif
-/// 0 -1.387749293676674e1 -1.3862943611198906e1 -1.4549325567834615e-2 -4.517109159175551e-16
-/// 1 -1.088721273257522e1 -1.0867211337644916e1 -2.0001394930304173e-2 -6.110859798560632e-13
-/// 2 -8.613427687306894e0 -8.615919539038421e0 2.491851731527106e-3 1.3933649090223436e-11
-/// 3 -6.8090773840638645e0 -6.824160069810366e0 1.5082685746501845e-2 5.2978233040758204e-9
-/// 4 -5.372221641958746e0 -5.377241086874042e0 5.019444915295601e-3 4.8768840932743265e-8
-/// 5 -4.197043262512203e0 -4.214090277068356e0 1.7047014556153428e-2 2.445260492259173e-6
-/// 6 -3.290035105712021e0 -3.2977995451941995e0 7.764439482178531e-3 9.086868777467773e-6
-/// 7 -2.5967297576463753e0 -2.6046523646342594e0 7.922606987884162e-3 4.575080733773421e-5
-/// 8 -2.116434892132713e0 -2.119144548852554e0 2.709656719841025e-3 4.757085391283566e-5
-/// 9 -1.832692876322666e0 -1.8314624764007785e0 -1.2303999218874484e-3 -4.170464727971772e-5
-/// 10 -1.7378081803968959e0 -1.736152296596451e0 -1.6558838004447907e-3 -6.986595031917633e-5
-/// 11 -1.835421495037951e0 -1.8314624764007768e0 -3.959018637174294e-3 -1.3377124004503894e-4
-/// 12 -2.1180129041205773e0 -2.1191445488525558e0 1.131644731978465e-3 1.9831117653766606e-5
-/// 13 -2.6035512560432146e0 -2.6046523646342594e0 1.1011085910448415e-3 6.308762028410433e-6
-/// 14 -3.304717714868686e0 -3.2977995451942013e0 -6.918169674484886e-3 -7.960729364953414e-6
-/// 15 -4.2277455655129845e0 -4.214090277068356e0 -1.3655288444628155e-2 -1.8906734925682443e-6
-/// 16 -5.4024208000206455e0 -5.377241086874038e0 -2.5179713146607163e-2 -2.3631775384725073e-7
-/// 17 -6.842309306896834e0 -6.824160069810366e0 -1.8149237086467984e-2 -6.135796909024851e-9
-/// 18 -8.62850493934337e0 -8.61591953903842e0 -1.2585400304951477e-2 -6.916488823222307e-11
-/// 19 -1.0877064660283938e1 -1.0867211337644916e1 -9.853322639022721e-3 -3.045577869594419e-13
-/// 20 -1.3853708232453112e1 -1.3862943611198906e1 9.235378745794165e-3 2.9468135663378146e-16
+/// 0 -1.387749293676674e1 -1.3862943611198906e1 -1.4549325567834615e-2 -1.3774867607233972e-8
+/// 1 -1.088721273257522e1 -1.0867211337644916e1 -2.0001394930304173e-2 -3.777064132904934e-7
+/// 2 -8.613427687306894e0 -8.615919539038421e0 2.491851731527106e-3 4.5208187593923066e-7
+/// 3 -6.8090773840638645e0 -6.824160069810366e0 1.5082685746501845e-2 1.652201075832624e-5
+/// 4 -5.372221641958746e0 -5.377241086874042e0 5.019444915295601e-3 2.3250911075241125e-5
+/// 5 -4.197043262512203e0 -4.214090277068356e0 1.7047014556153428e-2 2.542138155917483e-4
+/// 6 -3.290035105712021e0 -3.2977995451941995e0 7.764439482178531e-3 2.8812509235658784e-4
+/// 7 -2.5967297576463753e0 -2.6046523646342594e0 7.922606987884162e-3 5.880353998786031e-4
+/// 8 -2.116434892132713e0 -2.119144548852554e0 2.709656719841025e-3 3.2596428483325224e-4
+/// 9 -1.832692876322666e0 -1.8314624764007785e0 -1.2303999218874484e-3 -1.9696320250631172e-4
+/// 10 -1.7378081803968959e0 -1.736152296596451e0 -1.6558838004447907e-3 -2.91520415518165e-4
+/// 11 -1.835421495037951e0 -1.8314624764007768e0 -3.959018637174294e-3 -6.328985381396646e-4
+/// 12 -2.1180129041205773e0 -2.1191445488525558e0 1.131644731978465e-3 1.3602636066446794e-4
+/// 13 -2.6035512560432146e0 -2.6046523646342594e0 1.1011085910448415e-3 8.144850674679516e-5
+/// 14 -3.304717714868686e0 -3.2977995451942013e0 -6.918169674484886e-3 -2.5484356336342995e-4
+/// 15 -4.2277455655129845e0 -4.214090277068356e0 -1.3655288444628155e-2 -2.0053163313986377e-4
+/// 16 -5.4024208000206455e0 -5.377241086874038e0 -2.5179713146607163e-2 -1.1489163608931121e-4
+/// 17 -6.842309306896834e0 -6.824160069810366e0 -1.8149237086467984e-2 -1.9553667043482144e-5
+/// 18 -8.62850493934337e0 -8.61591953903842e0 -1.2585400304951477e-2 -2.266160694642524e-6
+/// 19 -1.0877064660283938e1 -1.0867211337644916e1 -9.853322639022721e-3 -1.8701434523338205e-7
+/// 20 -1.3853708232453112e1 -1.3862943611198906e1 9.235378745794165e-3 8.848339504323986e-9
 /// ```
 /// * `coin_heatmap.gp`
 /// If you want to see how it looks like, you can copy the file and use `gnuplot coin_heatmap.gp`
