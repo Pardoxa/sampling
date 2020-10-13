@@ -21,5 +21,8 @@ pub use metropolis_helper::*;
 pub use histogram::*;
 pub use heatmap::*;
 pub use glue::*;
+pub use traits::*;
 #[cfg(feature="bootstrap")]
 pub use bootstrap::*;
+
+pub mod examples;
