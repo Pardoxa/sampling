@@ -1,7 +1,11 @@
 use crate::*;
 use rand::Rng;
 
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum CoinFlip {
     Head,
     Tail
@@ -17,7 +21,8 @@ impl CoinFlip
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct CoinFlipSequence<R> {
     rng: R,
     seq: Vec<CoinFlip>,
