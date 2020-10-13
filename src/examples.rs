@@ -335,6 +335,14 @@
 /// 20 -1.3847883761949843e1 -1.3862943611198906e1 1.5059849249063006e-2 1.4470882595462752e-8
 /// ```
 /// * `coin_flip_log_density_entropic.dat`
+/// * If you want to plot with gnuplot:
+/// ```gp
+/// set format y "10^{%.0f}"
+/// set ylabel 'P(Heads)'
+/// set xlabel '#Heads'
+/// p "coin_flip_log_density_entropic.dat" u 1:3 t 'P(E), normalized',\
+///    for[i=4:6] "" u 1:i t "glued not normalized overlapping interval"
+/// ```
 /// ```csv
 /// #bin_left bin_right glued_log_density curve_0 curve_1 curve_2
 /// #total_steps 6600000
