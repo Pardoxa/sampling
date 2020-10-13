@@ -76,7 +76,7 @@ T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes, Unsigned=T::Unsign
     fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
     {
         let mut result = Vec::with_capacity(n);
-        let size = self.hist.len() - 1;
+        let size = self.bin_count() - 1;
         let denominator = n + overlap;
         for c in 0..n {
             let left_distance = c.checked_mul(size)
@@ -279,7 +279,8 @@ where Self: HistogramVal<T>,
 #[cfg(test)]
 mod tests{
     use super::*;
-
+    use rand::{distributions::*, SeedableRng};
+    use rand_pcg::Pcg64Mcg;
 
     fn hist_test_fast<T>(left: T, right: T)
     where T: PrimInt + num_traits::Bounded + PartialOrd + CheckedSub + One 
@@ -355,6 +356,43 @@ mod tests{
 
 
         let _ = h.overlapping_partition(2000, 0).unwrap();
+    }
+
+    #[test]
+    fn overlapping_partition_test2()
+    {
+        let mut rng = Pcg64Mcg::seed_from_u64(2314668);
+        let uni = Uniform::new_inclusive(-100, 100);
+        for overlap in 0..=3 {
+            for _ in 0..100 {
+                let (left, right) = loop {
+                    let mut num_1 = uni.sample(&mut rng);
+                    let mut num_2 = uni.sample(&mut rng);
+
+                    if num_1 != num_2 {
+                        if num_2 < num_1 {
+                            std::mem::swap(&mut num_1, &mut num_2);
+                        }
+                        if (num_2 as isize - num_1 as isize) < (overlap as isize + 1) {
+                            continue;
+                        }
+                        break (num_1, num_2)
+                    }
+                };
+                let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
+                let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
+
+                assert_eq!(
+                    overlapping.last().unwrap().second_last_border(),
+                    hist_fast.second_last_border()
+                );
+
+                assert_eq!(
+                    overlapping.first().unwrap().first_border(),
+                    hist_fast.first_border()
+                );
+            }
+        }
     }
 
 }

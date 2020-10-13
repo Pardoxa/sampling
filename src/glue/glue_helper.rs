@@ -18,12 +18,15 @@ impl From<HistErrors> for GlueErrors{
     }
 }
 
-pub(crate) fn norm_sum_to_1(glue_log_density: &mut[f64]){
+/// # Normalize log10 probability density
+/// * input: Slice containing log10 of (non normalized) probability density
+/// * afterwards, it will be normalized, i.e., sum_i 10^log10_density[i] ≈ 1
+pub fn norm_log10_sum_to_1(log10_density: &mut[f64]){
     // prevent errors due to small or very large numbers
-    subtract_max(glue_log_density);
+    subtract_max(log10_density);
 
     // calculate actual sum in non log space
-    let sum = glue_log_density.iter()
+    let sum = log10_density.iter()
         .fold(0.0, |acc, &val| {
             if val.is_finite(){
                acc +  10_f64.powf(val)
@@ -34,7 +37,7 @@ pub(crate) fn norm_sum_to_1(glue_log_density: &mut[f64]){
     );
     
     let sum = sum.log10();
-    glue_log_density.iter_mut()
+    log10_density.iter_mut()
         .for_each(|val| *val -= sum);
 }
 

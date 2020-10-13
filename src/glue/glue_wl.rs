@@ -160,7 +160,7 @@ where WL: WangLandauHist<HIST>,
     let mut glue_log_density = glue(original_hist.bin_count(), &log10_vec, &left_list, &right_list)?;
 
     // now norm the result
-    norm_sum_to_1(&mut glue_log_density);
+    norm_log10_sum_to_1(&mut glue_log_density);
     
     let glue_res = GlueResult{
         log10_vec,
