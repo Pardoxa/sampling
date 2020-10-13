@@ -373,6 +373,13 @@
 /// 20 21 -6.016589039252039e0 NONE NONE -5.263621749996711e0
 /// ```
 /// * `coin_flip_compare_entr.dat`
+/// * gnuplot for comparing:
+/// ```gp
+/// set format y "e^{%.0f}"
+/// set ylabel 'P(Heads)'
+/// set xlabel '#Heads'
+/// p "coin_flip_compare_entr.dat" u 1:2 t "numeric results", "" u 1:3 t "analytic results"
+/// ```
 /// ```txt
 /// #head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif
 /// 0 -1.387749293676674e1 -1.3862943611198906e1 -1.4549325567834615e-2 -1.3774867607233972e-8
