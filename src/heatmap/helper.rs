@@ -14,17 +14,3 @@ pub enum HeatmapError{
     /// you tried to combine heatmaps of different Dimensions
     Dimension
 }
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-/// Options. Choose, how the heatmap shall be normalized
-pub enum HeatmapNormalization{
-    /// Use [Heatmap::heatmap_normalized](struct.Heatmap.html#method.heatmap_normalized) for normalization
-    NormalizeTotal,
-    /// Use [Heatmap::heatmap_normalize_columns](struct.Heatmap.html#method.heatmap_normalize_columns) for normalization
-    NormalizeColumn,
-    /// Use [Heatmap::heatmap_normalize_rows](struct.Heatmap.html#method.heatmap_normalize_rows) for normalization
-    NormalizeRow,
-    /// heatmap as is, without normalizing or anything
-    AsIs
-}

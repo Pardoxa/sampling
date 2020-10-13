@@ -1,3 +1,4 @@
+//! Bootstrap resampling functions
 use rand::{Rng, seq::*};
 use average::Variance;
 

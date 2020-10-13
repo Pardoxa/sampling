@@ -1,3 +1,4 @@
+//! # Wang Landau Implementation
 mod wang_landau_adaptive;
 mod helper;
 mod wang_landau;

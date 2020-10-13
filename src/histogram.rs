@@ -1,3 +1,5 @@
+//! Traits for implementing histograms for Wang Landau or entropic sampling.
+//! Contains histogram implementations for all primitive numbers
 mod histogram_traits;
 mod histogram_float;
 mod histogram_int;
