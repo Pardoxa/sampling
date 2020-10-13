@@ -371,14 +371,19 @@ mod tests{
         assert!(hist.get_bin_index(&20).is_err());
     }
 
+    /// This test makes sure, that HistogramInt and HistogramFast return the same partitions,
+    /// when the histograms are equivalent
     #[test]
     fn overlapping_partition_test()
     {
 
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
         let uni = Uniform::new_inclusive(-100, 100);
+        let uni_n = Uniform::new_inclusive(1, 16);
+
         for overlap in 0..=5 {
             for _ in 0..100 {
+                let n = uni_n.sample(&mut rng);
                 let (left, right) = loop {
                     let mut num_1 = uni.sample(&mut rng);
                     let mut num_2 = uni.sample(&mut rng);
@@ -397,8 +402,8 @@ mod tests{
                 let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
                 let hist_i = HistI8::new_inclusive(left, right, hist_fast.bin_count()).unwrap();
         
-                let overlapping_f = hist_fast.overlapping_partition(3, overlap);
-                let overlapping_i = hist_i.overlapping_partition(3, overlap);
+                let overlapping_f = hist_fast.overlapping_partition(n, overlap);
+                let overlapping_i = hist_i.overlapping_partition(n, overlap);
 
                 if overlapping_i.is_err() {
                     assert_eq!(overlapping_f.unwrap_err(), overlapping_i.unwrap_err());
@@ -442,13 +447,16 @@ mod tests{
         
     }
 
+    /// Check, that the range of the overlapping intervals contain the whole original interval
     #[test]
     fn overlapping_partition_test2()
     {
         let mut rng = Pcg64Mcg::seed_from_u64(231468);
         let uni = Uniform::new_inclusive(-100, 100);
+        let uni_n = Uniform::new_inclusive(2, 6);
         for overlap in 0..=5 {
             for _ in 0..100 {
+                let n = uni_n.sample(&mut rng);
                 let (left, right) = loop {
                     let mut num_1 = uni.sample(&mut rng);
                     let mut num_2 = uni.sample(&mut rng);
@@ -465,7 +473,7 @@ mod tests{
                 };
                 let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
                 let hist_i = HistI8::new_inclusive(left, right, hist_fast.bin_count()).unwrap();
-                let overlapping_i = hist_i.overlapping_partition(3, overlap).unwrap();
+                let overlapping_i = hist_i.overlapping_partition(n, overlap).unwrap();
 
                 assert_eq!(
                     overlapping_i.last().unwrap().borders().last(),
@@ -478,6 +486,55 @@ mod tests{
                 );
             }
         }
+    }
+
+    /// Check, that the range of the overlapping intervals contain the whole original interval
+    /// Different binsize than the other test
+    #[test]
+    fn overlapping_partition_test3()
+    {
+        let mut rng = Pcg64Mcg::seed_from_u64(23148);
+        let uni = Uniform::new_inclusive(-300, 300);
+        let uni_n = Uniform::new_inclusive(2, 4);
+        for binsize in 2..=7 {
+            for overlap in 0..=5 {
+                for _ in 0..100 {
+                    let n = uni_n.sample(&mut rng);
+                    let (left, right) = loop {
+                        let mut num_1 = uni.sample(&mut rng);
+                        let mut num_2 = uni.sample(&mut rng);
+    
+                        if num_1 != num_2 {
+                            if num_2 < num_1 {
+                                std::mem::swap(&mut num_1, &mut num_2);
+                            }
+                            if (num_2 as isize - num_1 as isize) < (overlap as isize + 1) {
+                                continue;
+                            }
+                            let hist_fast = HistI16Fast::new_inclusive(num_1, num_2).unwrap();
+                            if hist_fast.bin_count() % binsize != 0 {
+                                continue;
+                            }
+                            break (num_1, num_2)
+                        }
+                    };
+                    let hist_fast = HistI16Fast::new_inclusive(left, right).unwrap();
+                    let hist_i = HistI16::new_inclusive(left, right, hist_fast.bin_count() / binsize).unwrap();
+                    let overlapping_i = hist_i.overlapping_partition(n, overlap).unwrap();
+                    
+                    assert_eq!(
+                        overlapping_i.last().unwrap().borders().last(),
+                        hist_i.borders().last()
+                    );
+    
+                    assert_eq!(
+                        overlapping_i.first().unwrap().borders().first(),
+                        hist_i.borders().first()
+                    );
+                }
+            }
+        }
+        
     }
 }
 
