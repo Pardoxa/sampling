@@ -4,11 +4,19 @@ use std::convert::*;
 
 
 #[derive(Debug)]
+/// Possible errors that can occur during gluing together
+/// WangLandau intervals or Entropic Sampling intervals
 pub enum GlueErrors{
+    /// `original_hist.borders_clone()` failed
     BorderCreation(HistErrors),
+    /// Nothing to be glued, glue interval list was empty
     EmptyList,
+    /// Binary search failed - PartialOrd::partial_cmp returned None
     BinarySearch,
+    /// # Glue interval and intervals to be glued do not match
+    /// * Likely `original_hist` is to small
     OutOfBounds,
+    /// The intervals need to overlap, otherwise no gluing can occur
     NoOverlap,
 }
 
@@ -47,8 +55,12 @@ pub(crate) fn glue(size: usize, log10_vec: &Vec<Vec<f64>>, left_list: &Vec<usize
 {
     let mut glue_log_density = vec![f64::NAN; size];
 
+
     // init - first interval can be copied for better performance
-    let first_log = log10_vec.first().unwrap();
+    let first_log = match log10_vec.first(){
+        Some(interval) => interval.as_slice(),
+        None => return Err(GlueErrors::EmptyList)
+    };
     let l = *left_list.first().unwrap();
     let r = *right_list.first().unwrap();
     if r >= glue_log_density.len() {

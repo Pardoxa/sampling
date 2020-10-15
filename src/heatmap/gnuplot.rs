@@ -70,6 +70,7 @@ impl GnuplotAxis{
         
     }
 
+    /// Create new GnuplotAxis::FromValues
     pub fn new(min: f64, max: f64, tics: usize) -> Self {
         Self::FromValues{
             min,
@@ -78,6 +79,8 @@ impl GnuplotAxis{
         }
     }
 
+    /// Create new GnuplotAxis::Labels
+    /// - Vector contains labels used for axis
     pub fn from_labels(labels: Vec<String>) -> Self
     {
         Self::Labels{
@@ -85,14 +88,14 @@ impl GnuplotAxis{
         }
     }
 
+    /// Similar to `from_labels`
+    /// * Slice of slice is converted to Vector of Strings and `Self::from_labels(vec)` is called
     pub fn from_slice(labels: &[&str]) -> Self {
         let vec = labels.iter()
             .map(|&s| s.into())
             .collect();
         
-        Self::Labels{
-            labels: vec
-        }
+        Self::from_labels(vec)
     }
 }
 
@@ -170,6 +173,7 @@ impl GnuplotSettings {
         self.terminal.terminal_str()
     }
 
+    /// # Builder pattern - set color pallet
     pub fn pallet<'a>(&'a mut self, pallet: GnuplotPallet) -> &'a mut Self
     {
         self.pallet = pallet;
@@ -182,12 +186,14 @@ impl GnuplotSettings {
         Self::default()
     }
 
+    /// Set x_axis - See GnuplotAxis or try it out
     pub fn x_axis<'a>(&'a mut self, axis: GnuplotAxis) -> &'a mut Self
     {
         self.x_axis = Some(axis);
         self
     }
 
+    /// Set y_axis - See GnuplotAxis or try it out
     pub fn y_axis<'a>(&'a mut self, axis: GnuplotAxis) -> &'a mut Self
     {
         self.y_axis = Some(axis);
@@ -224,7 +230,9 @@ impl Default for GnuplotSettings{
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// defines presets for different color pallets
 pub enum GnuplotPallet{
+    /// Use preset HSV pallet
     PresetHSV,
+    /// Use preset RGB pallet
     PresetRGB
 }
 

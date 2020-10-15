@@ -1,3 +1,4 @@
+//! Module to be changed
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

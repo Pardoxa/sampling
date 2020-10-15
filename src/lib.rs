@@ -4,6 +4,8 @@
 //! * [Detailed example](examples/coin_flips/index.html) for Wang-landau with sucessive entropic sampling
 //! and comparison with analytical results
 
+#![deny(missing_docs, warnings)]
+
 /// Contains traits useful for sampling an ensemble
 /// like MarkovChain or Metropolis etc.
 pub mod traits;

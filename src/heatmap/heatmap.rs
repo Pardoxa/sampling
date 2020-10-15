@@ -32,6 +32,7 @@ pub struct HeatmapUsize<HistWidth, HistHeight>{
     pub(crate) error_count: usize
 }
 
+/// Shorthand for HeatmapUsize
 pub type HeatmapU<HistWidth, HistHeight> = HeatmapUsize<HistWidth, HistHeight>;
 
 impl <HistWidth, HistHeight> HeatmapUsize<HistWidth, HistHeight>

@@ -6,13 +6,17 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// # Result of flipping a coin
 pub enum CoinFlip {
+    /// The result is Head
     Head,
+    /// The result is Tail
     Tail
 }
 
 impl CoinFlip
 {
+    /// Turn Coin around, i.e., invert CoinFlip
     pub fn turn(&mut self) {
         *self = match self {
             CoinFlip::Head => CoinFlip::Tail,
@@ -23,6 +27,7 @@ impl CoinFlip
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// # A sequence of Coin flips. Contains random Number generator
 pub struct CoinFlipSequence<R> {
     rng: R,
     seq: Vec<CoinFlip>,
@@ -32,6 +37,9 @@ pub struct CoinFlipSequence<R> {
 impl<R> CoinFlipSequence<R>
     where R: Rng,
 {
+    /// Create new coin flip sequence
+    /// * length `n`
+    /// * use `rng` as random number generator
     pub fn new(n: usize, mut rng: R) -> Self
     {
         let mut seq = Vec::with_capacity(n);
@@ -54,6 +62,7 @@ impl<R> CoinFlipSequence<R>
 
 impl<R> CoinFlipSequence<R>
 {
+    /// Count how often `Head` occurs in the Coin flip sequence
     pub fn head_count(&self) -> usize
     {
         self.seq.iter()
@@ -61,6 +70,8 @@ impl<R> CoinFlipSequence<R>
             .count()
     }
 
+    /// Count many times `Head` occured in a row
+    /// * uses maximum value, i.e., for the sequence `HHTHHHT` it will return 3
     pub fn max_heads_in_a_row(&self) -> usize
     {
         let mut current_heads = 0;
