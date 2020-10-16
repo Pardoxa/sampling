@@ -17,9 +17,50 @@ pub trait MarkovChain<S, Res> {
     /// * for doing multiple markov steps at once, use [`m_steps`](#method.m_steps)
     fn m_step(&mut self) -> S;
 
+    /// # Accumulating markov step
+    /// * this calculates something while performing the markov chain, e.g., the current energy
+    #[inline]
+    fn m_step_acc<Acc, AccFn>(&mut self, acc: &mut Acc, mut acc_fn: AccFn) -> S
+    where AccFn: FnMut(&Self, &S, &mut Acc)
+    {
+        let s = self.m_step();
+        acc_fn(&self, &s, acc);
+        s
+    }
+
+    #[inline]
+    fn m_steps_acc<Acc, AccFn>(&mut self, count: usize, acc: &mut Acc, mut acc_fn: AccFn) -> Vec<S>
+    where AccFn: FnMut(&Self, &S, &mut Acc)
+    {
+        let mut vec = Vec::with_capacity(count);
+        vec.extend(
+            (0..count)
+                .map(|_| self.m_step_acc(acc, &mut acc_fn))
+        );
+        vec
+    }
+
+    #[inline]
+    fn m_step_acc_quiet<Acc, AccFn>(&mut self, acc: &mut Acc, mut acc_fn: AccFn)
+    where AccFn: FnMut(&Self, &S, &mut Acc)
+    {
+        let s = self.m_step();
+        acc_fn(&self, &s, acc);
+    }
+
+    #[inline]
+    fn m_steps_acc_quiet<Acc, AccFn>(&mut self, count: usize, acc: &mut Acc, mut acc_fn: AccFn)
+    where AccFn: FnMut(&Self, &S, &mut Acc)
+    {
+        for _ in 0..count{
+            self.m_step_acc_quiet(acc, &mut acc_fn)
+        }
+    }
+
     /// #  Markov steps
     /// * use this to perform multiple markov steps at once
     /// * result `Vec<S>` can be used to undo the steps with `self.undo_steps(result)`
+    #[inline]
     fn m_steps(&mut self, count: usize) -> Vec<S> {
         let mut vec = Vec::with_capacity(count);
         vec.extend((0..count)
