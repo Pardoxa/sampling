@@ -1,6 +1,7 @@
 use rand::Rng;
 use crate::{MarkovChain, HasRng};
 use std::marker::PhantomData;
+use num_traits::AsPrimitive;
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -34,11 +35,11 @@ pub enum MetropolisError
 /// `min[1.0, exp{-1/T * (E_new - E(i))}]`
 /// * otherwise the new state will be rejected, meaning S(i + 1) = S(i).
 /// * Afterwards the `measure` function is called
-pub struct Metropolis<E, R, S, Res>
+pub struct Metropolis<E, R, S, Res, T>
 {
     ensemble: E,
     rng: R,
-    energy: f64,
+    energy: T,
     m_beta: f64,
     step_size: usize,
     counter: usize,
@@ -46,7 +47,8 @@ pub struct Metropolis<E, R, S, Res>
     marker_res: PhantomData<Res>,
 }
 
-impl<R, E, S, Res> Metropolis<E, R, S, Res>
+impl<R, E, S, Res, T> Metropolis<E, R, S, Res, T>
+where T: Copy + AsPrimitive<f64>
 {
 
     /// returns stored `m_beta` value (-&beta; for metropolis)
@@ -67,7 +69,7 @@ impl<R, E, S, Res> Metropolis<E, R, S, Res>
     }
 
     /// returns stored value for `current_energy`
-    pub fn energy(&self) -> f64 {
+    pub fn energy(&self) -> T {
         self.energy
     }
 
@@ -76,8 +78,8 @@ impl<R, E, S, Res> Metropolis<E, R, S, Res>
     /// * otherwise it will set the stored `energy` and return Ok(())
     /// # Important
     /// * It is very unlikely that you need this function - Only use it, if you know what you are doing
-    pub unsafe fn set_energy(&mut self, energy: f64) -> Result<(),()>{
-        if energy.is_nan() {
+    pub unsafe fn set_energy(&mut self, energy: T) -> Result<(),()>{
+        if (energy.as_()).is_nan() {
             Err(())
         } else {
             self.energy = energy;
@@ -130,9 +132,10 @@ impl<R, E, S, Res> Metropolis<E, R, S, Res>
 
 }
 
-impl<E, R, S, Res> Metropolis<E, R, S, Res>
+impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     where R: Rng,
-    E: MarkovChain<S, Res>
+    E: MarkovChain<S, Res>,
+    T: Copy + AsPrimitive<f64>,
 {
 
     /// # Create a new Metropolis struct - used for Metropolis simulations
@@ -149,12 +152,12 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
     pub fn new_from_m_beta(
         rng: R,
         ensemble: E,
-        energy: f64,
+        energy: T,
         m_beta: f64,
         step_size: usize,
     ) -> Result<Self, MetropolisError>
     {
-        if energy.is_nan() || m_beta.is_nan() {
+        if (energy.as_()).is_nan() || m_beta.is_nan() {
             return Err(MetropolisError::NAN);
         }
         if !m_beta.is_finite(){
@@ -188,7 +191,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
     pub fn new_from_temperature(
         rng: R,
         ensemble: E,
-        energy: f64,
+        energy: T,
         temperature: f64,
         step_size: usize,
     ) -> Result<Self, MetropolisError>
@@ -208,10 +211,10 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
     /// # Change, which markov chain is used for the metropolis simulations
     /// * Use this if there are different ways to perform a markov chain for your problem
     /// and you want to switch between them
-    pub fn change_markov_chain<S2, Res2>(self) -> Metropolis<E, R, S2, Res2>
+    pub fn change_markov_chain<S2, Res2>(self) -> Metropolis<E, R, S2, Res2, T>
         where E: MarkovChain<S2, Res2>
     {
-        Metropolis::<E, R, S2, Res2>{
+        Metropolis::<E, R, S2, Res2, T>{
             ensemble: self.ensemble,
             rng: self.rng,
             energy: self.energy,
@@ -226,7 +229,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
     /// Perform a single Metropolis step
     #[inline(always)]
     unsafe fn metropolis_step_unsafe<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&mut E) -> Option<f64>
+    where Energy: FnMut(&mut E) -> Option<T>
     {
         self.metropolis_step_efficient_unsafe(
             |ensemble, _, _|  energy_fn(ensemble) 
@@ -235,7 +238,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
 
     #[inline(always)]
     fn metropolis_step<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&E) -> Option<f64>
+    where Energy: FnMut(&E) -> Option<T>
     {
         unsafe {
             self.metropolis_step_unsafe(
@@ -247,7 +250,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
     /// Perform a single Metropolis step
     #[inline(always)]
     unsafe fn metropolis_step_efficient_unsafe<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&mut E, f64, &[S]) -> Option<f64>
+    where Energy: FnMut(&mut E, T, &[S]) -> Option<T>
     {
         self.counter += 1;
         let step = self.ensemble.m_steps(self.step_size);
@@ -261,7 +264,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
             }
         };
 
-        let a_prob = (self.m_beta * (new_energy - self.energy)).exp().min(1.0);
+        let a_prob = (self.m_beta * (new_energy.as_() - self.energy.as_())).exp().min(1.0);
 
         let accepted = self.rng.gen_bool(a_prob);
 
@@ -275,7 +278,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
     /// Perform a single Metropolis step
     #[inline(always)]
     fn metropolis_step_efficient<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&E, f64, &[S]) -> Option<f64>
+    where Energy: FnMut(&E, T, &[S]) -> Option<T>
     {
         unsafe {
             self.metropolis_step_efficient_unsafe(
@@ -301,7 +304,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut energy_fn: Energy,
         mut measure: Mes,
     )
-        where Energy: FnMut(&E) -> Option<f64>,
+        where Energy: FnMut(&E) -> Option<T>,
         Mes: FnMut(&Self), 
     {
         for _ in self.counter..=step_target
@@ -331,7 +334,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut energy_fn: Energy,
         mut measure: Mes,
     )
-        where Energy: FnMut(&mut E) -> Option<f64>,
+        where Energy: FnMut(&mut E) -> Option<T>,
         Mes: FnMut(&mut Self), 
     {
         for _ in self.counter..=step_target
@@ -362,7 +365,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut energy_fn: Energy,
         mut measure: Mes,
     )
-        where Energy: FnMut(&E, f64, &[S]) -> Option<f64>,
+        where Energy: FnMut(&E, T, &[S]) -> Option<T>,
         Mes: FnMut(&Self), 
     {
         for _ in self.counter..=step_target
@@ -379,7 +382,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut energy_fn: Energy,
         mut measure: Mes,
     )
-        where Energy: Fn(&mut E, f64, &[S]) -> Option<f64>,
+        where Energy: Fn(&mut E, T, &[S]) -> Option<T>,
         Mes: FnMut(&mut Self), 
     {
         for _ in self.counter..=step_target
@@ -395,7 +398,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut measure: Mes,
         mut condition: Cond,
     )
-        where Energy: FnMut(&E) -> Option<f64>,
+        where Energy: FnMut(&E) -> Option<T>,
         Mes: FnMut(&Self),
         Cond: FnMut(&Self) -> bool,
     {
@@ -411,7 +414,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut measure: Mes,
         mut condition: Cond,
     )
-        where Energy: FnMut(&mut E) -> Option<f64>,
+        where Energy: FnMut(&mut E) -> Option<T>,
         Mes: FnMut(&mut Self),
         Cond: FnMut(&mut Self) -> bool,
     {
@@ -427,7 +430,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut measure: Mes,
         mut condition: Cond,
     )
-        where Energy: FnMut(&E, f64, &[S]) -> Option<f64>,
+        where Energy: FnMut(&E, T, &[S]) -> Option<T>,
         Mes: FnMut(&Self),
         Cond: FnMut(&Self) -> bool,
     {
@@ -443,7 +446,7 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
         mut measure: Mes,
         mut condition: Cond,
     )
-        where Energy: FnMut(&mut E, f64, &[S]) -> Option<f64>,
+        where Energy: FnMut(&mut E, T, &[S]) -> Option<T>,
         Mes: FnMut(&mut Self),
         Cond: FnMut(&mut Self) -> bool,
     {
@@ -456,8 +459,25 @@ impl<E, R, S, Res> Metropolis<E, R, S, Res>
 
 }
 
+pub type MetropolisF64<E, R, S, Res> = Metropolis<E, R, S, Res, f64>;
+pub type MetropolisF32<E, R, S, Res> = Metropolis<E, R, S, Res, f32>;
 
-impl<E, R, S, Res> HasRng<R> for Metropolis<E, R, S, Res>
+pub type MetropolisUsize<E, R, S, Res> = Metropolis<E, R, S, Res, usize>;
+pub type MetropolisU128<E, R, S, Res> = Metropolis<E, R, S, Res, u128>;
+pub type MetropolisU64<E, R, S, Res> = Metropolis<E, R, S, Res, u64>;
+pub type MetropolisU32<E, R, S, Res> = Metropolis<E, R, S, Res, u32>;
+pub type MetropolisU16<E, R, S, Res> = Metropolis<E, R, S, Res, u16>;
+pub type MetropolisU8<E, R, S, Res> = Metropolis<E, R, S, Res, u8>;
+
+pub type MetropolisIsize<E, R, S, Res> = Metropolis<E, R, S, Res, isize>;
+pub type MetropolisI128<E, R, S, Res> = Metropolis<E, R, S, Res, i128>;
+pub type MetropolisI64<E, R, S, Res> = Metropolis<E, R, S, Res, i64>;
+pub type MetropolisI32<E, R, S, Res> = Metropolis<E, R, S, Res, i32>;
+pub type MetropolisI16<E, R, S, Res> = Metropolis<E, R, S, Res, i16>;
+pub type MetropolisI8<E, R, S, Res> = Metropolis<E, R, S, Res, i8>;
+
+
+impl<E, R, S, Res, T> HasRng<R> for Metropolis<E, R, S, Res, T>
     where R: Rng
 {
     fn rng(&mut self) -> &mut R {
