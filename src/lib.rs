@@ -20,6 +20,8 @@ pub mod bootstrap;
 
 pub mod metropolis;
 
+pub use metropolis::*;
+
 pub use wang_landau::*;
 pub use entropic_sampling::*;
 
