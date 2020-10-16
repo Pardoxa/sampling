@@ -445,3 +445,5 @@
 /// set output
 /// ```
 pub mod coin_flips;
+
+pub mod ising_spins;

@@ -29,12 +29,12 @@ pub enum MetropolisError
 /// * used for large-deviation simulations
 /// * Performes markov chain using the markov chain trait
 /// ## All `self.metropolis*` functions do the following
-/// * Let the current state of the system be S(i) with corresponding energy `E(i) = energy_fn(S(i))`.
+/// * Let the current state of the system (i.e., the ensemble) be S(i) with corresponding energy `E(i) = energy_fn(S(i))`.
 /// * Now perform a markov step, such that the new system is S_new with energy E_new.
 /// * The new state will be accepted (meaning S(i+1) = S_new) with probability:
-/// `min[1.0, exp{-1/T * (E_new - E(i))}]`
+/// `min[1.0, exp{m_beta * (E_new - E(i))}]`
 /// * otherwise the new state will be rejected, meaning S(i + 1) = S(i).
-/// * Afterwards the `measure` function is called
+/// * the `measure` function is called: `measure(S(i + 1))`
 pub struct Metropolis<E, R, S, Res, T>
 {
     ensemble: E,
@@ -103,12 +103,17 @@ where T: Copy + AsPrimitive<f64>
         &mut self.ensemble
     }
 
-    /// returns stored value for the `counter`, i.e., where to resume iteration
+    /// # returns stored value for the `counter`, i.e., where to resume iteration
+    /// * note: `counter`  is a wrapping counter
+    /// * counter is increase each time, a markov step is performed, i.e,
+    /// each time `ensemble.m_steps(step_size)` is called, the counter will increase by 1
+    /// (**not** by step_size)
     pub fn counter(&self) -> usize {
         self.counter
     }
 
-    /// resets the `counter` to 0
+    /// # resets the `counter` to 0
+    /// * note: `counter`  is a wrapping counter
     pub fn reset_counter(&mut self) {
         self.counter = 0;
     }
@@ -252,7 +257,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     unsafe fn metropolis_step_efficient_unsafe<Energy>(&mut self, mut energy_fn: Energy)
     where Energy: FnMut(&mut E, T, &[S]) -> Option<T>
     {
-        self.counter += 1;
+        self.counter = self.counter.wrapping_add(1);
         let step = self.ensemble.m_steps(self.step_size);
         let new_energy = match energy_fn(&mut self.ensemble, self.energy, &step) {
             None => {
