@@ -167,6 +167,25 @@ impl<R, E, S, Res, Hist, T> WangLandau for WangLandauAdaptive<Hist, R, E, S, Res
     }
 }
 
+impl<Hist, R, E, S, Res, Energy> 
+WangLandauAdaptive<Hist, R, E, S, Res, Energy>
+where 
+    Hist: Histogram + HistogramVal<Energy>
+{
+    /// # Check if `self` is initialized
+    /// * if this returns true, you can begin the WangLandau simulation
+    /// * otherwise call one of the `self.init*` methods
+    pub fn is_initialized(&self) -> bool
+    {
+        match &self.old_energy{
+            None => false,
+            Some(e) => {
+                self.histogram.is_inside(e)
+            }
+        }
+    }
+}
+
 impl<R, E, S, Res, Hist, T> WangLandauEnsemble<E> 
     for WangLandauAdaptive<Hist, R, E, S, Res, T>
 {
@@ -436,7 +455,7 @@ where R: Rng,
     /// * `histogram`: How your energy will be binned etc
     /// * `check_refine_every`: how often to check if log_f can be refined?
     /// # Important
-    /// * **You need to call on of the  `self.init*` members before starting the Wang Landau simulation!
+    /// * **You need to call on of the  `self.init*` members before starting the Wang Landau simulation! - you can check with `self.is_initialized()`
     /// * **Err** if `trial_step_max < trial_step_min`
     /// * **Err** if `log_f_threshold <= 0.0`
     pub fn new(
@@ -796,6 +815,9 @@ where R: Rng,
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn)` until `self.is_finished()` 
     /// or `condition(&self)` is false
+    /// # Important
+    /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
+    /// * **will panic otherwise, at least in debug mode**
     pub fn wang_landau_while<F, W>(
         &mut self,
         energy_fn: F,
@@ -815,6 +837,9 @@ where R: Rng,
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn)` until `self.is_finished()` 
     /// or `condition(&self)` is false
+    /// # Important
+    /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
+    /// * **will panic otherwise, at least in debug mode**
     pub unsafe fn wang_landau_while_unsafe<F, W>(
         &mut self,
         mut energy_fn: F,
@@ -830,6 +855,9 @@ where R: Rng,
     /// # Wang Landau
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn, valid_ensemble)` until `self.is_finished()` 
+    /// # Important
+    /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
+    /// * **will panic otherwise, at least in debug mode**
     pub fn wang_landau_convergence<F>(
         &mut self,
         energy_fn: F,
@@ -846,6 +874,9 @@ where R: Rng,
     /// If you do anything, which changes the future outcome of the energy function, the results will be wrong!
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step_unsafe(energy_fn, valid_ensemble)` until `self.is_finished()` 
+    /// # Important
+    /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
+    /// * **will panic otherwise, at least in debug mode**
     pub unsafe fn wang_landau_convergence_unsafe<F>(
         &mut self,
         mut energy_fn: F,
@@ -914,8 +945,8 @@ where R: Rng,
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
     /// will always be rejected 
     /// # Important
-    /// * You have to call one of the `self.init*` functions before calling this one - 
-    /// **will panic otherwise**
+    /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
+    /// * **will panic otherwise, at least in debug mode**
     pub fn wang_landau_step<F>(
         &mut self,
         energy_fn: F
@@ -952,8 +983,8 @@ where R: Rng,
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
     /// will always be rejected 
     /// # Important
-    /// * You have to call one of the `self.init*` functions before calling this one - 
-    /// **will panic otherwise**
+    /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
+    /// * **will panic otherwise, at least in debug mode**
     pub unsafe fn wang_landau_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,

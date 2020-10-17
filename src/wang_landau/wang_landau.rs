@@ -112,6 +112,25 @@ impl<Hist, R, E, S, Res, Energy> WangLandau
     }
 }
 
+impl<Hist, R, E, S, Res, Energy> 
+    WangLandau1T<Hist, R, E, S, Res, Energy>
+where 
+    Hist: Histogram + HistogramVal<Energy>
+{
+    /// # Check if `self` is initialized
+    /// * if this returns true, you can begin the WangLandau simulation
+    /// * otherwise call one of the `self.init*` methods
+    pub fn is_initialized(&self) -> bool
+    {
+        match &self.old_energy{
+            None => false,
+            Some(e) => {
+                self.hist.is_inside(e)
+            }
+        }
+    }
+}
+
 
 impl <Hist, R, E, S, Res, Energy> WangLandauEnsemble<E> 
     for WangLandau1T<Hist, R, E, S, Res, Energy>
@@ -164,7 +183,6 @@ impl<Hist, R, E, S, Res, Energy>
         }
     }
 }
-
 
 
 impl<Hist, R, E, S, Res, Energy> 

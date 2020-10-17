@@ -1,4 +1,7 @@
-# Unordered ToDo list
+# Unordered TODO list
 
-* Is_initialized() function for WL
-* Remove old metropolis, finish new metropolis
+- [ ] Remove old metropolis, finish new metropolis
+
+# Finished TODOs
+
+- [x] Is_initialized() function for WL
