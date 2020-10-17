@@ -270,14 +270,14 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
             }
         };
 
-        let a_prob = (self.m_beta * (new_energy.as_() - self.energy.as_())).exp().min(1.0);
+        let a_prob = (self.m_beta * (new_energy.as_() - self.energy.as_())).exp();
 
-        let accepted = self.rng.gen_bool(a_prob);
+        let rejected = self.rng.gen::<f64>() > a_prob;
 
-        if accepted {
-            self.energy = new_energy;
-        } else {
+        if rejected {
             self.ensemble.undo_steps_quiet(&self.steps);
+        } else {
+            self.energy = new_energy;
         }
     }
 
