@@ -2,6 +2,7 @@
 
 - [ ] Remove old metropolis, finish new metropolis
 - [ ] Create builder for Wang Landau to make Option<Energy> into Energy - more efficient
+- [ ] Documentation for WangLandau ACC methods
 
 # Finished TODOs
 

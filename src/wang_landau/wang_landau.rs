@@ -669,7 +669,8 @@ where
     pub fn wang_landau_step_acc<F>(
         &mut self,
         energy_fn: F,
-    )where Energy: Clone,
+    )
+    where Energy: Clone,
         F: FnMut(&E, &S, &mut Energy)
     {
         debug_assert!(
@@ -800,5 +801,56 @@ where
         (self.log_density[self.old_bin] - self.log_density[new_bin])
             .exp()
         
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_pcg::Pcg64Mcg;
+    use rand::SeedableRng;
+    use crate::examples::coin_flips::*;
+    #[test]
+    fn wl_creation() {
+        let mut rng = Pcg64Mcg::seed_from_u64(2239790);
+        let ensemble = CoinFlipSequence::new(100, Pcg64Mcg::from_rng(&mut rng).unwrap());
+        let histogram = HistogramFast::new_inclusive(0, 100).unwrap();
+        let mut wl= WangLandau1T::new(
+            0.0075,
+            ensemble,
+            rng,
+            1,
+            histogram,
+            30
+        ).unwrap();
+
+        wl.init_mixed_heuristik(
+            3,
+            6400i16,
+            |e|  {
+                Some(e.head_count())
+            },
+            None
+        ).unwrap();
+
+        let mut wl_backup = wl.clone();
+        let start_wl= std::time::Instant::now();
+        wl.wang_landau_convergence(
+            |e| Some(e.head_count())
+        );
+        let dur_1 = start_wl.elapsed();
+        let start_wl_acc = std::time::Instant::now();
+        wl_backup.wang_landau_convergence_acc(
+            CoinFlipSequence::update_head_count
+        );
+        let dur_2 = start_wl_acc.elapsed();
+        println!("WL: {}, WL_ACC: {}, difference: {}", dur_1.as_nanos(), dur_2.as_nanos(), dur_1.as_nanos() - dur_2.as_nanos());
+
+        // assert, that the different methods lead to the same result
+        for (&log_value, &log_value_acc) in wl.log_density().iter().zip(wl_backup.log_density().iter()){
+            assert_eq!(log_value, log_value_acc);
+        }
     }
 }

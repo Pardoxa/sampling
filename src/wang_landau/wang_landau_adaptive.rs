@@ -830,6 +830,18 @@ where R: Rng,
         }
     }
 
+    pub fn wang_landau_while_acc<F, W>(
+        &mut self,
+        mut energy_fn: F,
+        mut condition: W
+    ) where F: FnMut(&E, &S, &mut T),
+        W: FnMut(&Self) -> bool,
+    {
+        while !self.is_finished() && condition(&self) {
+            self.wang_landau_step_acc(&mut energy_fn);
+        }
+    }
+
     /// # Wang Landau
     /// * if possible, use `self.wang_landau_while()` instead - it is safer
     /// * You have mutable access to your ensemble, which is why this function is unsafe. 
@@ -865,6 +877,17 @@ where R: Rng,
     {
         while !self.is_finished() {
             self.wang_landau_step(&energy_fn);
+        }
+    }
+
+    pub fn wang_landau_convergence_acc<F>(
+        &mut self,
+        mut energy_fn: F,
+    ) 
+    where F: FnMut(&E, &S, &mut T)
+    {
+        while !self.is_finished() {
+            self.wang_landau_step_acc(&mut energy_fn);
         }
     }
 
@@ -994,27 +1017,57 @@ where R: Rng,
         self.wl_step_helper(current_energy);
         
     }
+
+
+    pub fn wang_landau_step_acc<F>(
+        &mut self,
+        energy_fn: F
+    )    
+    where F: FnMut(&E, &S, &mut T)
+    {
+        debug_assert!(
+            self.old_energy.is_some(),
+            "Error - self.old_energy invalid - Did you forget to call one of the `self.init*` members for initialization?"
+        );
+
+        self.step_count += 1;
+        let step_size = self.get_stepsize();
+
+        let mut new_energy = self.energy().unwrap().clone();
+
+        self.ensemble.m_steps_acc(
+            step_size,
+            &mut self.steps,
+            &mut new_energy,
+            energy_fn
+        );
+        
+        self.check_refine();
+        
+        self.wl_step_helper(Some(new_energy));
+        
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_pcg::Pcg64;
+    use rand_pcg::Pcg64Mcg;
     use rand::SeedableRng;
     use crate::examples::coin_flips::*;
     #[test]
     fn wl_creation() {
-        let mut rng = Pcg64::seed_from_u64(2239790);
-        let ensemble = CoinFlipSequence::new(100, Pcg64::from_rng(&mut rng).unwrap());
-        let histogram = HistogramFast::new_inclusive(0, 100).unwrap();
+        let mut rng = Pcg64Mcg::seed_from_u64(2239790);
+        let ensemble = CoinFlipSequence::new(50, Pcg64Mcg::from_rng(&mut rng).unwrap());
+        let histogram = HistogramFast::new_inclusive(0, 50).unwrap();
         let mut wl= WangLandauAdaptive::new(
-            0.00075,
+            0.075,
             ensemble,
             rng,
             30,
-            5,
-            50,
+            1,
+            30,
             7,
             0.075,
             histogram,
@@ -1030,8 +1083,22 @@ mod tests {
             None
         ).unwrap();
 
+        let mut wl_backup = wl.clone();
+        let start_wl= std::time::Instant::now();
         wl.wang_landau_convergence(
             |e| Some(e.head_count())
         );
+        let dur_1 = start_wl.elapsed();
+        let start_wl_acc = std::time::Instant::now();
+        wl_backup.wang_landau_convergence_acc(
+            CoinFlipSequence::update_head_count
+        );
+        let dur_2 = start_wl_acc.elapsed();
+        println!("WL: {}, WL_ACC: {}, difference: {}", dur_1.as_nanos(), dur_2.as_nanos(), dur_1.as_nanos() - dur_2.as_nanos());
+
+        // assert, that the different methods lead to the same result
+        for (&log_value, &log_value_acc) in wl.log_density().iter().zip(wl_backup.log_density().iter()){
+            assert_eq!(log_value, log_value_acc);
+        }
     }
 }
