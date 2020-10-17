@@ -670,8 +670,7 @@ where
         &mut self,
         energy_fn: F,
     )
-    where Energy: Clone,
-        F: FnMut(&E, &S, &mut Energy)
+    where F: FnMut(&E, &S, &mut Energy)
     {
         debug_assert!(
             self.old_energy.is_some(),
@@ -813,7 +812,7 @@ mod tests {
     use rand::SeedableRng;
     use crate::examples::coin_flips::*;
     #[test]
-    fn wl_creation() {
+    fn wl_simulations_equal() {
         let mut rng = Pcg64Mcg::seed_from_u64(2239790);
         let ensemble = CoinFlipSequence::new(100, Pcg64Mcg::from_rng(&mut rng).unwrap());
         let histogram = HistogramFast::new_inclusive(0, 100).unwrap();

@@ -286,19 +286,34 @@ where Hist: Histogram + HistogramVal<T>,
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_while<F, G, W>(
         &mut self,
-        energy_fn: F,
+        mut energy_fn: F,
         mut print_fn: G,
         mut condition: W
-    ) where F: Fn(&E) -> Option<T>,
+    ) where F: FnMut(&E) -> Option<T>,
         G: FnMut(&Self) -> (),
         W: FnMut(&Self) -> bool
     {
         while condition(self) {
-            self.entropic_step(&energy_fn);
+            self.entropic_step(&mut energy_fn);
             print_fn(&self);
         }
     }
 
+    pub fn entropic_sampling_while_acc<F, G, W>(
+        &mut self,
+        mut energy_fn: F,
+        mut print_fn: G,
+        mut condition: W
+    ) where F: FnMut(&E, &S, &mut T),
+        G: FnMut(&Self) -> (),
+        W: FnMut(&Self) -> bool
+    {
+        while condition(self) {
+            self.entropic_step_acc(&mut energy_fn);
+            print_fn(&self);
+        }
+    }
+    
     /// # Entropic sampling
     /// * if possible, use `entropic_sampling_while` instead, as it is safer
     /// * use this if you need **mutable access** to your ensemble while printing or 
@@ -360,13 +375,26 @@ where Hist: Histogram + HistogramVal<T>,
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling<F, G>(
         &mut self,
-        energy_fn: F,
+        mut energy_fn: F,
         mut print_fn: G,
-    ) where F: Fn(&E) -> Option<T>,
+    ) where F: FnMut(&E) -> Option<T>,
         G: FnMut(&Self) -> ()
     {
         while self.step_count < self.step_goal {
-            self.entropic_step(&energy_fn);
+            self.entropic_step(&mut energy_fn);
+            print_fn(self);
+        }
+    }
+
+    pub fn entropic_sampling_acc<F, G>(
+        &mut self,
+        mut energy_fn: F,
+        mut print_fn: G,
+    ) where F: FnMut(&E, &S, &mut T),
+        G: FnMut(&Self) -> ()
+    {
+        while self.step_count < self.step_goal {
+            self.entropic_step_acc(&mut energy_fn);
             print_fn(self);
         }
     }
@@ -431,9 +459,18 @@ where Hist: Histogram + HistogramVal<T>,
 
 
         self.ensemble.m_steps(self.step_size, &mut self.steps);
-        let next_energy = energy_fn(&mut self.ensemble);
+
+        let current_energy = match energy_fn(&mut self.ensemble) {
+            Some(energy) => energy,
+            None => {
+                self.count_rejected();
+                self.hist.count_index(self.old_bin).unwrap();
+                self.ensemble.undo_steps_quiet(&self.steps);
+                return;
+            }
+        };
         
-        self.entropic_step_helper(next_energy);
+        self.entropic_step_helper(current_energy);
     }
 
     /// # Entropic step
@@ -448,33 +485,39 @@ where Hist: Histogram + HistogramVal<T>,
     /// * `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     pub fn entropic_step<F>(
         &mut self,
+        mut energy_fn: F,
+    )where F: FnMut(&E) -> Option<T>
+    {
+
+        unsafe {
+            self.entropic_step_unsafe(|e| energy_fn(e))
+        }
+    }
+
+    pub fn entropic_step_acc<F>(
+        &mut self,
         energy_fn: F,
-    )where F: Fn(&E) -> Option<T>
+    )
+        where F: FnMut(&E, &S, &mut T)
     {
 
         self.step_count += 1;
 
+        let mut new_energy = self.energy().clone();
 
-        self.ensemble.m_steps(self.step_size, &mut self.steps);
-        let next_energy = energy_fn(self.ensemble());
+        self.ensemble.m_steps_acc(
+            self.step_size,
+            &mut self.steps,
+            &mut new_energy,
+            energy_fn
+        );
         
-        self.entropic_step_helper(next_energy);
+        self.entropic_step_helper(new_energy);
     }
 
 
-    fn entropic_step_helper(&mut self, next_energy: Option<T>)
+    fn entropic_step_helper(&mut self, current_energy: T)
     {
-        
-        let current_energy = match next_energy {
-            Some(energy) => energy,
-            None => {
-                self.count_rejected();
-                self.hist.count_index(self.old_bin).unwrap();
-                self.ensemble.undo_steps_quiet(&self.steps);
-                return;
-            }
-        };
-        
         match self.hist.get_bin_index(&current_energy)
         {
             Ok(current_bin) => {
