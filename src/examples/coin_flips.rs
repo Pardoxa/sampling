@@ -27,6 +27,13 @@ impl CoinFlip
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct CoinFlipMove{
+    previouse: CoinFlip,
+    index: usize,
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// # A sequence of Coin flips. Contains random Number generator
 pub struct CoinFlipSequence<R> {
     rng: R,
@@ -70,6 +77,23 @@ impl<R> CoinFlipSequence<R>
             .count()
     }
 
+    /// * Calculate the head count, if a previouse head count of the ensemble and the 
+    /// markov steps leading to the current state are known
+    /// * `head_count` is updated
+    /// * might **panic** if `step` was not the markov step leading from the ensemble with `head_count`
+    /// to the current ensemble - if it does not panic, the result will be wrong
+    pub fn update_head_count(&self, step: &CoinFlipMove, head_count: &mut usize)
+    {
+        match step.previouse {
+            CoinFlip::Head => {
+                *head_count -= 1;
+            },
+            CoinFlip::Tail => {
+                *head_count += 1;
+            }
+        }
+    }
+
     /// Count many times `Head` occured in a row
     /// * uses maximum value, i.e., for the sequence `HHTHHHT` it will return 3
     pub fn max_heads_in_a_row(&self) -> usize
@@ -90,21 +114,29 @@ impl<R> CoinFlipSequence<R>
     }
 }
 
-impl<R> MarkovChain<usize, ()> for CoinFlipSequence<R>
+impl<R> MarkovChain<CoinFlipMove, ()> for CoinFlipSequence<R>
 where R: Rng
 {
-    fn m_step(&mut self) -> usize {
+    /// Perform a markov step
+    fn m_step(&mut self) -> CoinFlipMove {
+        // draw a random position
         let pos = self.rng.gen_range(0, self.seq.len());
+        let previouse = self.seq[pos];
+        // flip coin at that position
         self.seq[pos].turn();
-        pos
+        // information to restore the previouse state
+        CoinFlipMove{
+            previouse,
+            index: pos
+        }
     }
 
-    fn undo_step(&mut self, step: &usize) -> () {
-        self.seq[*step].turn();
+    fn undo_step(&mut self, step: &CoinFlipMove) -> () {
+        self.seq[step.index] = step.previouse;
     }
 
     #[inline]
-    fn undo_step_quiet(&mut self, step: &usize) {
+    fn undo_step_quiet(&mut self, step: &CoinFlipMove) {
         self.undo_step(step);   
     }
 }

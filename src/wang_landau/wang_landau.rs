@@ -617,20 +617,9 @@ where
         energy_fn: F,
     )where F: Fn(&E) -> Option<Energy>
     {
-        debug_assert!(
-            self.old_energy.is_some(),
-            "Error - self.old_energy invalid - Did you forget to call one of the `self.init*` members for initialization?"
-        );
-
-        self.step_count += 1;
-
-
-        self.ensemble.m_steps(self.step_size, &mut self.steps);
-        
-        self.check_refine();
-        let current_energy = energy_fn(&mut self.ensemble);
-        
-        self.wl_step_helper(current_energy);
+        unsafe {
+            self.wang_landau_step_unsafe(|e| energy_fn(e))
+        }
     }
 
     /// # Wang Landau Step
@@ -669,6 +658,46 @@ where
         self.wl_step_helper(current_energy);
     }
 
+    /// # Wang Landau Step
+    /// * performs a single Wang Landau step
+    /// # Parameter
+    /// * `energy_fn` function calculating the energy of the system **on the fly**
+    /// * **steps resulting in invalid ensembles are not allowed!**
+    /// # Important
+    /// * You have to call one of the `self.init*` functions before calling this one - 
+    /// **will panic otherwise**
+    pub fn wang_landau_step_acc<F>(
+        &mut self,
+        energy_fn: F,
+    )where Energy: Clone,
+        F: FnMut(&E, &S, &mut Energy)
+    {
+        debug_assert!(
+            self.old_energy.is_some(),
+            "Error - self.old_energy invalid - Did you forget to call one of the `self.init*` members for initialization?"
+        );
+
+        self.step_count += 1;
+
+        let mut new_energy = self.old_energy
+            .as_ref()
+            .unwrap()
+            .clone();
+
+        self.ensemble
+            .m_steps_acc(
+                self.step_size,
+                &mut self.steps,
+                &mut new_energy,
+                energy_fn
+            );
+        
+        self.check_refine();
+        
+        self.wl_step_helper(Some(new_energy));
+
+    }
+
     /// # Wang Landau
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn, valid_ensemble)` until `self.is_finished()` 
@@ -679,6 +708,19 @@ where
     {
         while !self.is_finished() {
             self.wang_landau_step(&energy_fn);
+        }
+    }
+
+    /// # Wang Landau - efficient energy calculation
+    /// * perform Wang Landau simulation
+    /// * calls `self.wang_landau_step_acc(energy_fn, valid_ensemble)` until `self.is_finished()` 
+    pub fn wang_landau_convergence_acc<F>(
+        &mut self,
+        mut energy_fn: F,
+    )where F: FnMut(&E, &S, &mut Energy)
+    {
+        while !self.is_finished() {
+            self.wang_landau_step_acc(&mut energy_fn);
         }
     }
 
@@ -711,6 +753,22 @@ where
     {
         while !self.is_finished() && condition(&self) {
             self.wang_landau_step(&energy_fn);
+        }
+    }
+
+    /// # Wang Landau
+    /// * perform Wang Landau simulation
+    /// * calls `self.wang_landau_step(energy_fn)` until `self.is_finished()` 
+    /// or `condition(&self)` is false
+    pub fn wang_landau_while_acc<F, W>(
+        &mut self,
+        mut energy_fn: F,
+        mut condition: W
+    ) where F: FnMut(&E, &S, &mut Energy),
+        W: FnMut(&Self) -> bool,
+    {
+        while !self.is_finished() && condition(&self) {
+            self.wang_landau_step_acc(&mut energy_fn);
         }
     }
 

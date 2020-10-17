@@ -952,21 +952,9 @@ where R: Rng,
         energy_fn: F
     )where F: Fn(&E) -> Option<T>
     {
-        debug_assert!(
-            self.old_energy.is_some(),
-            "Error - self.old_energy invalid - Did you forget to call one of the `self.init*` members for initialization?"
-        );
-
-        self.step_count += 1;
-        let step_size = self.get_stepsize();
-
-
-
-        self.ensemble.m_steps(step_size, &mut self.steps);
-        
-        self.check_refine();
-        let current_energy = energy_fn(&self.ensemble);
-        self.wl_step_helper(current_energy);
+        unsafe {
+            self.wang_landau_step_unsafe(|e| energy_fn(e))
+        }
         
     }
 
@@ -1009,44 +997,41 @@ where R: Rng,
 }
 
 
-//#[cfg(test)]
-//mod tests {
-//    use super::*;
-//    use rand_pcg::Pcg64;
-//    use rand::SeedableRng;
-//    #[test]
-//    fn wl_creation() {
-//        let mut rng = Pcg64::seed_from_u64(2239790);
-//        let ensemble: ErEnsembleC<EmptyNode, _> = ErEnsembleC::new(
-//            100,
-//            3.01,
-//            Pcg64::from_rng(&mut rng).unwrap()
-//        );
-//        let histogram = HistogramFast::new_inclusive(50, 100).unwrap();
-//        let mut wl= WangLandauAdaptive::new(
-//            0.00075,
-//            ensemble,
-//            Pcg64::from_rng(&mut rng).unwrap(),
-//            30,
-//            5,
-//            50,
-//            7,
-//            0.075,
-//            histogram,
-//            1000
-//        ).unwrap();
-//
-//        wl.init_mixed_heuristik(
-//            3,
-//            6400i16,
-//            |e|  {
-//                e.graph().q_core(3)
-//            },
-//            None
-//        ).unwrap();
-//
-//        wl.wang_landau_convergence(
-//            |e| e.graph().q_core(3)
-//        );
-//    }
-//}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_pcg::Pcg64;
+    use rand::SeedableRng;
+    use crate::examples::coin_flips::*;
+    #[test]
+    fn wl_creation() {
+        let mut rng = Pcg64::seed_from_u64(2239790);
+        let ensemble = CoinFlipSequence::new(100, Pcg64::from_rng(&mut rng).unwrap());
+        let histogram = HistogramFast::new_inclusive(0, 100).unwrap();
+        let mut wl= WangLandauAdaptive::new(
+            0.00075,
+            ensemble,
+            rng,
+            30,
+            5,
+            50,
+            7,
+            0.075,
+            histogram,
+            1000
+        ).unwrap();
+
+        wl.init_mixed_heuristik(
+            3,
+            6400i16,
+            |e|  {
+                Some(e.head_count())
+            },
+            None
+        ).unwrap();
+
+        wl.wang_landau_convergence(
+            |e| Some(e.head_count())
+        );
+    }
+}
