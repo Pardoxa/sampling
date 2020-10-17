@@ -53,7 +53,7 @@ pub struct EntropicSamplingAdaptive<Hist, R, E, S, Res, T>
     min_best_of_count: usize,
     best_of_threshold: f64,
     ensemble: E,
-    step_marker: PhantomData::<S>,
+    steps: Vec<S>,
     step_res_marker: PhantomData<Res>,
     accepted_step_hist: Vec<usize>,
     rejected_step_hist: Vec<usize>,
@@ -100,7 +100,7 @@ impl<Hist, R, E, S, Res, T> TryFrom<WangLandauAdaptive<Hist, R, E, S, Res, T>>
                 wl_steps_rejected,
                 wl_steps_accepted,
                 counter: 0,
-                step_marker: wl.step_marker,
+                steps: wl.steps,
                 step_res_marker: wl.step_res_marker,
                 log_density: wl.log_density,
                 old_energy: wl.old_energy.unwrap(),
@@ -610,10 +610,10 @@ where Hist: Histogram + HistogramVal<T>,
         let step_size = self.get_stepsize();
 
 
-        let steps = self.ensemble.m_steps(step_size);
+        self.ensemble.m_steps(step_size, &mut self.steps);
 
         let current_energy = energy_fn(&mut self.ensemble);
-        self.entropic_step_helper(current_energy, steps);
+        self.entropic_step_helper(current_energy);
     }
 
     /// # Entropic step
@@ -635,21 +635,22 @@ where Hist: Histogram + HistogramVal<T>,
         self.step_count += 1;
         let step_size = self.get_stepsize();
 
-        let steps = self.ensemble.m_steps(step_size);
+        self.ensemble.m_steps(step_size, &mut self.steps);
 
         let current_energy = energy_fn(&mut self.ensemble);
-        self.entropic_step_helper(current_energy, steps);
+        self.entropic_step_helper(current_energy);
     }
 
-    fn entropic_step_helper(&mut self, energy: Option<T>, steps: Vec<S>)
+    fn entropic_step_helper(&mut self, energy: Option<T>)
     {
+        let step_size = self.steps.len();
         let current_energy = match energy
         {
             Some(energy) => energy,
             None => {
-                self.count_rejected(steps.len());
+                self.count_rejected(step_size);
                 self.histogram.count_index(self.old_bin).unwrap();
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
                 return;
             }
         };
@@ -661,11 +662,11 @@ where Hist: Histogram + HistogramVal<T>,
 
                 if self.rng.gen::<f64>() > accept_prob {
                     // reject step
-                    self.count_rejected(steps.len());
-                    self.ensemble.undo_steps_quiet(steps);
+                    self.count_rejected(step_size);
+                    self.ensemble.undo_steps_quiet(&self.steps);
                 } else {
                     // accept step
-                    self.count_accepted(steps.len());
+                    self.count_accepted(step_size);
                     
                     self.old_energy = current_energy;
                     self.old_bin = current_bin;
@@ -673,8 +674,8 @@ where Hist: Histogram + HistogramVal<T>,
             },
             _  => {
                 // invalid step -> reject
-                self.count_rejected(steps.len());
-                self.ensemble.undo_steps_quiet(steps);
+                self.count_rejected(step_size);
+                self.ensemble.undo_steps_quiet(&self.steps);
             }
         };
         

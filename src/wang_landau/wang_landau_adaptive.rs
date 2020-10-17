@@ -34,8 +34,8 @@ pub struct WangLandauAdaptive<Hist, R, E, S, Res, Energy>
     pub(crate) min_best_of_count: usize,
     pub(crate) best_of_threshold: f64,
     pub(crate) ensemble: E,
-    pub(crate) step_marker: PhantomData::<S>,
     pub(crate) step_res_marker: PhantomData<Res>,
+    pub(crate) steps: Vec<S>,
     pub(crate) accepted_step_hist: Vec<usize>,
     pub(crate) rejected_step_hist: Vec<usize>,
     total_steps_rejected: usize,
@@ -486,6 +486,7 @@ where R: Rng,
         let rejected_step_hist = vec![0; distinct_step_count];
 
         let log_density = vec![0.0; histogram.bin_count()]; 
+        let steps = Vec::with_capacity(trial_step_max);
 
         Ok(
             Self{
@@ -497,7 +498,6 @@ where R: Rng,
                 trial_list,
                 rng,
                 samples_per_trial,
-                step_marker: PhantomData::<S>,
                 step_res_marker: PhantomData::<Res>,
                 log_f: 1.0,
                 log_f_threshold,
@@ -513,6 +513,7 @@ where R: Rng,
                 total_steps_accepted: 0,
                 total_steps_rejected: 0,
                 best_of_threshold,
+                steps,
             }
         )
     }
@@ -585,13 +586,14 @@ where R: Rng,
         &mut self,
         old_distance: &mut J,
         energy_fn: F,
-        distance_fn: H
+        distance_fn: H,
     )   where F: Fn(&mut E) -> Option<T>,
             H: Fn(&Hist, T) -> J,
             J: PartialOrd
     {
         let size = self.get_stepsize();
-        let steps = self.ensemble.m_steps(size);
+        self.ensemble
+            .m_steps(size, &mut self.steps);
 
         
         if let Some(energy) = energy_fn(&mut self.ensemble) {
@@ -605,7 +607,7 @@ where R: Rng,
         }
 
         self.count_rejected(size);
-        self.ensemble.undo_steps_quiet(steps);
+        self.ensemble.undo_steps_quiet(&self.steps);
         
     }
 
@@ -669,7 +671,7 @@ where R: Rng,
                 self.greedy_helper(
                     &mut old_dist,
                     &energy_fn,
-                    Hist::distance
+                    Hist::distance,
                 );
                 if old_dist == 0.0 {
                     break;
@@ -678,7 +680,7 @@ where R: Rng,
                 self.greedy_helper(
                     &mut old_dist_interval,
                     &energy_fn,
-                    dist_interval
+                    dist_interval,
                 );
                 if old_dist_interval == 0 {
                     break;
@@ -729,11 +731,12 @@ where R: Rng,
         
         let dist = |h: &Hist, val: T| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
+
         while old_dist != 0 {
             self.greedy_helper(
                 &mut old_dist,
                 &energy_fn,
-                dist
+                dist,
             );
             if let Some(limit) = step_limit {
                 if limit == step_count{
@@ -771,11 +774,12 @@ where R: Rng,
         let mut old_distance = self.histogram
             .distance(self.old_energy_clone());
         let mut step_count = 0;
+
         while old_distance != 0.0 {
             self.greedy_helper(
                 &mut old_distance,
                 &energy_fn,
-                Hist::distance
+                Hist::distance,
             );
             if let Some(limit) = step_limit {
                 if limit == step_count{
@@ -852,12 +856,15 @@ where R: Rng,
         }
     }
 
-    fn wl_step_helper(&mut self, energy: Option<T>, steps: Vec<S>)
+    fn wl_step_helper(
+        &mut self,
+        energy: Option<T>,
+    )
     {
         let old_bin = self.old_bin.expect(
             "Error - self.old_bin invalid - Did you forget to call one of the `self.init*` members for initialization?"
         );
-        let step_size = steps.len();
+        let step_size = self.steps.len();
         let current_energy = match energy
         {
             Some(energy) => energy,
@@ -865,7 +872,7 @@ where R: Rng,
                 self.count_rejected(step_size);
                 self.histogram.count_index(old_bin).unwrap();
                 self.log_density[old_bin] += self.log_f;
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
                 return;
             }
         };
@@ -878,7 +885,7 @@ where R: Rng,
                 if self.rng.gen::<f64>() > accept_prob {
                     // reject step
                     self.count_rejected(step_size);
-                    self.ensemble.undo_steps_quiet(steps);
+                    self.ensemble.undo_steps_quiet(&self.steps);
                 } else {
                     // accept step
                     self.count_accepted(step_size);
@@ -890,7 +897,7 @@ where R: Rng,
             _  => {
                 // invalid step -> reject
                 self.count_rejected(step_size);
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
             }
         };
         
@@ -911,7 +918,7 @@ where R: Rng,
     /// **will panic otherwise**
     pub fn wang_landau_step<F>(
         &mut self,
-        energy_fn: F,
+        energy_fn: F
     )where F: Fn(&E) -> Option<T>
     {
         debug_assert!(
@@ -923,11 +930,12 @@ where R: Rng,
         let step_size = self.get_stepsize();
 
 
-        let steps = self.ensemble.m_steps(step_size);
+
+        self.ensemble.m_steps(step_size, &mut self.steps);
         
         self.check_refine();
         let current_energy = energy_fn(&self.ensemble);
-        self.wl_step_helper(current_energy, steps);
+        self.wl_step_helper(current_energy);
         
     }
 
@@ -960,11 +968,11 @@ where R: Rng,
         let step_size = self.get_stepsize();
 
 
-        let steps = self.ensemble.m_steps(step_size);
+        self.ensemble.m_steps(step_size, &mut self.steps);
         
         self.check_refine();
         let current_energy = energy_fn(&mut self.ensemble);
-        self.wl_step_helper(current_energy, steps);
+        self.wl_step_helper(current_energy);
         
     }
 }

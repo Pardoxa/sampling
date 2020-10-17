@@ -43,7 +43,7 @@ pub struct Metropolis<E, R, S, Res, T>
     m_beta: f64,
     step_size: usize,
     counter: usize,
-    marker_s: PhantomData<S>,
+    steps: Vec<S>,
     marker_res: PhantomData<Res>,
 }
 
@@ -168,13 +168,14 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
         if !m_beta.is_finite(){
             return Err(MetropolisError::InfinitBeta);
         }
+        let steps = Vec::with_capacity(step_size);
         Ok(
             Self{
                 ensemble,
                 rng,
                 energy,
                 m_beta,
-                marker_s: PhantomData::<S>,
+                steps,
                 marker_res: PhantomData::<Res>,
                 counter: 0,
                 step_size,
@@ -226,7 +227,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
             step_size: self.step_size,
             m_beta: self.m_beta,
             counter: self.counter,
-            marker_s: PhantomData::<S2>,
+            steps: Vec::with_capacity(self.step_size),
             marker_res: PhantomData::<Res2>,
         }
     }
@@ -258,10 +259,10 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     where Energy: FnMut(&mut E, T, &[S]) -> Option<T>
     {
         self.counter = self.counter.wrapping_add(1);
-        let step = self.ensemble.m_steps(self.step_size);
-        let new_energy = match energy_fn(&mut self.ensemble, self.energy, &step) {
+        self.ensemble.m_steps(self.step_size, &mut self.steps);
+        let new_energy = match energy_fn(&mut self.ensemble, self.energy, &self.steps) {
             None => {
-                self.ensemble.undo_steps_quiet(step);
+                self.ensemble.undo_steps_quiet(&self.steps);
                 return;
             },
             Some(e) => {
@@ -276,7 +277,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
         if accepted {
             self.energy = new_energy;
         } else {
-            self.ensemble.undo_steps_quiet(step);
+            self.ensemble.undo_steps_quiet(&self.steps);
         }
     }
 

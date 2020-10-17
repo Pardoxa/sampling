@@ -19,7 +19,7 @@ pub struct EntropicSampling<Hist, R, E, S, Res, Energy>
 {
     rng: R,
     ensemble: E,
-    step_marker: PhantomData::<S>,
+    steps: Vec<S>,
     step_res_marker: PhantomData<Res>,
     total_steps_rejected: usize,
     total_steps_accepted: usize,
@@ -53,8 +53,8 @@ impl<Hist, R, E, S, Res, Energy> TryFrom<WangLandau1T<Hist, R, E, S, Res, Energy
                 wl_steps_accepted: wl.total_steps_accepted(),
                 wl_steps_rejected: wl.total_steps_rejected(),
                 step_goal: wl.step_counter(),
-                step_marker: wl.marker1,
-                step_res_marker: wl.marker2,
+                steps: wl.steps,
+                step_res_marker: wl.marker_res,
                 log_density: wl.log_density,
                 old_energy: wl.old_energy.unwrap(),
                 old_bin: wl.old_bin,
@@ -96,7 +96,7 @@ impl<Hist, R, E, S, Res, T> TryFrom<WangLandauAdaptive<Hist, R, E, S, Res, T>>
                 wl_steps_accepted: wl.total_steps_accepted(),
                 wl_steps_rejected: wl.total_steps_rejected(),
                 step_goal: wl.step_counter(),
-                step_marker: wl.step_marker,
+                steps: wl.steps,
                 step_res_marker: wl.step_res_marker,
                 log_density: wl.log_density,
                 old_energy: wl.old_energy.unwrap(),
@@ -430,10 +430,10 @@ where Hist: Histogram + HistogramVal<T>,
         self.step_count += 1;
 
 
-        let steps = self.ensemble.m_steps(self.step_size);
+        self.ensemble.m_steps(self.step_size, &mut self.steps);
         let next_energy = energy_fn(&mut self.ensemble);
         
-        self.entropic_step_helper(next_energy, steps);
+        self.entropic_step_helper(next_energy);
     }
 
     /// # Entropic step
@@ -455,14 +455,14 @@ where Hist: Histogram + HistogramVal<T>,
         self.step_count += 1;
 
 
-        let steps = self.ensemble.m_steps(self.step_size);
+        self.ensemble.m_steps(self.step_size, &mut self.steps);
         let next_energy = energy_fn(self.ensemble());
         
-        self.entropic_step_helper(next_energy, steps);
+        self.entropic_step_helper(next_energy);
     }
 
 
-    fn entropic_step_helper(&mut self, next_energy: Option<T>, steps: Vec<S>)
+    fn entropic_step_helper(&mut self, next_energy: Option<T>)
     {
         
         let current_energy = match next_energy {
@@ -470,7 +470,7 @@ where Hist: Histogram + HistogramVal<T>,
             None => {
                 self.count_rejected();
                 self.hist.count_index(self.old_bin).unwrap();
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
                 return;
             }
         };
@@ -483,7 +483,7 @@ where Hist: Histogram + HistogramVal<T>,
                 if self.rng.gen::<f64>() > accept_prob {
                     // reject step
                     self.count_rejected();
-                    self.ensemble.undo_steps_quiet(steps);
+                    self.ensemble.undo_steps_quiet(&self.steps);
                 } else {
                     // accept step
                     self.count_accepted();
@@ -495,7 +495,7 @@ where Hist: Histogram + HistogramVal<T>,
             _  => {
                 // invalid step -> reject
                 self.count_rejected();
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
             }
         };
         

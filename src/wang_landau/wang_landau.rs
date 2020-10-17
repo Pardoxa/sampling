@@ -20,8 +20,8 @@ use serde::{Serialize, Deserialize};
 pub struct WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>{
     pub(crate) ensemble: Ensemble,
     pub(crate) rng: Rng,
-    pub(crate) marker1: PhantomData<S>,
-    pub(crate) marker2: PhantomData<Res>,
+    pub(crate) marker_res: PhantomData<Res>,
+    pub(crate) steps: Vec<S>,
     mode: WangLandauMode,
     pub(crate) log_density: Vec<f64>,
     pub(crate) log_f: f64,
@@ -208,6 +208,7 @@ where
             return Err(WangLandauErrors::CheckRefineEvery0)
         }
         let log_density = vec![0.0; histogram.bin_count()];
+        let steps = Vec::with_capacity(step_size);
 
         Ok(
             Self{
@@ -216,8 +217,7 @@ where
                 step_size,
                 hist: histogram,
                 rng,
-                marker1: PhantomData::<S>,
-                marker2: PhantomData::<Res>,
+                marker_res: PhantomData::<Res>,
                 log_f: 1.0,
                 log_density,
                 log_f_threshold,
@@ -229,6 +229,7 @@ where
                 old_bin: usize::MAX,
                 old_energy: None,
                 check_refine_every,
+                steps,
             }
         )
     }
@@ -278,12 +279,13 @@ where
         &mut self,
         old_distance: &mut J,
         energy_fn: F,
-        distance_fn: H
+        distance_fn: H,
     )   where F: Fn(&mut E) -> Option<Energy> + Copy,
             H: Fn(&Hist, Energy) -> J,
             J: PartialOrd
     {
-        let steps = self.ensemble.m_steps(self.step_size);
+        self.ensemble
+            .m_steps(self.step_size, &mut self.steps);
 
         
         if let Some(energy) = energy_fn(&mut self.ensemble) {
@@ -297,7 +299,8 @@ where
         }
 
         self.count_rejected();
-        self.ensemble.undo_steps_quiet(steps);
+        self.ensemble
+            .undo_steps_quiet(&self.steps);
         
     }
 
@@ -453,7 +456,7 @@ where
                 self.greedy_helper(
                     &mut old_dist,
                     &energy_fn,
-                    Hist::distance
+                    Hist::distance,
                 );
                 if old_dist == 0.0 {
                     break;
@@ -462,7 +465,7 @@ where
                 self.greedy_helper(
                     &mut old_dist_interval,
                     &energy_fn,
-                    dist_interval
+                    dist_interval,
                 );
                 if old_dist_interval == 0 {
                     break;
@@ -538,7 +541,7 @@ where
     }
 
 
-    fn wl_step_helper(&mut self, energy: Option<Energy>, steps: Vec<S>)
+    fn wl_step_helper(&mut self, energy: Option<Energy>)
     {
         let current_energy = match energy 
         {
@@ -547,7 +550,7 @@ where
                 self.count_rejected();
                 self.hist.count_index(self.old_bin).unwrap();
                 self.log_density[self.old_bin] += self.log_f;
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
                 return;
             }
         };
@@ -560,7 +563,7 @@ where
                 if self.rng.gen::<f64>() > accept_prob {
                     // reject step
                     self.count_rejected();
-                    self.ensemble.undo_steps_quiet(steps);
+                    self.ensemble.undo_steps_quiet(&self.steps);
                 } else {
                     // accept step
                     self.count_accepted();
@@ -572,7 +575,7 @@ where
             _  => {
                 // invalid step -> reject
                 self.count_rejected();
-                self.ensemble.undo_steps_quiet(steps);
+                self.ensemble.undo_steps_quiet(&self.steps);
             }
         };
         
@@ -604,12 +607,12 @@ where
         self.step_count += 1;
 
 
-        let steps = self.ensemble.m_steps(self.step_size);
+        self.ensemble.m_steps(self.step_size, &mut self.steps);
         
         self.check_refine();
         let current_energy = energy_fn(&mut self.ensemble);
         
-        self.wl_step_helper(current_energy, steps);
+        self.wl_step_helper(current_energy);
     }
 
     /// # Wang Landau Step
@@ -640,12 +643,12 @@ where
         self.step_count += 1;
 
 
-        let steps = self.ensemble.m_steps(self.step_size);
+        self.ensemble.m_steps(self.step_size, &mut self.steps);
         
         self.check_refine();
         let current_energy = energy_fn(&mut self.ensemble);
         
-        self.wl_step_helper(current_energy, steps);
+        self.wl_step_helper(current_energy);
     }
 
     /// # Wang Landau

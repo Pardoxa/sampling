@@ -1,6 +1,6 @@
 # Scientific Sampling
 
-Large-deviation sampling methods (Wang-Landau, Entropic sampling), bootstrap resampling, histograms, heatmaps and more
+Large-deviation sampling methods (Wang-Landau, entropic sampling), bootstrap resampling, histograms, heat maps and more
 
 ## net_ensembles
 

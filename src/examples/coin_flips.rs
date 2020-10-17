@@ -99,11 +99,24 @@ where R: Rng
         pos
     }
 
-    fn undo_step(&mut self, step: usize) -> () {
-        self.seq[step].turn();
+    fn undo_step(&mut self, step: &usize) -> () {
+        self.seq[*step].turn();
     }
 
-    fn undo_step_quiet(&mut self, step: usize) {
+    #[inline]
+    fn undo_step_quiet(&mut self, step: &usize) {
         self.undo_step(step);   
+    }
+}
+
+impl<R> HasRng<R> for CoinFlipSequence<R>
+    where R: Rng
+{
+    fn rng(&mut self) -> &mut R {
+        &mut self.rng
+    }
+
+    fn swap_rng(&mut self, rng: &mut R) {
+        std::mem::swap(&mut self.rng, rng);
     }
 }

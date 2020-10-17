@@ -1,6 +1,6 @@
 [package]
 name = "sampling"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Yannick Feld <yannick.feld@uol.de>"]
 edition = "2018"
 
@@ -21,3 +21,7 @@ statrs = "0.13.0"
 serde_support = ["serde"]
 bootstrap = ["average"]
 default = ["serde_support", "bootstrap"]
+
+[[bench]]
+name = "bench"
+harness = false
