@@ -438,13 +438,12 @@ where Hist: Histogram,
     }
 
     /// **panics** if index is invalid
-    #[inline]
+    #[inline(always)]
     fn metropolis_acception_prob(&self, new_bin: usize) -> f64
     {
-        1.0f64.min(
-            (self.log_density[self.old_bin] - self.log_density[new_bin])
-                .exp()
-        )
+        
+        (self.log_density[self.old_bin] - self.log_density[new_bin])
+            .exp()
     }
 }
 
@@ -489,7 +488,7 @@ where Hist: Histogram + HistogramVal<T>,
         }
     }
 
-        /// # Entropic sampling
+    /// # Entropic sampling
     /// * performs `self.entropic_step(energy_fn)` until `condition` is false
     /// * **Note**: you have access to the current step_count (`self.step_count()`)
     /// # Parameter
@@ -510,15 +509,31 @@ where Hist: Histogram + HistogramVal<T>,
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_while<F, G, W>(
         &mut self,
-        energy_fn: F,
+        mut energy_fn: F,
         mut print_fn: G,
         mut condition: W
-    ) where F: Fn(&E) -> Option<T>,
+    ) where F: FnMut(&E) -> Option<T>,
         G: FnMut(&Self) -> (),
         W: FnMut(&Self) -> bool
     {
         while condition(self) {
-            self.entropic_step(&energy_fn);
+            self.entropic_step(&mut energy_fn);
+            print_fn(&self);
+        }
+    }
+
+
+    pub fn entropic_sampling_while_acc<F, G, W>(
+        &mut self,
+        mut energy_fn: F,
+        mut print_fn: G,
+        mut condition: W
+    ) where F: FnMut(&E, &S, &mut T),
+        G: FnMut(&Self) -> (),
+        W: FnMut(&Self) -> bool
+    {
+        while condition(self) {
+            self.entropic_step_acc(&mut energy_fn);
             print_fn(&self);
         }
     }
@@ -579,13 +594,26 @@ where Hist: Histogram + HistogramVal<T>,
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling<F, G>(
         &mut self,
-        energy_fn: F,
+        mut energy_fn: F,
         mut print_fn: G,
-    ) where F: Fn(&E) -> Option<T>,
+    ) where F: FnMut(&E) -> Option<T>,
         G: FnMut(&Self) -> ()
     {
         while self.step_count < self.step_goal {
-            self.entropic_step(&energy_fn);
+            self.entropic_step(&mut energy_fn);
+            print_fn(self);
+        }
+    }
+
+    pub fn entropic_sampling_acc<F, G>(
+        &mut self,
+        mut energy_fn: F,
+        mut print_fn: G,
+    ) where F: FnMut(&E, &S, &mut T),
+        G: FnMut(&Self) -> ()
+    {
+        while self.step_count < self.step_goal {
+            self.entropic_step_acc(&mut energy_fn);
             print_fn(self);
         }
     }
@@ -612,7 +640,17 @@ where Hist: Histogram + HistogramVal<T>,
 
         self.ensemble.m_steps(step_size, &mut self.steps);
 
-        let current_energy = energy_fn(&mut self.ensemble);
+        let current_energy = match energy_fn(&mut self.ensemble)
+        {
+            Some(energy) => energy,
+            None => {
+                self.count_rejected(step_size);
+                self.histogram.count_index(self.old_bin).unwrap();
+                self.ensemble.undo_steps_quiet(&self.steps);
+                return;
+            }
+        };
+
         self.entropic_step_helper(current_energy);
     }
 
@@ -628,32 +666,36 @@ where Hist: Histogram + HistogramVal<T>,
     /// * `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     pub fn entropic_step<F>(
         &mut self,
-        energy_fn: F,
-    )where F: Fn(&E) -> Option<T>
+        mut energy_fn: F,
+    )where F: FnMut(&E) -> Option<T>
     {
+        unsafe{
+            self.entropic_step_unsafe(|e| energy_fn(e))
+        }
+    }
 
+    pub fn entropic_step_acc<F>(
+        &mut self,
+        energy_fn: F,
+    )
+        where F: FnMut(&E, &S, &mut T)
+    {
         self.step_count += 1;
         let step_size = self.get_stepsize();
 
-        self.ensemble.m_steps(step_size, &mut self.steps);
-
-        let current_energy = energy_fn(&mut self.ensemble);
+        let mut current_energy = self.old_energy.clone();
+        self.ensemble.m_steps_acc(
+            step_size,
+            &mut self.steps,
+            &mut current_energy,
+            energy_fn
+        );
         self.entropic_step_helper(current_energy);
     }
 
-    fn entropic_step_helper(&mut self, energy: Option<T>)
+    fn entropic_step_helper(&mut self, current_energy: T)
     {
         let step_size = self.steps.len();
-        let current_energy = match energy
-        {
-            Some(energy) => energy,
-            None => {
-                self.count_rejected(step_size);
-                self.histogram.count_index(self.old_bin).unwrap();
-                self.ensemble.undo_steps_quiet(&self.steps);
-                return;
-            }
-        };
         
         match self.histogram.get_bin_index(&current_energy)
         {
