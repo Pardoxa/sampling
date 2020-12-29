@@ -102,6 +102,41 @@ pub trait MarkovChain<S, Res> {
 
 }
 
+/// For easy sampling of your ensemble
+pub trait SimpleSample{
+    /// # Randomizes self according to  model
+    /// * this is intended for creation of initial sample
+    /// * used in [`simple_sample`](#method.simple_sample)
+    /// and [`simple_sample_vec`](#method.simple_sample_vec)
+    fn randomize(&mut self);
+
+    /// # do the following `times` times:
+    /// 1) `f(self)`
+    /// 2) `self.randomize()`
+    fn simple_sample<F>(&mut self, times: usize, mut f: F)
+        where F: FnMut(&Self) -> ()
+    {
+        for _ in 0..times {
+            f(self);
+            self.randomize();
+        }
+    }
+
+    /// # do the following `times` times:
+    /// 1) `res = f(self)`
+    /// 2) `self.randomize()`
+    /// ## res is collected into Vector
+    fn simple_sample_vec<F, G>(&mut self, times: usize, mut f: F) -> Vec<G>
+        where F: FnMut(&Self) -> G
+    {
+        let mut vec = Vec::with_capacity(times);
+        for _ in 0..times {
+            vec.push(f(self));
+            self.randomize();
+        }
+        vec
+    }
+}
 
 /// # Access internal random number generator
 pub trait HasRng<Rng>
