@@ -357,7 +357,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * if `energy_fn` returns None, the step will always be rejected
     /// * after each acceptance/rejection, `measure` is called
     /// # Difference to [`self.metropolis`](#method.metropolis)
-    /// * Function parameter of energy_fn: &ensemble, old_energy, &[steps] - that
+    /// * Function parameter of energy_fn: &ensemble, old_energy, &\[steps\] - that
     ///  means, you should prefere this, if you can calculate the new energy more efficient 
     /// by accessing the old energy and the information about what the markov step changed
     /// # Note

@@ -18,6 +18,9 @@ pub mod glue;
 #[cfg(feature="bootstrap")]
 pub mod bootstrap;
 
+#[cfg(feature="rewl")]
+pub mod rewl;
+
 pub mod metropolis;
 
 pub use metropolis::*;

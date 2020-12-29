@@ -56,7 +56,7 @@ impl<Hist, R, E, S, Res, Energy> TryFrom<WangLandau1T<Hist, R, E, S, Res, Energy
                 steps: wl.steps,
                 step_res_marker: wl.marker_res,
                 log_density: wl.log_density,
-                old_energy: wl.old_energy.unwrap(),
+                old_energy: wl.old_energy,
                 old_bin: wl.old_bin,
                 total_steps_accepted: 0,
                 total_steps_rejected: 0,

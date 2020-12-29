@@ -1,6 +1,6 @@
 [package]
 name = "sampling"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Yannick Feld <yannick.feld@uol.de>"]
 edition = "2018"
 
@@ -11,6 +11,7 @@ num-traits = "^0.2"
 transpose = "^0.2"
 average = { version = "^0.10", optional = true }
 rand_pcg = { version = "0.2.1", features = ["serde1"]}
+rayon = { version = "^1.5", optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -20,7 +21,8 @@ statrs = "0.13.0"
 [features]
 serde_support = ["serde"]
 bootstrap = ["average"]
-default = ["serde_support", "bootstrap"]
+rewl = ["rayon"]
+default = ["serde_support", "bootstrap", "rewl"]
 
 [[bench]]
 name = "bench"

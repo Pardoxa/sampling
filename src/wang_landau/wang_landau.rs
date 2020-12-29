@@ -6,6 +6,641 @@ use num_traits::{Bounded, ops::wrapping::*, identities::*};
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct WangLandau1TBuilder<Hist, Rng, Ensemble, S, Res, Energy>{
+    ensemble: Ensemble,
+    rng: Rng,
+    marker_res: PhantomData<Res>,
+    steps: Vec<S>,
+    log_f_threshold: f64,
+    step_size: usize,
+    step_count: usize,
+    accepted_steps_total: usize,
+    rejected_steps_total: usize,
+    accepted_steps_current: usize,
+    rejected_steps_current: usize,
+    old_bin: usize,
+    hist: Hist,
+    energy: Option<Energy>,
+    check_refine_every: usize,
+    log_f: f64
+}
+
+impl<Hist, R, Ensemble, S, Res, Energy> WangLandau1TBuilder<Hist, R, Ensemble, S, Res, Energy> 
+where 
+    R: Rng,
+    Ensemble: MarkovChain<S, Res>,
+    Energy: Clone,
+    Hist: Histogram + HistogramVal<Energy>
+{
+    /// # Create new WangLandau1TBuilder
+    /// * `ensemble`: ensemble to be explored
+    /// * `rng` random number generator used
+    /// * `histogram`: Energy interval that should be sampled
+    /// * `step_size`: step size for markov chain
+    /// * `log_f_threshold`: Thrshold for the Wang Landau simulation
+    /// * `check_refine_every`: how often to check, if every bin in the histogram was hit.
+    /// Needs to be at least 1. Good values depend on the problem at hand
+    pub fn new(
+        log_f_threshold: f64,
+        ensemble: Ensemble,
+        rng: R,
+        step_size: usize,
+        histogram: Hist,
+        check_refine_every: usize
+
+    ) -> Result<Self, WangLandauErrors>
+    {
+
+        if log_f_threshold <= 0.0 || !log_f_threshold.is_finite()
+        {
+            return Err(WangLandauErrors::InvalidLogFThreshold);
+        }
+        if step_size == 0
+        {
+            return Err(WangLandauErrors::InvalidStepSize);
+        }
+        Ok(
+            Self{
+                ensemble,
+                rng,
+                marker_res: PhantomData::<Res>,
+                energy: None,
+                hist: histogram,
+                step_count: 0,
+                accepted_steps_current: 0,
+                accepted_steps_total: 0,
+                rejected_steps_total: 0,
+                rejected_steps_current: 0,
+                old_bin: usize::MAX,
+                steps: Vec::with_capacity(step_size),
+                step_size,
+                log_f_threshold: log_f_threshold,
+                check_refine_every,
+                log_f: 1.0
+            }
+        )
+    }
+
+    /// # Create new WangLandau1TBuilder
+    /// * `ensemble`: ensemble to be explored
+    /// * `rng` random number generator used
+    /// * `histogram`: Energy interval that should be sampled
+    /// ## Default settings:
+    /// * `step_size = 1`
+    /// * `log_f_threshold = 1e-5`
+    /// * `check_refine_every = 1000`  
+    pub fn new_default(
+        ensemble: Ensemble,
+        rng: R,
+        histogram: Hist,
+    ) -> Self
+    {
+        
+        Self{
+            ensemble,
+            rng,
+            marker_res: PhantomData::<Res>,
+            energy: None,
+            hist: histogram,
+            step_count: 0,
+            accepted_steps_current: 0,
+            accepted_steps_total: 0,
+            rejected_steps_total: 0,
+            rejected_steps_current: 0,
+            old_bin: usize::MAX,
+            steps: Vec::with_capacity(1),
+            step_size: 1,
+            log_f_threshold: 1e-5,
+            check_refine_every: 1000,
+            log_f: 1.0
+        }
+    }
+
+    /// # Set the treshhold for log_f
+    /// Threshold has to be larger than 0 and has to be finite!
+    pub fn log_f_threshold(&mut self, log_f_threshold: f64) -> Result<&mut Self, WangLandauErrors>
+    {
+        if log_f_threshold <= 0.0 || !log_f_threshold.is_finite()
+        {
+            return Err(WangLandauErrors::InvalidLogFThreshold);
+        }
+        self.log_f_threshold = log_f_threshold;
+        Ok(self)
+    }
+
+    pub fn get_log_f_threshold(&self) -> f64 {
+        self.log_f_threshold
+    }
+
+    pub fn step_size(&mut self, step_size: usize) -> Result<&mut Self, WangLandauErrors>
+    {
+        if step_size == 0
+        {
+            return Err(WangLandauErrors::InvalidStepSize);
+        }
+        self.step_size = step_size;
+        self.steps = Vec::with_capacity(step_size);
+        Ok(self)
+    }
+
+    pub fn check_refine_every(&mut self, check_refine_every: usize) -> Result<&mut Self, WangLandauErrors>
+    {
+        if check_refine_every == 0
+        {
+            return Err(WangLandauErrors::InvalidStepSize);
+        }
+        self.check_refine_every = check_refine_every;
+        Ok(self)
+    }
+
+    pub fn try_build<F>(mut self, energy_fn: F) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: FnOnce(&mut Ensemble) -> Option<Energy>,
+    {
+        self.energy = energy_fn(&mut self.ensemble);
+        self.build()
+    }
+
+    fn build(self) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    {
+        if let Some(e) = &self.energy {
+            if let Ok(index) =  self.hist.get_bin_index(e){
+                return Ok(
+                    WangLandau1T{
+                        log_density: vec![0.0; self.hist.bin_count()],
+                        rng: self.rng,
+                        ensemble: self.ensemble,
+                        hist: self.hist,
+                        step_size: self.step_size,
+                        step_count: self.step_count,
+                        steps: self.steps,
+                        accepted_steps_total: self.accepted_steps_total,
+                        accepted_steps_current: self.accepted_steps_current,
+                        rejected_steps_current: self.rejected_steps_current,
+                        rejected_steps_total: self.rejected_steps_total,
+                        check_refine_every: self.check_refine_every,
+                        log_f: self.log_f,
+                        log_f_threshold: self.log_f_threshold,
+                        marker_res: self.marker_res,
+                        old_bin: index,
+                        mode: WangLandauMode::RefineOriginal,
+                        old_energy: self.energy.unwrap(),
+                    }
+                );
+            }
+        };
+        Err(self)
+    }
+
+    fn count_accepted(&mut self){
+        self.accepted_steps_current = 
+            self.accepted_steps_current.saturating_add(1);
+        self.accepted_steps_total = 
+            self.accepted_steps_total.saturating_add(1);
+    }
+
+    fn count_rejected(&mut self){
+        self.rejected_steps_current = 
+            self.rejected_steps_current.saturating_add(1);
+        self.rejected_steps_total = 
+            self.rejected_steps_total.saturating_add(1);
+    }
+
+    fn init<F>(
+        &mut self,
+        mut energy_fn: F,
+        step_limit: Option<u64>
+    ) -> Result<(), WangLandauErrors>
+        where F: FnMut(&mut Ensemble) -> Option<Energy>
+    {
+        self.energy = energy_fn(&mut self.ensemble);
+        if self.energy.is_some(){
+            return Ok(());
+        }
+
+        match step_limit {
+            None => {
+                loop {
+                    self.ensemble.m_steps_quiet(self.step_size);
+                    self.energy = energy_fn(&mut self.ensemble);
+        
+                    if self.energy.is_some(){
+                        self.count_accepted();
+                        return Ok(());
+                    }
+                    self.count_rejected();
+                }
+            },
+            Some(limit) => {
+                for _ in 0..limit {
+                    self.ensemble.m_steps_quiet(self.step_size);
+                    self.energy = energy_fn(&mut self.ensemble);
+        
+                    if self.energy.is_some(){
+                        self.count_accepted();
+                        return Ok(());
+                    }
+                    self.count_rejected();
+                }
+                Err(WangLandauErrors::InitFailed)
+            }
+        }
+    }
+
+    fn greedy_helper<F, H, J>(
+        &mut self,
+        old_distance: &mut J,
+        mut energy_fn: F,
+        distance_fn: H,
+    )   where F: FnMut(&mut Ensemble) -> Option<Energy>,
+            H: Fn(&Hist, Energy) -> J,
+            J: PartialOrd
+    {
+        self.ensemble
+            .m_steps(self.step_size, &mut self.steps);
+
+        
+        if let Some(energy) = energy_fn(&mut self.ensemble) {
+            let distance = distance_fn(&self.hist, energy.clone());
+            if distance <= *old_distance {
+                self.energy = Some(energy);
+                *old_distance = distance;
+                self.count_accepted();
+                return;
+            }
+        }
+
+        self.count_rejected();
+        self.ensemble
+            .undo_steps_quiet(&self.steps);
+        
+    }
+
+    fn greedy_helper_acc<F, H, J>(
+        &mut self,
+        old_distance: &mut J,
+        energy_fn: F,
+        current_energy: &mut Energy,
+        distance_fn: H,
+    )   where F: FnMut(&Ensemble, &S, &mut Energy),
+            H: Fn(&Hist, Energy) -> J,
+            J: PartialOrd
+    {
+        self.ensemble
+            .m_steps_acc(self.step_size, &mut self.steps, current_energy, energy_fn);
+
+        
+        let distance = distance_fn(&self.hist, current_energy.clone());
+        if distance <= *old_distance {
+            self.energy = Some(current_energy.clone());
+            *old_distance = distance;
+            self.count_accepted();
+        }else {
+            self.count_rejected();
+            self.ensemble
+                .undo_steps_quiet(&self.steps);
+        }
+        
+        
+    }
+
+    /// # Find a valid starting Point
+    /// * if the ensemble is already at a valid starting point,
+    /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
+    /// * Uses a greedy heuristik. Performs markov steps. If that brought us closer to the target interval,
+    /// the step is accepted. Otherwise it is rejected
+    /// # Parameter
+    /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
+    /// a valid state is found or forever
+    /// * `energy_fn` function calculating `Some(energy)` of the system
+    /// or rather the Parameter of which you wish to obtain the probability distribution.
+    ///  Has to be the same function as used for the wang landau simulation later.
+    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
+    /// will always be rejected 
+    pub fn build_with_greedy_heuristic<F>(
+        mut self,
+        mut energy_fn: F,
+        step_limit: Option<u64>,
+    ) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: FnMut(&mut Ensemble) -> Option<Energy>
+    {
+        if let Err(_) = self.init(&mut energy_fn, step_limit)
+        {
+           return Err(self)
+        };
+        let mut old_distance = self.hist
+            .distance(self.energy.as_ref().unwrap().clone());
+        let mut step_count = 0;
+        while old_distance != 0.0 {
+            self.greedy_helper(
+                &mut old_distance,
+                &mut energy_fn,
+                Hist::distance
+            );
+            if let Some(limit) = step_limit {
+                if limit == step_count{
+                    break;
+                }
+                step_count += 1;
+            }
+        }
+        self.build()
+    }
+
+    pub fn build_with_greedy_heuristic_acc<F, G>(
+        mut self,
+        mut energy_fn: F,
+        mut energy_fn_acc: G,
+        step_limit: Option<u64>,
+    ) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: FnMut(&mut Ensemble) -> Option<Energy>,
+        G: FnMut(&Ensemble, &S, &mut Energy),
+    {
+        if let Err(_) = self.init(&mut energy_fn, step_limit)
+        {
+           return Err(self)
+        };
+        let mut energy = self.energy
+            .as_ref()
+            .unwrap()
+            .clone();
+        let mut old_distance = self.hist
+            .distance(energy.clone());
+        let mut step_count = 0;
+        while old_distance != 0.0 {
+            self.greedy_helper_acc(
+                &mut old_distance,
+                &mut energy_fn_acc,
+                &mut energy,
+                Hist::distance,
+            );
+            if let Some(limit) = step_limit {
+                if limit == step_count{
+                    break;
+                }
+                step_count += 1;
+            }
+        }
+        self.build()
+    }
+
+    /// # Find a valid starting Point
+    /// * if the ensemble is already at a valid starting point,
+    /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
+    /// * Uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
+    /// or it is in an interval closer to the target interval
+    /// # Parameter
+    /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
+    /// a valid state is found or forever
+    /// * `energy_fn` function calculating `Some(energy)` of the system
+    /// or rather the Parameter of which you wish to obtain the probability distribution.
+    ///  Has to be the same function as used for the wang landau simulation later.
+    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
+    /// will always be rejected 
+    pub fn build_with_interval_heuristik<F>(
+        mut self,
+        overlap: usize,
+        mut energy_fn: F,
+        step_limit: Option<u64>,
+    ) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: FnMut(&mut Ensemble) -> Option<Energy>,
+        Hist: HistogramIntervalDistance<Energy>
+    {
+        let overlap = overlap.max(1);
+        if let Err(_) = self.init(&mut energy_fn, step_limit)
+        {
+           return Err(self)
+        };
+        let energy = self.energy.as_ref().unwrap().clone();
+        let mut old_dist = self.hist
+            .interval_distance_overlap(
+                energy,
+                overlap
+            );
+        
+        let dist = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
+        let mut step_count = 0;
+        while old_dist != 0 {
+            self.greedy_helper(
+                &mut old_dist,
+                &mut energy_fn,
+                dist
+            );
+            if let Some(limit) = step_limit {
+                if limit == step_count{
+                    break;
+                }
+                step_count += 1;
+            }
+        }
+        self.build()
+    }
+
+    pub fn build_with_interval_heuristik_acc<F, G>(
+        mut self,
+        overlap: usize,
+        energy_fn: F,
+        mut energy_fn_acc: G,
+        step_limit: Option<u64>,
+    ) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: FnMut(&mut Ensemble) -> Option<Energy>,
+        Hist: HistogramIntervalDistance<Energy>,
+        G: FnMut(&Ensemble, &S, &mut Energy),
+    {
+        let overlap = overlap.max(1);
+        if let Err(_) = self.init(energy_fn, step_limit)
+        {
+           return Err(self)
+        };
+        let mut energy = self.energy.as_ref().unwrap().clone();
+        let mut old_dist = self.hist
+            .interval_distance_overlap(
+                energy.clone(),
+                overlap
+            );
+        
+        let dist = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
+        let mut step_count = 0;
+        while old_dist != 0 {
+            self.greedy_helper_acc(
+                &mut old_dist,
+                &mut energy_fn_acc,
+                &mut energy,
+                dist,
+            );
+            if let Some(limit) = step_limit {
+                if limit == step_count{
+                    break;
+                }
+                step_count += 1;
+            }
+        }
+        self.build()
+    }
+    
+    /// # Find a valid starting Point
+    /// * if the ensemble is already at a valid starting point,
+    /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
+    /// * `overlap` - see trait HistogramIntervalDistance. 
+    /// Should be greater than 0 and smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
+    /// * `mid` - should be something like `128u8`, `0i8` or `0i16`. It is very unlikely that using a type with more than 16 bit makes sense for mid
+    /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
+    /// a valid state is found or forever
+    /// * alternates between greedy and interval heuristik everytime a wrapping counter passes `mid` or `U::min_value()`
+    /// * I recommend using this heuristik, if you do not know which one to use
+    /// # Parameter
+    /// * `energy_fn` function calculating `Some(energy)` of the system
+    /// or rather the Parameter of which you wish to obtain the probability distribution.
+    ///  Has to be the same function as used for the wang landau simulation later.
+    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
+    /// will always be rejected 
+    pub fn build_with_mixed_heuristik<F, U>
+    (
+        mut self,
+        overlap: usize,
+        mid: U,
+        mut energy_fn: F,
+        step_limit: Option<u64>
+    ) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: FnMut(&mut Ensemble) -> Option<Energy>,
+        Hist: HistogramIntervalDistance<Energy>,
+        U: One + Bounded + WrappingAdd + Eq + PartialOrd
+    {
+        let overlap = overlap.max(1);
+        if let Err(_) = self.init(&mut energy_fn, step_limit) {
+            return Err(self);
+        }
+
+        if self.hist
+            .is_inside(
+                self.energy
+                    .as_ref()
+                    .unwrap()
+            )
+        {
+            return self.build();
+        }    
+        
+        let mut old_dist = f64::INFINITY;
+        let mut old_dist_interval = usize::MAX;
+        let mut counter: U = U::min_value();
+        let min_val = U::min_value();
+        let one = U::one();
+        let dist_interval = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
+        let mut step_count = 0;
+        loop {
+            let current_energy = self.energy.as_ref().unwrap().clone();
+            if counter == min_val {
+                old_dist = self.hist.distance(current_energy);
+            }else if counter == mid {
+                old_dist_interval = dist_interval(&self.hist, current_energy);
+            }
+            if counter < mid {
+                self.greedy_helper(
+                    &mut old_dist,
+                    &mut energy_fn,
+                    Hist::distance,
+                );
+                if old_dist == 0.0 {
+                    break;
+                }
+            } else {
+                self.greedy_helper(
+                    &mut old_dist_interval,
+                    &mut energy_fn,
+                    dist_interval,
+                );
+                if old_dist_interval == 0 {
+                    break;
+                }
+            }
+            counter = counter.wrapping_add(&one);
+            if let Some(limit) = step_limit {
+                if limit == step_count{
+                    break;
+                }
+                step_count += 1;
+            }
+        }
+        self.build()
+    }
+
+    pub fn build_with_mixed_heuristik_acc<F, U, G>
+    (
+        mut self,
+        overlap: usize,
+        mid: U,
+        energy_fn: F,
+        mut energy_fn_acc: G,
+        step_limit: Option<u64>
+    ) -> Result<WangLandau1T<Hist, R, Ensemble, S, Res, Energy>, Self>
+    where F: Fn(&mut Ensemble) -> Option<Energy>,
+        Hist: HistogramIntervalDistance<Energy>,
+        U: One + Bounded + WrappingAdd + Eq + PartialOrd,
+        G: FnMut(&Ensemble, &S, &mut Energy),
+    {
+        let overlap = overlap.max(1);
+        if let Err(_) = self.init(energy_fn, step_limit) {
+            return Err(self);
+        }
+
+        let mut energy = self.energy.as_ref().unwrap().clone();
+        if self.hist.is_inside(&energy)
+        {
+            return self.build();
+        }    
+        
+        let mut old_dist = f64::INFINITY;
+        let mut old_dist_interval = usize::MAX;
+        let mut counter: U = U::min_value();
+        let min_val = U::min_value();
+        let one = U::one();
+        let dist_interval = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
+        let mut step_count = 0;
+        loop {
+            let current_energy = self.energy.as_ref().unwrap().clone();
+            if counter == min_val {
+                old_dist = self.hist.distance(current_energy);
+            }else if counter == mid {
+                old_dist_interval = dist_interval(&self.hist, current_energy);
+            }
+            if counter < mid {
+                self.greedy_helper_acc(
+                    &mut old_dist,
+                    &mut energy_fn_acc,
+                    &mut energy,
+                    Hist::distance,
+                );
+                if old_dist == 0.0 {
+                    break;
+                }
+            } else {
+                self.greedy_helper_acc(
+                    &mut old_dist_interval,
+                    &mut energy_fn_acc,
+                    &mut energy,
+                    dist_interval,
+                );
+                if old_dist_interval == 0 {
+                    break;
+                }
+            }
+            counter = counter.wrapping_add(&one);
+            if let Some(limit) = step_limit {
+                if limit == step_count{
+                    break;
+                }
+                step_count += 1;
+            }
+        }
+        self.build()
+    }
+}
+
 /// # The 1/t Wang Landau approach comes from this paper
 /// > R. E. Belardinelli and V. D. Pereyra,
 /// > Fast algorithm to calculate density of states,”
@@ -29,12 +664,12 @@ pub struct WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>{
     pub(crate) step_size: usize,
     step_count: usize,
     accepted_steps_total: usize,
-    recected_steps_total: usize,
+    rejected_steps_total: usize,
     accepted_steps_current: usize,
-    recected_steps_current: usize,
+    rejected_steps_current: usize,
     pub(crate) old_bin: usize,
     pub(crate) hist: Hist,
-    pub(crate) old_energy: Option<Energy>,
+    pub(crate) old_energy: Energy,
     check_refine_every: usize,
 }
 
@@ -83,9 +718,9 @@ impl<Hist, R, E, S, Res, Energy> WangLandau
             writer,
             "#total_steps_accepted: {}\n#total_steps_rejected: {}\n#current_accepted_steps: {}\n#current_rejected_steps: {}",
             self.accepted_steps_total,
-            self.recected_steps_total,
+            self.rejected_steps_total,
             self.accepted_steps_current,
-            self.recected_steps_current
+            self.rejected_steps_current
         )
     }
 
@@ -103,31 +738,12 @@ impl<Hist, R, E, S, Res, Energy> WangLandau
 
     #[inline(always)]
     fn total_steps_rejected(&self) -> usize {
-        self.recected_steps_total
+        self.rejected_steps_total
     }
 
     #[inline(always)]
     fn total_steps_accepted(&self) -> usize {
         self.accepted_steps_total
-    }
-}
-
-impl<Hist, R, E, S, Res, Energy> 
-    WangLandau1T<Hist, R, E, S, Res, Energy>
-where 
-    Hist: Histogram + HistogramVal<Energy>
-{
-    /// # Check if `self` is initialized
-    /// * if this returns true, you can begin the WangLandau simulation
-    /// * otherwise call one of the `self.init*` methods
-    pub fn is_initialized(&self) -> bool
-    {
-        match &self.old_energy{
-            None => false,
-            Some(e) => {
-                self.hist.is_inside(e)
-            }
-        }
     }
 }
 
@@ -151,7 +767,7 @@ impl <Hist, R, E, S, Res, Energy> WangLandauEnergy<Energy>
 {
     #[inline(always)]
     fn energy(&self) -> Option<&Energy> {
-        self.old_energy.as_ref()
+        Some(&self.old_energy)
     }
 }
 
@@ -169,13 +785,13 @@ impl<Hist, R, E, S, Res, Energy>
 {
     fn fraction_accepted_total(&self) -> f64
     {
-        let sum = self.accepted_steps_total + self.recected_steps_total;
+        let sum = self.accepted_steps_total + self.rejected_steps_total;
         self.accepted_steps_total as f64 / sum as f64
     }
     
     fn fraction_accepted_current(&self) -> f64
     {
-        let total = self.accepted_steps_current + self.recected_steps_current;
+        let total = self.accepted_steps_current + self.rejected_steps_current;
         if total == 0 {
             f64::NAN
         } else {
@@ -209,314 +825,6 @@ where
     /// * `check_refine_every`: how often to check, if every bin in the histogram was hit.
     /// Needs to be at least 1. Good values depend on the problem at hand, but if you are 
     /// unsure, you can start with a value like 1000 
-    pub fn new(
-        log_f_threshold: f64,
-        ensemble: E,
-        rng: R,
-        step_size: usize,
-        histogram: Hist,
-        check_refine_every: usize
-    )-> Result<Self, WangLandauErrors>
-    {
-        if !log_f_threshold.is_finite() || log_f_threshold.is_sign_negative() 
-        {
-            return Err(WangLandauErrors::InvalidLogFThreshold);
-        }
-        else if check_refine_every == 0 {
-            return Err(WangLandauErrors::CheckRefineEvery0)
-        }
-        let log_density = vec![0.0; histogram.bin_count()];
-        let steps = Vec::with_capacity(step_size);
-
-        Ok(
-            Self{
-                ensemble,
-                step_count: 0,
-                step_size,
-                hist: histogram,
-                rng,
-                marker_res: PhantomData::<Res>,
-                log_f: 1.0,
-                log_density,
-                log_f_threshold,
-                mode: WangLandauMode::RefineOriginal,
-                recected_steps_current: 0,
-                recected_steps_total: 0,
-                accepted_steps_current: 0,
-                accepted_steps_total: 0,
-                old_bin: usize::MAX,
-                old_energy: None,
-                check_refine_every,
-                steps,
-            }
-        )
-    }
-
-    fn init<F>(
-        &mut self,
-        energy_fn: F,
-        step_limit: Option<u64>
-    ) -> Result<(), WangLandauErrors>
-        where F: Fn(&mut E) -> Option<Energy>
-    {
-        self.old_energy = energy_fn(&mut self.ensemble);
-        if self.old_energy.is_some(){
-            return Ok(());
-        }
-
-        match step_limit {
-            None => {
-                loop {
-                    self.ensemble.m_steps_quiet(self.step_size);
-                    self.old_energy = energy_fn(&mut self.ensemble);
-        
-                    if self.old_energy.is_some(){
-                        self.count_accepted();
-                        return Ok(());
-                    }
-                    self.count_rejected();
-                }
-            },
-            Some(limit) => {
-                for _ in 0..limit {
-                    self.ensemble.m_steps_quiet(self.step_size);
-                    self.old_energy = energy_fn(&mut self.ensemble);
-        
-                    if self.old_energy.is_some(){
-                        self.count_accepted();
-                        return Ok(());
-                    }
-                    self.count_rejected();
-                }
-                Err(WangLandauErrors::InitFailed)
-            }
-        }
-    }
-
-    fn greedy_helper<F, H, J>(
-        &mut self,
-        old_distance: &mut J,
-        energy_fn: F,
-        distance_fn: H,
-    )   where F: Fn(&mut E) -> Option<Energy> + Copy,
-            H: Fn(&Hist, Energy) -> J,
-            J: PartialOrd
-    {
-        self.ensemble
-            .m_steps(self.step_size, &mut self.steps);
-
-        
-        if let Some(energy) = energy_fn(&mut self.ensemble) {
-            let distance = distance_fn(&self.hist, energy.clone());
-            if distance <= *old_distance {
-                self.old_energy = Some(energy);
-                *old_distance = distance;
-                self.count_accepted();
-                return;
-            }
-        }
-
-        self.count_rejected();
-        self.ensemble
-            .undo_steps_quiet(&self.steps);
-        
-    }
-
-    /// # Find a valid starting Point
-    /// * if the ensemble is already at a valid starting point,
-    /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
-    /// * Uses a greedy heuristik. Performs markov steps. If that brought us closer to the target interval,
-    /// the step is accepted. Otherwise it is rejected
-    /// # Parameter
-    /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
-    /// a valid state is found or forever
-    /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    ///  Has to be the same function as used for the wang landau simulation later.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
-    /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
-    pub fn init_greedy_heuristic<F>(
-        &mut self,
-        energy_fn: F,
-        step_limit: Option<u64>,
-    ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<Energy>,
-    {
-        self.init(&energy_fn, step_limit)?;
-        let mut old_distance = self.hist
-            .distance(self.old_energy_clone());
-        let mut step_count = 0;
-        while old_distance != 0.0 {
-            self.greedy_helper(
-                &mut old_distance,
-                &energy_fn,
-                Hist::distance
-            );
-            if let Some(limit) = step_limit {
-                if limit == step_count{
-                    return Err(WangLandauErrors::InitFailed);
-                }
-                step_count += 1;
-            }
-        }
-        self.end_init();
-        Ok(())
-    }
-
-    /// # Find a valid starting Point
-    /// * if the ensemble is already at a valid starting point,
-    /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
-    /// * Uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
-    /// or it is in an interval closer to the target interval
-    /// # Parameter
-    /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
-    /// a valid state is found or forever
-    /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    ///  Has to be the same function as used for the wang landau simulation later.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
-    /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
-    pub fn init_interval_heuristik<F>(
-        &mut self,
-        overlap: usize,
-        energy_fn: F,
-        step_limit: Option<u64>,
-    ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<Energy>,
-        Hist: HistogramIntervalDistance<Energy>
-    {
-        let overlap = overlap.max(1);
-        self.init(&energy_fn, step_limit)?;
-        let mut old_dist = self.hist
-            .interval_distance_overlap(
-                self.old_energy_clone(),
-                overlap
-            );
-        
-        let dist = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
-        let mut step_count = 0;
-        while old_dist != 0 {
-            self.greedy_helper(
-                &mut old_dist,
-                &energy_fn,
-                dist
-            );
-            if let Some(limit) = step_limit {
-                if limit == step_count{
-                    return Err(WangLandauErrors::InitFailed);
-                }
-                step_count += 1;
-            }
-        }
-        self.end_init();
-        Ok(())
-    }
-
-    /// # Find a valid starting Point
-    /// * if the ensemble is already at a valid starting point,
-    /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
-    /// * `overlap` - see trait HistogramIntervalDistance. 
-    /// Should be greater than 0 and smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
-    /// * `mid` - should be something like `128u8`, `0i8` or `0i16`. It is very unlikely that using a type with more than 16 bit makes sense for mid
-    /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
-    /// a valid state is found or forever
-    /// * alternates between greedy and interval heuristik everytime a wrapping counter passes `mid` or `U::min_value()`
-    /// * I recommend using this heuristik, if you do not know which one to use
-    /// # Parameter
-     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    ///  Has to be the same function as used for the wang landau simulation later.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
-    /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
-    pub fn init_mixed_heuristik<F, U>
-    (
-        &mut self,
-        overlap: usize,
-        mid: U,
-        energy_fn: F,
-        step_limit: Option<u64>
-    ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<Energy>,
-        Hist: HistogramIntervalDistance<Energy>,
-        U: One + Bounded + WrappingAdd + Eq + PartialOrd
-    {
-        let overlap = overlap.max(1);
-        self.init(&energy_fn, step_limit)?;
-        if self.hist
-            .is_inside(
-                self.old_energy
-                    .as_ref()
-                    .unwrap()
-            )
-        {
-            self.end_init();
-            return Ok(());
-        }    
-        
-        let mut old_dist = f64::INFINITY;
-        let mut old_dist_interval = usize::MAX;
-        let mut counter: U = U::min_value();
-        let min_val = U::min_value();
-        let one = U::one();
-        let dist_interval = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
-        let mut step_count = 0;
-        loop {
-            let current_energy = self.old_energy_clone();
-            if counter == min_val {
-                old_dist = self.hist.distance(current_energy);
-            }else if counter == mid {
-                old_dist_interval = dist_interval(&self.hist, current_energy);
-            }
-            if counter < mid {
-                self.greedy_helper(
-                    &mut old_dist,
-                    &energy_fn,
-                    Hist::distance,
-                );
-                if old_dist == 0.0 {
-                    break;
-                }
-            } else {
-                self.greedy_helper(
-                    &mut old_dist_interval,
-                    &energy_fn,
-                    dist_interval,
-                );
-                if old_dist_interval == 0 {
-                    break;
-                }
-            }
-            counter = counter.wrapping_add(&one);
-            if let Some(limit) = step_limit {
-                if limit == step_count{
-                    return Err(WangLandauErrors::InitFailed);
-                }
-                step_count += 1;
-            }
-        }
-        self.end_init();
-        Ok(())
-    }
-
-    fn end_init(&mut self)
-    {
-        self.old_bin = self.hist
-            .get_bin_index( 
-                self.old_energy
-                    .as_ref()
-                    .unwrap()
-            ).expect("Error in heuristic - old bin invalid");
-    }
-
-    fn old_energy_clone(&self) -> Energy {
-        self.old_energy
-            .as_ref()
-            .unwrap()
-            .clone()
-    }
 
 
     fn count_accepted(&mut self){
@@ -527,10 +835,10 @@ where
     }
 
     fn count_rejected(&mut self){
-        self.recected_steps_current = 
-            self.recected_steps_current.saturating_add(1);
-        self.recected_steps_total = 
-            self.recected_steps_total.saturating_add(1);
+        self.rejected_steps_current = 
+            self.rejected_steps_current.saturating_add(1);
+        self.rejected_steps_total = 
+            self.rejected_steps_total.saturating_add(1);
     }
 
 
@@ -544,7 +852,7 @@ where
                 if self.step_count % self.check_refine_every == 0 
                     && !self.hist.any_bin_zero() 
                 {
-                    self.recected_steps_current = 0;
+                    self.rejected_steps_current = 0;
                     self.accepted_steps_current = 0;
                     let ref_1_t = self.log_f_1_t();
                     self.log_f *= 0.5;
@@ -559,21 +867,11 @@ where
     }
 
 
-    fn wl_step_helper(&mut self, energy: Option<Energy>)
+    fn wl_step_helper(&mut self, energy: Energy)
     {
-        let current_energy = match energy 
-        {
-            Some(energy) => energy,
-            None => {
-                self.count_rejected();
-                self.hist.count_index(self.old_bin).unwrap();
-                self.log_density[self.old_bin] += self.log_f;
-                self.ensemble.undo_steps_quiet(&self.steps);
-                return;
-            }
-        };
+
         
-        match self.hist.get_bin_index(&current_energy)
+        match self.hist.get_bin_index(&energy)
         {
             Ok(current_bin) => {
                 let accept_prob = self.metropolis_acception_prob( current_bin);
@@ -586,7 +884,7 @@ where
                     // accept step
                     self.count_accepted();
                     
-                    self.old_energy = Some(current_energy);
+                    self.old_energy = energy;
                     self.old_bin = current_bin;
                 }
             },
@@ -642,10 +940,6 @@ where
         mut energy_fn: F,
     )where F: FnMut(&mut E) -> Option<Energy>
     {
-        debug_assert!(
-            self.old_energy.is_some(),
-            "Error - self.old_energy invalid - Did you forget to call one of the `self.init*` members for initialization?"
-        );
 
         self.step_count += 1;
 
@@ -653,7 +947,18 @@ where
         self.ensemble.m_steps(self.step_size, &mut self.steps);
         
         self.check_refine();
-        let current_energy = energy_fn(&mut self.ensemble);
+
+        let current_energy = match energy_fn(&mut self.ensemble) 
+        {
+            Some(energy) => energy,
+            None => {
+                self.count_rejected();
+                self.hist.count_index(self.old_bin).unwrap();
+                self.log_density[self.old_bin] += self.log_f;
+                self.ensemble.undo_steps_quiet(&self.steps);
+                return;
+            }
+        };
         
         self.wl_step_helper(current_energy);
     }
@@ -672,16 +977,10 @@ where
     )
     where F: FnMut(&E, &S, &mut Energy)
     {
-        debug_assert!(
-            self.old_energy.is_some(),
-            "Error - self.old_energy invalid - Did you forget to call one of the `self.init*` members for initialization?"
-        );
 
         self.step_count += 1;
 
         let mut new_energy = self.old_energy
-            .as_ref()
-            .unwrap()
             .clone();
 
         self.ensemble
@@ -694,7 +993,7 @@ where
         
         self.check_refine();
         
-        self.wl_step_helper(Some(new_energy));
+        self.wl_step_helper(new_energy);
 
     }
 
@@ -816,7 +1115,7 @@ mod tests {
         let mut rng = Pcg64Mcg::seed_from_u64(2239790);
         let ensemble = CoinFlipSequence::new(100, Pcg64Mcg::from_rng(&mut rng).unwrap());
         let histogram = HistogramFast::new_inclusive(0, 100).unwrap();
-        let mut wl= WangLandau1T::new(
+        let wl_builder= WangLandau1TBuilder::new(
             0.0075,
             ensemble,
             rng,
@@ -825,12 +1124,13 @@ mod tests {
             30
         ).unwrap();
 
-        wl.init_mixed_heuristik(
+        let mut wl = wl_builder.build_with_mixed_heuristik_acc(
             3,
             6400i16,
             |e|  {
                 Some(e.head_count())
             },
+            CoinFlipSequence::update_head_count,
             None
         ).unwrap();
 

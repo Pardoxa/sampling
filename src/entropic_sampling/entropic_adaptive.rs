@@ -344,7 +344,7 @@ where Hist: Histogram,
 
     /// # Estimate accept/reject statistics
     /// * contains list of estimated probabilities for accepting a step of corresponding step size
-    /// * list[i] corresponds to step size `i + self.min_step`
+    /// * list\[i\] corresponds to step size `i + self.min_step`
     /// * O(trial_step_max - trial_step_min)
     pub fn estimate_statistics(&self) -> Result<Vec<f64>, WangLandauErrors>
     {

@@ -28,7 +28,10 @@ pub enum WangLandauErrors{
     NotInitialized,
 
     /// Step limit exceeded without finding valid starting point
-    InitFailed
+    InitFailed,
+
+    /// Step size 0 not allowed!
+    InvalidStepSize,
 }
 
 /// Look at the paper

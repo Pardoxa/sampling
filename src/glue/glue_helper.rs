@@ -28,7 +28,7 @@ impl From<HistErrors> for GlueErrors{
 
 /// # Normalize log10 probability density
 /// * input: Slice containing log10 of (non normalized) probability density
-/// * afterwards, it will be normalized, i.e., sum_i 10^log10_density[i] ≈ 1
+/// * afterwards, it will be normalized, i.e., sum_i 10^log10_density\[i\] ≈ 1
 pub fn norm_log10_sum_to_1(log10_density: &mut[f64]){
     // prevent errors due to small or very large numbers
     subtract_max(log10_density);

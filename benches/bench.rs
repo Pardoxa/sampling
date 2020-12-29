@@ -8,8 +8,8 @@ pub fn benchmark(c: &mut Criterion){
     let rng2 = Pcg64::seed_from_u64(23);
     let sequence = CoinFlipSequence::new(10, rng);
     let hist = HistUsizeFast::new_inclusive(0, 10).unwrap();
-    let mut wl = WangLandau1T::new(0.000001, sequence, rng2, 500, hist, 1000000).unwrap();
-    wl.init_greedy_heuristic(
+    let wl = WangLandau1TBuilder::new(0.000001, sequence, rng2, 500, hist, 1000000).unwrap();
+    let mut wl = wl.build_with_greedy_heuristic(
         |s| Some(s.head_count()),
         None
     ).unwrap();
@@ -64,10 +64,10 @@ pub fn bench_wl_step(c: &mut Criterion){
     
     // Now the Wang Landau simulation. First create the struct 
     // (here as Vector, since we want to use 3 overlapping intervals)
-    let mut wl_list: Vec<_> = ensembles.into_iter()
+    let wl_list: Vec<_> = ensembles.into_iter()
         .zip(hist_list.into_iter())
         .map(|(ensemble, histogram)| {
-            WangLandau1T::new(
+            WangLandau1TBuilder::new(
                 0.0000000000000000001, // arbitrary threshold for `log_f`(see paper), 
                          // you have to try what is good for your model
                 ensemble,
@@ -82,15 +82,15 @@ pub fn bench_wl_step(c: &mut Criterion){
     // as the simulation has to start in the interval one wants to measure.
     // Since the energy landscape is quite simple, here a greedy approach is good enough.
     
-    wl_list.iter_mut()
-        .for_each(|wl|{
-            wl.init_greedy_heuristic(
+    let mut wl_list: Vec<_> = wl_list.into_iter()
+        .map(|wl|{
+            wl.build_with_greedy_heuristic(
                 |coin_seq| Some(coin_seq.head_count()),
                 Some(10_000) // if no valid state is found after 10_000 
                              // this returns an Err. If you do not want a step limit,
                              // you can use None here
-            ).expect("Unable to find valid state within 10_000 steps!");
-        });
+            ).expect("Unable to find valid state within 10_000 steps!")
+        }).collect();
 
     
 
@@ -136,10 +136,10 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
     
     // Now the Wang Landau simulation. First create the struct 
     // (here as Vector, since we want to use 3 overlapping intervals)
-    let mut wl_list: Vec<_> = ensembles.into_iter()
+    let wl_list: Vec<_> = ensembles.into_iter()
         .zip(hist_list.into_iter())
         .map(|(ensemble, histogram)| {
-            WangLandau1T::new(
+            WangLandau1TBuilder::new(
                 0.0000000000000000001, // arbitrary threshold for `log_f`(see paper), 
                          // you have to try what is good for your model
                 ensemble,
@@ -154,15 +154,15 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
     // as the simulation has to start in the interval one wants to measure.
     // Since the energy landscape is quite simple, here a greedy approach is good enough.
     
-    wl_list.iter_mut()
-        .for_each(|wl|{
-            wl.init_greedy_heuristic(
+    let mut wl_list: Vec<_> = wl_list.into_iter()
+        .map(|wl|{
+            wl.build_with_greedy_heuristic(
                 |coin_seq| Some(coin_seq.head_count()),
                 Some(10_000) // if no valid state is found after 10_000 
                              // this returns an Err. If you do not want a step limit,
                              // you can use None here
-            ).expect("Unable to find valid state within 10_000 steps!");
-        });
+            ).expect("Unable to find valid state within 10_000 steps!")
+        }).collect();
 
     
 
