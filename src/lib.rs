@@ -25,6 +25,8 @@ pub use metropolis::*;
 pub use wang_landau::*;
 pub use entropic_sampling::*;
 
+pub mod rewl;
+
 
 pub use histogram::*;
 pub use heatmap::*;
