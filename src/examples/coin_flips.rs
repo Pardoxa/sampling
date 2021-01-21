@@ -120,7 +120,7 @@ where R: Rng
     /// Perform a markov step
     fn m_step(&mut self) -> CoinFlipMove {
         // draw a random position
-        let pos = self.rng.gen_range(0,self.seq.len());
+        let pos = self.rng.gen_range(0..self.seq.len());
         let previouse = self.seq[pos];
         // flip coin at that position
         self.seq[pos].turn();
