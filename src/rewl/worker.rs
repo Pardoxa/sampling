@@ -1,9 +1,10 @@
-use std::unimplemented;
 use std::sync::*;
+use rand::{Rng, SeedableRng};
 
-use serde::{Serialize, Deserialize};
-use crate::{examples, traits::*};
 use rayon::prelude::*;
+
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
 
 pub trait TestEnsemble{
     fn num(&self) -> usize;
@@ -15,6 +16,7 @@ struct TestEns{
 }
 
 impl TestEns{
+    #[allow(dead_code)]
     pub fn new(id: usize) -> Self {
         TestEns{
             num: id
@@ -35,15 +37,19 @@ impl TestEnsemble for TestEns
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct RewlWorker
+pub struct RewlWorker<R>
 {
-    id: usize
+    id: usize,
+    rng: R
 }
 
-impl RewlWorker {
-    pub fn new(id: usize) -> RewlWorker {
+impl<R> RewlWorker<R> 
+where R: Rng + Send + Sync
+{
+    pub fn new(id: usize, rng: R) -> RewlWorker<R> {
         RewlWorker{
             id,
+            rng
         }
     }
 
@@ -64,18 +70,30 @@ impl RewlWorker {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct Rewl<Ensemble>{
+pub struct Rewl<Ensemble, R>{
     ensembles: Vec<RwLock<Ensemble>>,
     map: Vec<usize>,
-    worker: Vec<RewlWorker>
+    worker: Vec<RewlWorker<R>>
 }
 
-impl<Ensemble> Rewl<Ensemble> {
-    pub fn new(ensembles: Vec<Ensemble>) -> Rewl<Ensemble>
+impl<Ensemble, R> Rewl<Ensemble, R> 
+where R: Send + Sync + Rng
+{
+
+    pub fn new_from_other_rng<R2>(mut rng: &mut R2, ensembles: Vec<Ensemble>) -> Rewl<Ensemble, R>
+    where R2: Rng,
+        R: SeedableRng
     {
         let map = (0..ensembles.len()).collect();
+        
         let worker = (0..ensembles.len())
-            .map(|id| RewlWorker::new(id))
+            .map(|id| 
+                {
+                    let r = R::from_rng(&mut rng)
+                        .expect("Unable to seed Rng");
+                    RewlWorker::new(id, r)
+                }
+            )
             .collect();
         
         let e = ensembles.into_iter()
@@ -88,8 +106,15 @@ impl<Ensemble> Rewl<Ensemble> {
         }
     }
 
+    pub fn new(rng: &mut R, ensembles: Vec<Ensemble>) -> Rewl<Ensemble, R>
+    where R: Rng + SeedableRng
+    {
+       Self::new_from_other_rng(rng, ensembles)
+    }
+
     pub fn sweep_test(&mut self)
-    where Ensemble: TestEnsemble + Send + Sync
+    where Ensemble: TestEnsemble + Send + Sync,
+        R: Send + Sync
     {
         let slice = self.ensembles.as_slice();
         self.worker
@@ -102,6 +127,8 @@ impl<Ensemble> Rewl<Ensemble> {
 mod tests
 {
     use super::*;
+    use rand_pcg::Pcg64Mcg;
+
 
     #[test]
     fn proof_of_concept()
@@ -109,10 +136,12 @@ mod tests
         let ensembles = (0..50)
             .map(|num| TestEns::new(num))
             .collect();
+        
+        let mut rng = Pcg64Mcg::seed_from_u64(94375982592);
 
-        let mut rewl = Rewl::new(ensembles);
+        let mut rewl = Rewl::new(&mut rng, ensembles);
 
-        for i in 0..10 {
+        for _ in 0..10 {
             rewl.sweep_test();
             println!()
         }

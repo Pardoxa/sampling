@@ -690,7 +690,8 @@ where
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64;
-    use rand::{SeedableRng, distributions::*};
+    use rand::distributions::*;
+    use rand::SeedableRng;
     use super::*;
 
     #[test]
