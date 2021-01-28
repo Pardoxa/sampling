@@ -9,24 +9,24 @@ use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
 
 
-fn merge_worker_prob<R, Hist, Energy, S, Res>(worker: &mut [RewlWorker<R, Hist, Energy, S, Res>])
+fn merge_walker_prob<R, Hist, Energy, S, Res>(walker: &mut [RewlWalker<R, Hist, Energy, S, Res>])
 {
     // The following if statement might be added later on - as of now it is unnessessary
-    //if worker.len() <= 2 {
+    //if walker.len() <= 2 {
     //    return;
     //}
-    let len = worker[0].log_density.len();
-    debug_assert![worker.iter().all(|w| w.log_density.len() == len)];
+    let len = walker[0].log_density.len();
+    debug_assert![walker.iter().all(|w| w.log_density.len() == len)];
 
-    let num_workers_recip = (worker.len() as f64).recip();
+    let num_walkers_recip = (walker.len() as f64).recip();
     for i in 0..len {
-        let mut val = worker[0].log_density[i];
-        for w in worker[1..].iter()
+        let mut val = walker[0].log_density[i];
+        for w in walker[1..].iter()
         {
             val += w.log_density[i];
         }
-        val *= num_workers_recip;
-        for w in worker.iter_mut()
+        val *= num_walkers_recip;
+        for w in walker.iter_mut()
         {
             w.log_density[i] = val;
         }
@@ -35,7 +35,7 @@ fn merge_worker_prob<R, Hist, Energy, S, Res>(worker: &mut [RewlWorker<R, Hist, 
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct RewlWorker<R, Hist, Energy, S, Res>
+pub struct RewlWalker<R, Hist, Energy, S, Res>
 {
     id: usize,
     sweep_size: NonZeroUsize,
@@ -53,46 +53,46 @@ pub struct RewlWorker<R, Hist, Energy, S, Res>
 
 fn replica_exchange<R, Hist, Energy, S, Res>
 (
-    worker_a: &mut RewlWorker<R, Hist, Energy, S, Res>,
-    worker_b: &mut RewlWorker<R, Hist, Energy, S, Res>
+    walker_a: &mut RewlWalker<R, Hist, Energy, S, Res>,
+    walker_b: &mut RewlWalker<R, Hist, Energy, S, Res>
 ) where Hist: HistogramVal<Energy>,
     R: Rng
 {
     // check if exchange is even possible
-    let new_bin_a = match worker_a.hist.get_bin_index(&worker_b.old_energy)
+    let new_bin_a = match walker_a.hist.get_bin_index(&walker_b.old_energy)
     {
         Ok(bin) => bin,
         _ => return,
     };
 
-    let new_bin_b = match worker_b.hist.get_bin_index(&worker_a.old_energy)
+    let new_bin_b = match walker_b.hist.get_bin_index(&walker_a.old_energy)
     {
         Ok(bin) => bin,
         _ => return,
     };
 
     // see paper equation 1
-    let log_gi_x = worker_a.log_density[worker_a.bin];
-    let log_gi_y = worker_a.log_density[new_bin_a];
+    let log_gi_x = walker_a.log_density[walker_a.bin];
+    let log_gi_y = walker_a.log_density[new_bin_a];
 
-    let log_gj_y = worker_b.log_density[worker_b.bin];
-    let log_gj_x = worker_b.log_density[new_bin_b];
+    let log_gj_y = walker_b.log_density[walker_b.bin];
+    let log_gj_x = walker_b.log_density[new_bin_b];
 
     let log_prob = log_gi_x + log_gj_y - log_gi_y - log_gj_x;
 
     let prob = log_prob.exp();
 
     // if exchange is accepted
-    if worker_b.rng.gen::<f64>() < prob 
+    if walker_b.rng.gen::<f64>() < prob 
     {
-        swap(&mut worker_b.id, &mut worker_a.id);
-        swap(&mut worker_b.old_energy, &mut worker_a.old_energy);
-        worker_b.bin = new_bin_b;
-        worker_a.bin = new_bin_a;
+        swap(&mut walker_b.id, &mut walker_a.id);
+        swap(&mut walker_b.old_energy, &mut walker_a.old_energy);
+        walker_b.bin = new_bin_b;
+        walker_a.bin = new_bin_a;
     }
 }
 
-impl<R, Hist, Energy, S, Res> RewlWorker<R, Hist, Energy, S, Res> 
+impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
 where R: Rng + Send + Sync,
     Self: Send + Sync,
     Hist: Histogram + HistogramVal<Energy>,
@@ -107,11 +107,11 @@ where R: Rng + Send + Sync,
         hist: Hist,
         sweep_size: NonZeroUsize,
         old_energy: Energy
-    ) -> RewlWorker<R, Hist, Energy, S, Res>
+    ) -> RewlWalker<R, Hist, Energy, S, Res>
     {
         let log_density = vec![0.0; hist.bin_count()];
         let bin = hist.get_bin_index(&old_energy).unwrap();
-        RewlWorker{
+        RewlWalker{
             id,
             rng,
             hist,
@@ -212,7 +212,7 @@ pub struct Rewl<Ensemble, R, Hist, Energy, S, Res>{
     chunk_size: NonZeroUsize,
     ensembles: Vec<RwLock<Ensemble>>,
     map: Vec<usize>,
-    worker: Vec<RewlWorker<R, Hist, Energy, S, Res>>,
+    walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     log_f_threshold: f64,
     replica_exchange_mode: bool,
 }
@@ -240,13 +240,13 @@ where R: Send + Sync + Rng,
     //{
     //    let map = (0..ensembles.len()).collect();
     //    
-    //    let worker = (0..ensembles.len())
+    //    let walker = (0..ensembles.len())
     //        .zip(hists.into_iter())
     //        .map(|(id, hist)| 
     //            {
     //                let r = R::from_rng(&mut rng)
     //                    .expect("Unable to seed Rng");
-    //                RewlWorker::new(id, r, hist, sweep_size)
+    //                RewlWalker::new(id, r, hist, sweep_size)
     //            }
     //        )
     //        .collect();
@@ -256,7 +256,7 @@ where R: Send + Sync + Rng,
     //        .collect();
     //    Rewl{
     //        map,
-    //        worker,
+    //        walker,
     //        ensembles: e,
     //        chunk_size
     //    }
@@ -275,37 +275,37 @@ where R: Send + Sync + Rng,
         F: Fn(&mut Ensemble) -> Energy + Copy + Send + Sync
     {
         let slice = self.ensembles.as_slice();
-        self.worker
+        self.walker
             .par_iter_mut()
             .for_each(|w| w.wang_landau_sweep(slice, step_size, energy_fn));
 
 
         if self.chunk_size.get() >= 2 {
-            self.worker
+            self.walker
                 .par_chunks_mut(self.chunk_size.get())
-                .for_each(merge_worker_prob);
+                .for_each(merge_walker_prob);
         }
 
         // replica exchange
-        let worker_slice = if self.replica_exchange_mode 
+        let walker_slice = if self.replica_exchange_mode 
         {
-            &mut self.worker
+            &mut self.walker
         } else {
-            &mut self.worker[self.chunk_size.get()..]
+            &mut self.walker[self.chunk_size.get()..]
         };
 
         self.replica_exchange_mode = !self.replica_exchange_mode;
         let chunk_size = self.chunk_size.get();
-        worker_slice
+        walker_slice
             .par_chunks_exact_mut(2 * self.chunk_size.get())
             .for_each(
-                |worker_chunk|
+                |walker_chunk|
                 {
-                    let (slice_a, slice_b) = worker_chunk.split_at_mut(chunk_size);
-                    for (worker_a, worker_b) in slice_a.iter_mut()
+                    let (slice_a, slice_b) = walker_chunk.split_at_mut(chunk_size);
+                    for (walker_a, walker_b) in slice_a.iter_mut()
                         .zip(slice_b.iter_mut())
                     {
-                        replica_exchange(worker_a, worker_b);
+                        replica_exchange(walker_a, walker_b);
                     }
                 }
             )
