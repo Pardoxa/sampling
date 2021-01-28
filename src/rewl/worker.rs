@@ -1,5 +1,5 @@
 use rand::Rng;
-use std::{num::NonZeroUsize, marker::PhantomData, sync::*};
+use std::{num::NonZeroUsize, marker::PhantomData, sync::*, mem::*};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
 
@@ -51,12 +51,12 @@ pub struct RewlWorker<R, Hist, Energy, S, Res>
     marker_res: PhantomData<Res>,
 }
 
-#[allow(unused_variables)]
 fn replica_exchange<R, Hist, Energy, S, Res>
 (
     worker_a: &mut RewlWorker<R, Hist, Energy, S, Res>,
     worker_b: &mut RewlWorker<R, Hist, Energy, S, Res>
-) where Hist: HistogramVal<Energy>
+) where Hist: HistogramVal<Energy>,
+    R: Rng
 {
     // check if exchange is even possible
     let new_bin_a = match worker_a.hist.get_bin_index(&worker_b.old_energy)
@@ -71,7 +71,25 @@ fn replica_exchange<R, Hist, Energy, S, Res>
         _ => return,
     };
 
-    unimplemented!()
+    // see paper equation 1
+    let log_gi_x = worker_a.log_density[worker_a.bin];
+    let log_gi_y = worker_a.log_density[new_bin_a];
+
+    let log_gj_y = worker_b.log_density[worker_b.bin];
+    let log_gj_x = worker_b.log_density[new_bin_b];
+
+    let log_prob = log_gi_x + log_gj_y - log_gi_y - log_gj_x;
+
+    let prob = log_prob.exp();
+
+    // if exchange is accepted
+    if worker_b.rng.gen::<f64>() < prob 
+    {
+        swap(&mut worker_b.id, &mut worker_a.id);
+        swap(&mut worker_b.old_energy, &mut worker_a.old_energy);
+        worker_b.bin = new_bin_b;
+        worker_a.bin = new_bin_a;
+    }
 }
 
 impl<R, Hist, Energy, S, Res> RewlWorker<R, Hist, Energy, S, Res> 
@@ -269,34 +287,29 @@ where R: Send + Sync + Rng,
         }
 
         // replica exchange
-        let mut iter = self.worker
-            .chunks_exact_mut(self.chunk_size.get());
-        
-        // alternate, between which intervals exchanges are possible;
-        if self.replica_exchange_mode {
-            // skip first interval
-            iter.next();
-        }
+        let worker_slice = if self.replica_exchange_mode 
+        {
+            &mut self.worker
+        } else {
+            &mut self.worker[self.chunk_size.get()..]
+        };
+
         self.replica_exchange_mode = !self.replica_exchange_mode;
-
-        loop {
-            let slice_a = match iter.next()
-            {
-                Some(slice) => slice,
-                None => break,
-            };
-            let slice_b = match iter.next()
-            {
-                Some(slice) => slice,
-                None => break,
-            };
-
-            for (worker_a, worker_b) in slice_a.iter_mut()
-                .zip(slice_b.iter_mut())
-            {
-                replica_exchange(worker_a, worker_b);
-            }
-        }
+        let chunk_size = self.chunk_size.get();
+        worker_slice
+            .par_chunks_exact_mut(2 * self.chunk_size.get())
+            .for_each(
+                |worker_chunk|
+                {
+                    let (slice_a, slice_b) = worker_chunk.split_at_mut(chunk_size);
+                    for (worker_a, worker_b) in slice_a.iter_mut()
+                        .zip(slice_b.iter_mut())
+                    {
+                        replica_exchange(worker_a, worker_b);
+                    }
+                }
+            )
+        
         
     }
 }

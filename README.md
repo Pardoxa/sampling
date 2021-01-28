@@ -10,5 +10,5 @@ This library was originally a module of the crate `net_ensembles`, but I split i
 
 # WORK IN PROGRESS
 
-This crate is not published on [crates.io](crates.io) yet, though it will be once I finished 
+This crate is not published on [crates.io](https://crates.io/) yet, though it will be once I finished 
 the important parts and polished the Documentation a little bit.
