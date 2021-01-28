@@ -1,7 +1,7 @@
-use std::sync::*;
-use rand::{Rng, SeedableRng};
-use std::num::NonZeroUsize;
+use rand::Rng;
+use std::{num::NonZeroUsize, marker::PhantomData, sync::*};
 use crate::*;
+use crate::wang_landau::WangLandauMode;
 
 use rayon::prelude::*;
 
@@ -9,58 +9,125 @@ use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
 
 
-fn merge_worker_prob<R, Hist>(worker: &mut [RewlWorker<R, Hist>])
+fn merge_worker_prob<R, Hist, Energy, S, Res>(worker: &mut [RewlWorker<R, Hist, Energy, S, Res>])
 {
     // The following if statement might be added later on - as of now it is unnessessary
     //if worker.len() <= 2 {
     //    return;
     //}
-    let len = worker[0].probability_density.len();
-    debug_assert![worker.iter().all(|w| w.probability_density.len() == len)];
+    let len = worker[0].log_density.len();
+    debug_assert![worker.iter().all(|w| w.log_density.len() == len)];
 
     let num_workers_recip = (worker.len() as f64).recip();
     for i in 0..len {
-        let mut val = worker[0].probability_density[i];
+        let mut val = worker[0].log_density[i];
         for w in worker[1..].iter()
         {
-            val += w.probability_density[i];
+            val += w.log_density[i];
         }
         val *= num_workers_recip;
         for w in worker.iter_mut()
         {
-            w.probability_density[i] = val;
+            w.log_density[i] = val;
         }
     }
 }
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct RewlWorker<R, Hist>
+pub struct RewlWorker<R, Hist, Energy, S, Res>
 {
     id: usize,
     sweep_size: NonZeroUsize,
     rng: R,
     hist: Hist,
-    probability_density: Vec<f64>,
+    log_density: Vec<f64>,
+    log_f: f64,
+    step_count: usize,
+    mode: WangLandauMode,
+    old_energy: Energy,
+    bin: usize,
+    marker_s: PhantomData<S>,
+    marker_res: PhantomData<Res>,
 }
 
-impl<R, Hist> RewlWorker<R, Hist> 
+#[allow(unused_variables)]
+fn replica_exchange<R, Hist, Energy, S, Res>
+(
+    worker_a: &mut RewlWorker<R, Hist, Energy, S, Res>,
+    worker_b: &mut RewlWorker<R, Hist, Energy, S, Res>
+) where Hist: HistogramVal<Energy>
+{
+    // check if exchange is even possible
+    let new_bin_a = match worker_a.hist.get_bin_index(&worker_b.old_energy)
+    {
+        Ok(bin) => bin,
+        _ => return,
+    };
+
+    let new_bin_b = match worker_b.hist.get_bin_index(&worker_a.old_energy)
+    {
+        Ok(bin) => bin,
+        _ => return,
+    };
+
+    unimplemented!()
+}
+
+impl<R, Hist, Energy, S, Res> RewlWorker<R, Hist, Energy, S, Res> 
 where R: Rng + Send + Sync,
     Self: Send + Sync,
-    Hist: Histogram
+    Hist: Histogram + HistogramVal<Energy>,
+    Energy: Send + Sync,
+    S: Send + Sync,
+    Res: Send + Sync
 {
-    pub fn new(id: usize, rng: R, hist: Hist, sweep_size: NonZeroUsize) -> RewlWorker<R, Hist> {
-        let probability_density = vec![0.0; hist.bin_count()];
+    pub fn new
+    (
+        id: usize,
+        rng: R,
+        hist: Hist,
+        sweep_size: NonZeroUsize,
+        old_energy: Energy
+    ) -> RewlWorker<R, Hist, Energy, S, Res>
+    {
+        let log_density = vec![0.0; hist.bin_count()];
+        let bin = hist.get_bin_index(&old_energy).unwrap();
         RewlWorker{
             id,
             rng,
             hist,
-            probability_density,
-            sweep_size
+            log_density,
+            sweep_size,
+            log_f: 1.0,
+            step_count: 0,
+            mode: WangLandauMode::RefineOriginal,
+            old_energy,
+            bin,
+            marker_res: PhantomData::<Res>,
+            marker_s: PhantomData::<S>
         }
     }
 
-    pub fn do_work<Ensemble>(&mut self, ensemble_vec: &[RwLock<Ensemble>])
+    pub fn log_f(&self) -> f64
+    {
+        self.log_f
+    }
+
+    fn log_f_1_t(&self) -> f64
+    {
+        self.hist.bin_count() as f64 / self.step_count as f64
+    }
+
+    pub fn wang_landau_sweep<Ensemble, F>
+    (
+        &mut self,
+        ensemble_vec: &[RwLock<Ensemble>],
+        step_size: usize,
+        energy_fn: F
+    )
+    where F: Fn(&mut Ensemble) -> Energy,
+        Ensemble: MarkovChain<S, Res>
     {
         let mut e = ensemble_vec[self.id]
             .write()
@@ -68,9 +135,54 @@ where R: Rng + Send + Sync,
                 impossible to reach. If you are using the latest version of the \
                 'sampling' library, please contact the library author via github by opening an \
                 issue! https://github.com/Pardoxa/sampling/issues");
+        
+        let mut steps = Vec::with_capacity(step_size);
         for _ in 0..self.sweep_size.get()
-        {
+        {   
+            e.m_steps(step_size, &mut steps);
+            let energy = energy_fn(&mut e);
 
+            self.step_count = self.step_count.saturating_add(1);
+            
+            if self.mode.is_mode_1_t() {
+                self.log_f = self.log_f_1_t();
+            }
+
+            match self.hist.get_bin_index(&energy) 
+            {
+                Ok(current_bin) => {
+                    // metropolis hastings
+                    let acception_prob = (self.log_density[self.bin] - self.log_density[current_bin])
+                        .exp();
+                    if self.rng.gen::<f64>() > acception_prob 
+                    {
+                        e.undo_steps_quiet(&steps);
+                    } else {
+                        self.old_energy = energy;
+                        self.bin = current_bin;
+                    }
+                },
+                _ => {
+                    e.undo_steps_quiet(&steps);
+                }
+            }
+
+            self.hist.count_index(self.bin)
+                .expect("Histogram index Error, ERRORCODE 0x2");
+            
+            self.log_density[self.bin] += self.log_f;
+        }
+
+        // Check if log_f should be halfed or mode should be changed
+        if self.mode.is_mode_original() && !self.hist.any_bin_zero() {
+            let ref_1_t = self.log_f_1_t();
+            self.log_f *= 0.5;
+
+            if self.log_f < ref_1_t {
+                self.log_f = ref_1_t;
+                self.mode = WangLandauMode::Refine1T;
+            }
+            self.hist.reset();
         }
     }
 }
@@ -78,60 +190,76 @@ where R: Rng + Send + Sync,
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct Rewl<Ensemble, R, Hist>{
+pub struct Rewl<Ensemble, R, Hist, Energy, S, Res>{
     chunk_size: NonZeroUsize,
     ensembles: Vec<RwLock<Ensemble>>,
     map: Vec<usize>,
-    worker: Vec<RewlWorker<R, Hist>>
+    worker: Vec<RewlWorker<R, Hist, Energy, S, Res>>,
+    log_f_threshold: f64,
+    replica_exchange_mode: bool,
 }
 
-impl<Ensemble, R, Hist> Rewl<Ensemble, R, Hist> 
+impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
 where R: Send + Sync + Rng,
-    Hist: Send + Sync + Histogram
+    Hist: Send + Sync + Histogram + HistogramVal<Energy>,
+    Energy: Send + Sync,
+    Ensemble: MarkovChain<S, Res>,
+    Res: Send + Sync,
+    S: Send + Sync
 {
 
-    pub fn new_from_other_rng<R2>(mut rng: &mut R2, ensembles: Vec<Ensemble>, hists: Vec<Hist>, chunk_size: NonZeroUsize, sweep_size: NonZeroUsize) -> Rewl<Ensemble, R, Hist>
-    where R2: Rng,
-        R: SeedableRng,
-    {
-        let map = (0..ensembles.len()).collect();
-        
-        let worker = (0..ensembles.len())
-            .zip(hists.into_iter())
-            .map(|(id, hist)| 
-                {
-                    let r = R::from_rng(&mut rng)
-                        .expect("Unable to seed Rng");
-                    RewlWorker::new(id, r, hist, sweep_size)
-                }
-            )
-            .collect();
-        
-        let e = ensembles.into_iter()
-            .map(|val| RwLock::new(val))
-            .collect();
-        Rewl{
-            map,
-            worker,
-            ensembles: e,
-            chunk_size
-        }
-    }
+    //pub fn new_from_other_rng<R2>
+    //(
+    //    mut rng: &mut R2, 
+    //    ensembles: Vec<Ensemble>, 
+    //    hists: Vec<Hist>, 
+    //    chunk_size: NonZeroUsize, 
+    //    sweep_size: NonZeroUsize
+    //) -> Rewl<Ensemble, R, Hist, Energy>
+    //where R2: Rng,
+    //    R: SeedableRng,
+    //    Hist: HistogramVal<Energy>
+    //{
+    //    let map = (0..ensembles.len()).collect();
+    //    
+    //    let worker = (0..ensembles.len())
+    //        .zip(hists.into_iter())
+    //        .map(|(id, hist)| 
+    //            {
+    //                let r = R::from_rng(&mut rng)
+    //                    .expect("Unable to seed Rng");
+    //                RewlWorker::new(id, r, hist, sweep_size)
+    //            }
+    //        )
+    //        .collect();
+    //    
+    //    let e = ensembles.into_iter()
+    //        .map(|val| RwLock::new(val))
+    //        .collect();
+    //    Rewl{
+    //        map,
+    //        worker,
+    //        ensembles: e,
+    //        chunk_size
+    //    }
+    //}
+//
+    //pub fn new(rng: &mut R, ensembles: Vec<Ensemble>, hists: Vec<Hist>, chunk_size: NonZeroUsize, sweep_size: NonZeroUsize) -> Rewl<Ensemble, R, Hist>
+    //where R: Rng + SeedableRng,
+    //    Hist: HistogramVal<Energy>
+    //{
+    //   Self::new_from_other_rng(rng, ensembles, hists, chunk_size, sweep_size)
+    //}
 
-    pub fn new(rng: &mut R, ensembles: Vec<Ensemble>, hists: Vec<Hist>, chunk_size: NonZeroUsize, sweep_size: NonZeroUsize) -> Rewl<Ensemble, R, Hist>
-    where R: Rng + SeedableRng
-    {
-       Self::new_from_other_rng(rng, ensembles, hists, chunk_size, sweep_size)
-    }
-
-    pub fn sweep_test(&mut self)
+    pub fn sweep<F>(&mut self, step_size: usize, energy_fn: F)
     where Ensemble: TestEnsemble + Send + Sync,
-        R: Send + Sync
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Energy + Copy + Send + Sync
     {
         let slice = self.ensembles.as_slice();
         self.worker
             .par_iter_mut()
-            .for_each(|w| w.do_work(slice));
+            .for_each(|w| w.wang_landau_sweep(slice, step_size, energy_fn));
 
 
         if self.chunk_size.get() >= 2 {
@@ -139,6 +267,37 @@ where R: Send + Sync + Rng,
                 .par_chunks_mut(self.chunk_size.get())
                 .for_each(merge_worker_prob);
         }
+
+        // replica exchange
+        let mut iter = self.worker
+            .chunks_exact_mut(self.chunk_size.get());
+        
+        // alternate, between which intervals exchanges are possible;
+        if self.replica_exchange_mode {
+            // skip first interval
+            iter.next();
+        }
+        self.replica_exchange_mode = !self.replica_exchange_mode;
+
+        loop {
+            let slice_a = match iter.next()
+            {
+                Some(slice) => slice,
+                None => break,
+            };
+            let slice_b = match iter.next()
+            {
+                Some(slice) => slice,
+                None => break,
+            };
+
+            for (worker_a, worker_b) in slice_a.iter_mut()
+                .zip(slice_b.iter_mut())
+            {
+                replica_exchange(worker_a, worker_b);
+            }
+        }
+        
     }
 }
 
@@ -172,27 +331,27 @@ impl TestEnsemble for TestEns
     }
 }
 
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-    use rand_pcg::Pcg64Mcg;
-
-
-    #[test]
-    fn proof_of_concept()
-    {
-        let ensembles = (0..50)
-            .map(|num| TestEns::new(num))
-            .collect();
-        
-        let mut rng = Pcg64Mcg::seed_from_u64(94375982592);
-
-        let mut rewl = Rewl::new(&mut rng, ensembles, 1);
-
-        for _ in 0..10 {
-            rewl.sweep_test();
-            println!()
-        }
-    }
-}
+//#[cfg(test)]
+//mod tests
+//{
+//    use super::*;
+//    use rand_pcg::Pcg64Mcg;
+//
+//
+//    #[test]
+//    fn proof_of_concept()
+//    {
+//        let ensembles = (0..50)
+//            .map(|num| TestEns::new(num))
+//            .collect();
+//        
+//        let mut rng = Pcg64Mcg::seed_from_u64(94375982592);
+//
+//        let mut rewl = Rewl::new(&mut rng, ensembles, 1);
+//
+//        for _ in 0..10 {
+//            rewl.sweep_test();
+//            println!()
+//        }
+//    }
+//}
