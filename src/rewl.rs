@@ -1,4 +1,4 @@
 //! Replica exchange wang-landau
 
-mod worker;
-pub use worker::*;
+mod walker;
+pub use walker::*;

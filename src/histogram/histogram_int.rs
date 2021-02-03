@@ -140,12 +140,13 @@ impl<T> HistogramVal<T> for HistogramInt<T>
 where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 {
 
-    fn distance(&self, val: T) -> f64 {
+    fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
+        let val = val.borrow();
         if self.not_inside(val) {
-            let dist = if val < self.first_border() {
-                self.first_border() - val
+            let dist = if *val < self.first_border() {
+                self.first_border() - *val
             } else {
-                val - self.get_right() + T::one()
+                *val - self.get_right() + T::one()
             };
             dist.to_f64().unwrap()
         } else {
@@ -198,15 +199,16 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 impl<T> HistogramIntervalDistance<T> for HistogramInt<T> 
 where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 {
-    fn interval_distance_overlap(&self, val: T, mut overlap: usize) -> usize {
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, mut overlap: usize) -> usize {
+        let val = val.borrow();
         overlap = overlap.max(1);
         if self.not_inside(val) {
             let num_bins_overlap = 1usize.max(self.bin_count() / overlap);
             let dist = 
-            if val < self.first_border() { 
-                self.first_border() - val
+            if *val < self.first_border() { 
+                self.first_border() - *val
             } else {
-                val - self.get_right()
+                *val - self.get_right()
             };
             1 + dist.to_usize().unwrap() / num_bins_overlap
         } else {

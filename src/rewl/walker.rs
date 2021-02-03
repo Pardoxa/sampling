@@ -1,7 +1,8 @@
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use std::{num::NonZeroUsize, marker::PhantomData, sync::*, mem::*};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
+use crate::glue_helper::*;
 
 use rayon::prelude::*;
 
@@ -211,7 +212,6 @@ where R: Rng + Send + Sync,
 pub struct Rewl<Ensemble, R, Hist, Energy, S, Res>{
     chunk_size: NonZeroUsize,
     ensembles: Vec<RwLock<Ensemble>>,
-    map: Vec<usize>,
     walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     log_f_threshold: f64,
     replica_exchange_mode: bool,
@@ -269,8 +269,73 @@ where R: Send + Sync + Rng,
     //   Self::new_from_other_rng(rng, ensembles, hists, chunk_size, sweep_size)
     //}
 
+    #[allow(unused_variables, unused_mut)]
+    pub fn par_greed<F, R2>
+    (
+        mut ensemble: Ensemble,
+        mut hists: Vec<Hist>,
+        step_size: usize,
+        energy_fn: F
+    ) -> Self
+    where 
+        Ensemble: Send + Sync + HasRng<R2> + Clone,
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        R2: Send + Sync + Rng + SeedableRng
+    {
+        let mut ensembles = Vec::with_capacity(hists.len());
+        ensembles.extend(
+            (1..hists.len())
+                .map(|_| {
+                    let mut e = ensemble.clone();
+                    let mut rng = R2::from_rng(ensemble.rng())
+                        .unwrap();
+                    e.swap_rng(&mut rng);
+                    e
+                })
+        );
+        ensembles.push(ensemble);
+
+        ensembles.par_iter_mut()
+            .zip(hists.par_iter_mut())
+            .for_each(
+                |(e, h)|
+                {
+                    let mut energy = loop{
+                        if let Some(energy) = energy_fn(e){
+                            break energy;
+                        }
+                        e.m_steps_quiet(step_size);
+                    };
+
+                    if !h.is_inside(&energy) {
+                        let mut distance = h.distance(&energy);
+                    }
+                }
+            );
+
+        unimplemented!()
+
+    }
+
+    pub fn simulate_until_convergence<F>(
+        &mut self,
+        step_size: usize,
+        energy_fn: F
+    )
+    where 
+        Ensemble: Send + Sync,
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Energy + Copy + Send + Sync
+    {
+        while !self.is_finished()
+        {
+            self.sweep(step_size, energy_fn);
+        }
+    }
+
     pub fn sweep<F>(&mut self, step_size: usize, energy_fn: F)
-    where Ensemble: TestEnsemble + Send + Sync,
+    where Ensemble: Send + Sync,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Energy + Copy + Send + Sync
     {
@@ -279,8 +344,10 @@ where R: Send + Sync + Rng,
             .par_iter_mut()
             .for_each(|w| w.wang_landau_sweep(slice, step_size, energy_fn));
 
-
         if self.chunk_size.get() >= 2 {
+            // I belive that this makes sense ? Maybe?
+            self.norm_max_to_0();
+
             self.walker
                 .par_chunks_mut(self.chunk_size.get())
                 .for_each(merge_walker_prob);
@@ -309,8 +376,40 @@ where R: Send + Sync + Rng,
                     }
                 }
             )
-        
-        
+    }
+
+    pub fn is_finished(&self) -> bool
+    {
+        self.walker
+            .iter()
+            .all(|w| w.log_f < self.log_f_threshold)
+    }
+
+    fn norm_max_to_0(&mut self)
+    {
+        self.walker
+            .par_iter_mut()
+            .for_each(
+                |w|
+                {
+                    subtract_max(&mut w.log_density)
+                }
+            );
+    }
+
+    /// # Get Ids
+    /// This is an indicator for how good the replica exchange worked.
+    /// In the beginning, this will be a sorted vector, e.g. [0,1,2,3,4].
+    /// Then it will show, where the ensemble, which the corresponding walkers currently work with,
+    /// originated from. E.g. If the vector is [3,1,0,2,4], Then walker 0 has a
+    /// ensemble originating from walker 3, the walker 1 is back to its original 
+    /// ensemble, walker 2 has an ensemble originating form walker 0 and so on.
+    pub fn get_id_vec(&self) -> Vec<usize>
+    {
+        self.walker
+            .iter()
+            .map(|w| w.id)
+            .collect()
     }
 }
 

@@ -181,10 +181,11 @@ where T: PartialOrd + CheckedSub + CheckedAdd + One + Saturating + NumCast + Cop
         self.right
     }
 
-    fn distance(&self, val: T) -> f64 {
+    fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
+        let val = val.borrow();
         if self.not_inside(val) {
-            let dist = if val < self.first_border() {
-                self.first_border() - val
+            let dist = if *val < self.first_border() {
+                self.first_border() - *val
             } else {
                 val.saturating_sub(self.right)
             };
@@ -256,15 +257,16 @@ impl<T> HistogramIntervalDistance<T> for HistogramFast<T>
 where Self: HistogramVal<T>,
     T: PartialOrd + std::ops::Sub<Output=T> + NumCast + Copy
 {
-    fn interval_distance_overlap(&self, val: T, mut overlap: usize) -> usize {
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, mut overlap: usize) -> usize {
+        let val = val.borrow();
         overlap = overlap.max(1);
         if self.not_inside(val) {
             let num_bins_overlap = 1usize.max(self.bin_count() / overlap);
             let dist = 
-            if val < self.left { 
-                self.left - val
+            if *val < self.left { 
+                self.left - *val
             } else {
-                val - self.right
+                *val - self.right
             };
             1 + dist.to_usize().unwrap() / num_bins_overlap
         } else {

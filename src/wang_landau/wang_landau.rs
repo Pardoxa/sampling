@@ -299,7 +299,7 @@ where
         energy_fn: F,
         distance_fn: H,
     )   where F: Fn(&mut E) -> Option<Energy> + Copy,
-            H: Fn(&Hist, Energy) -> J,
+            H: Fn(&Hist, &Energy) -> J,
             J: PartialOrd
     {
         self.ensemble
@@ -307,7 +307,7 @@ where
 
         
         if let Some(energy) = energy_fn(&mut self.ensemble) {
-            let distance = distance_fn(&self.hist, energy.clone());
+            let distance = distance_fn(&self.hist, &energy);
             if distance <= *old_distance {
                 self.old_energy = Some(energy);
                 *old_distance = distance;
@@ -345,13 +345,15 @@ where
     {
         self.init(&energy_fn, step_limit)?;
         let mut old_distance = self.hist
-            .distance(self.old_energy_clone());
+            .distance(self.old_energy_ref());
         let mut step_count = 0;
         while old_distance != 0.0 {
             self.greedy_helper(
                 &mut old_distance,
                 &energy_fn,
-                Hist::distance
+                |hist, energy| {
+                    hist.distance(energy)
+                }
             );
             if let Some(limit) = step_limit {
                 if limit == step_count{
@@ -391,11 +393,11 @@ where
         self.init(&energy_fn, step_limit)?;
         let mut old_dist = self.hist
             .interval_distance_overlap(
-                self.old_energy_clone(),
+                self.old_energy_ref(),
                 overlap
             );
         
-        let dist = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
+        let dist = |h: &Hist, val: &Energy| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
         while old_dist != 0 {
             self.greedy_helper(
@@ -447,9 +449,7 @@ where
         self.init(&energy_fn, step_limit)?;
         if self.hist
             .is_inside(
-                self.old_energy
-                    .as_ref()
-                    .unwrap()
+                self.old_energy_ref()
             )
         {
             self.end_init();
@@ -461,20 +461,23 @@ where
         let mut counter: U = U::min_value();
         let min_val = U::min_value();
         let one = U::one();
-        let dist_interval = |h: &Hist, val: Energy| h.interval_distance_overlap(val, overlap);
+        let dist_interval = |h: &Hist, val: &Energy| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
         loop {
-            let current_energy = self.old_energy_clone();
             if counter == min_val {
+                let current_energy = self.old_energy_ref();
                 old_dist = self.hist.distance(current_energy);
             }else if counter == mid {
-                old_dist_interval = dist_interval(&self.hist, current_energy);
+                let current_energy = self.old_energy_ref();
+                old_dist_interval = dist_interval(&self.hist, &current_energy);
             }
             if counter < mid {
                 self.greedy_helper(
                     &mut old_dist,
                     &energy_fn,
-                    Hist::distance,
+                    |hist, val| {
+                        hist.distance(val)
+                    }
                 );
                 if old_dist == 0.0 {
                     break;
@@ -505,17 +508,19 @@ where
     {
         self.old_bin = self.hist
             .get_bin_index( 
-                self.old_energy
-                    .as_ref()
-                    .unwrap()
+                self.old_energy_ref()
             ).expect("Error in heuristic - old bin invalid");
     }
 
     fn old_energy_clone(&self) -> Energy {
+        self.old_energy_ref()
+            .clone()
+    }
+
+    fn old_energy_ref(&self) -> &Energy {
         self.old_energy
             .as_ref()
             .unwrap()
-            .clone()
     }
 
 
@@ -679,10 +684,7 @@ where
 
         self.step_count += 1;
 
-        let mut new_energy = self.old_energy
-            .as_ref()
-            .unwrap()
-            .clone();
+        let mut new_energy = self.old_energy_clone();
 
         self.ensemble
             .m_steps_acc(

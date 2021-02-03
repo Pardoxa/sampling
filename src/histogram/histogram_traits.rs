@@ -66,7 +66,7 @@ pub trait HistogramVal<T>: Histogram{
     /// # calculates some sort of absolute distance to the nearest valid bin
     /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
     /// * if a value corresponds to a valid bin, the distance should be zero
-    fn distance(&self, val: T) -> f64;
+    fn distance<V: Borrow<T>>(&self, val: V) -> f64;
 }
 
 /// Distance metric for how far a value is from a valid interval
@@ -76,7 +76,7 @@ pub trait HistogramIntervalDistance<T> {
     /// and returns distance of said interval to the target interval
     /// * used for heuristiks
     /// * overlap should be bigger 0, otherwise it will be set to 1
-    fn interval_distance_overlap(&self, val: T, overlap: usize) -> usize;
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: usize) -> usize;
 }
 
 

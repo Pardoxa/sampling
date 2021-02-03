@@ -180,7 +180,7 @@ pub(crate) fn inner_subtract_max(log10_vec: &mut Vec<Vec<f64>>)
 }
 
 /// subtracts maximum, if it is finite
-fn subtract_max(list: &mut[f64]){
+pub(crate) fn subtract_max(list: &mut[f64]){
     let max = list
         .iter()
         .copied()

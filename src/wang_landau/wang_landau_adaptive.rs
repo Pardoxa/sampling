@@ -589,16 +589,15 @@ where R: Rng,
         self.reset_statistics();
         self.old_bin = self.histogram
             .get_bin_index( 
-                self.old_energy_clone()
+                self.old_energy_ref()
             ).ok();
         assert!(self.old_bin.is_some(), "Error in heuristic - old bin invalid");
     }
 
-    fn old_energy_clone(&self) -> T {
+    fn old_energy_ref(&self) -> &T {
         self.old_energy
             .as_ref()
             .unwrap()
-            .clone()
     }
 
     fn greedy_helper<F, H, J>(
@@ -607,7 +606,7 @@ where R: Rng,
         energy_fn: F,
         distance_fn: H,
     )   where F: Fn(&mut E) -> Option<T>,
-            H: Fn(&Hist, T) -> J,
+            H: Fn(&Hist, &T) -> J,
             J: PartialOrd
     {
         let size = self.get_stepsize();
@@ -616,7 +615,7 @@ where R: Rng,
 
         
         if let Some(energy) = energy_fn(&mut self.ensemble) {
-            let distance = distance_fn(&self.histogram, energy.clone());
+            let distance = distance_fn(&self.histogram, &energy);
             if distance <= *old_distance {
                 self.old_energy = Some(energy);
                 *old_distance = distance;
@@ -663,9 +662,7 @@ where R: Rng,
         self.init(&energy_fn, step_limit)?;
         if self.histogram
             .is_inside(
-                self.old_energy
-                    .as_ref()
-                    .unwrap()
+                self.old_energy_ref()
             )
         {
             self.end_init();
@@ -677,20 +674,23 @@ where R: Rng,
         let mut counter: U = U::min_value();
         let min_val = U::min_value();
         let one = U::one();
-        let dist_interval = |h: &Hist, val: T| h.interval_distance_overlap(val, overlap);
+        let dist_interval = |h: &Hist, val: &T| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
         loop {
-            let current_energy = self.old_energy_clone();
             if counter == min_val {
+                let current_energy = self.old_energy_ref();
                 old_dist = self.histogram.distance(current_energy);
             }else if counter == mid {
+                let current_energy = self.old_energy_ref();
                 old_dist_interval = dist_interval(&self.histogram, current_energy);
             }
             if counter < mid {
                 self.greedy_helper(
                     &mut old_dist,
                     &energy_fn,
-                    Hist::distance,
+                    |hist, energy| {
+                        hist.distance(energy)
+                    },
                 );
                 if old_dist == 0.0 {
                     break;
@@ -744,11 +744,11 @@ where R: Rng,
         self.init(&energy_fn, step_limit)?;
         let mut old_dist = self.histogram
             .interval_distance_overlap(
-                self.old_energy_clone(),
+                self.old_energy_ref(),
                 overlap
             );
         
-        let dist = |h: &Hist, val: T| h.interval_distance_overlap(val, overlap);
+        let dist = |h: &Hist, val: &T| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
 
         while old_dist != 0 {
@@ -791,14 +791,16 @@ where R: Rng,
     {
         self.init(&energy_fn, step_limit)?;
         let mut old_distance = self.histogram
-            .distance(self.old_energy_clone());
+            .distance(self.old_energy_ref());
         let mut step_count = 0;
 
         while old_distance != 0.0 {
             self.greedy_helper(
                 &mut old_distance,
                 &energy_fn,
-                Hist::distance,
+                |hist, energy| {
+                    hist.distance(energy)
+                },
             );
             if let Some(limit) = step_limit {
                 if limit == step_count{
