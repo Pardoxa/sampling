@@ -218,70 +218,30 @@ pub struct Rewl<Ensemble, R, Hist, Energy, S, Res>{
 }
 
 impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
-where R: Send + Sync + Rng,
+where R: Send + Sync + Rng + SeedableRng,
     Hist: Send + Sync + Histogram + HistogramVal<Energy>,
-    Energy: Send + Sync,
+    Energy: Send + Sync + Clone,
     Ensemble: MarkovChain<S, Res>,
     Res: Send + Sync,
     S: Send + Sync
 {
 
-    //pub fn new_from_other_rng<R2>
-    //(
-    //    mut rng: &mut R2, 
-    //    ensembles: Vec<Ensemble>, 
-    //    hists: Vec<Hist>, 
-    //    chunk_size: NonZeroUsize, 
-    //    sweep_size: NonZeroUsize
-    //) -> Rewl<Ensemble, R, Hist, Energy>
-    //where R2: Rng,
-    //    R: SeedableRng,
-    //    Hist: HistogramVal<Energy>
-    //{
-    //    let map = (0..ensembles.len()).collect();
-    //    
-    //    let walker = (0..ensembles.len())
-    //        .zip(hists.into_iter())
-    //        .map(|(id, hist)| 
-    //            {
-    //                let r = R::from_rng(&mut rng)
-    //                    .expect("Unable to seed Rng");
-    //                RewlWalker::new(id, r, hist, sweep_size)
-    //            }
-    //        )
-    //        .collect();
-    //    
-    //    let e = ensembles.into_iter()
-    //        .map(|val| RwLock::new(val))
-    //        .collect();
-    //    Rewl{
-    //        map,
-    //        walker,
-    //        ensembles: e,
-    //        chunk_size
-    //    }
-    //}
-//
-    //pub fn new(rng: &mut R, ensembles: Vec<Ensemble>, hists: Vec<Hist>, chunk_size: NonZeroUsize, sweep_size: NonZeroUsize) -> Rewl<Ensemble, R, Hist>
-    //where R: Rng + SeedableRng,
-    //    Hist: HistogramVal<Energy>
-    //{
-    //   Self::new_from_other_rng(rng, ensembles, hists, chunk_size, sweep_size)
-    //}
-
-    #[allow(unused_variables, unused_mut)]
     pub fn par_greed<F, R2>
     (
         mut ensemble: Ensemble,
-        mut hists: Vec<Hist>,
+        hists: Vec<Hist>,
         step_size: usize,
+        sweep_size: NonZeroUsize,
+        log_f_threshold: f64,
+        chunk_size: NonZeroUsize,
         energy_fn: F
     ) -> Self
     where 
         Ensemble: Send + Sync + HasRng<R2> + Clone,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
-        R2: Send + Sync + Rng + SeedableRng
+        R2: Send + Sync + Rng + SeedableRng,
+        Hist: Clone
     {
         let mut ensembles = Vec::with_capacity(hists.len());
         ensembles.extend(
@@ -289,20 +249,24 @@ where R: Send + Sync + Rng,
                 .map(|_| {
                     let mut e = ensemble.clone();
                     let mut rng = R2::from_rng(ensemble.rng())
-                        .unwrap();
+                        .expect("unable to seed Rng");
                     e.swap_rng(&mut rng);
                     e
                 })
         );
         ensembles.push(ensemble);
 
-        ensembles.par_iter_mut()
-            .zip(hists.par_iter_mut())
-            .for_each(
-                |(e, h)|
+        debug_assert_eq!(hists.len(), ensembles.len());
+
+        let mut res = Vec::with_capacity(hists.len());
+
+        ensembles.into_par_iter()
+            .zip(hists.into_par_iter())
+            .map(
+                |(mut e, h)|
                 {
                     let mut energy = loop{
-                        if let Some(energy) = energy_fn(e){
+                        if let Some(energy) = energy_fn(&mut e){
                             break energy;
                         }
                         e.m_steps_quiet(step_size);
@@ -310,11 +274,85 @@ where R: Send + Sync + Rng,
 
                     if !h.is_inside(&energy) {
                         let mut distance = h.distance(&energy);
-                    }
-                }
-            );
 
-        unimplemented!()
+                        let mut steps = Vec::with_capacity(step_size);
+                        loop {
+                            e.m_steps(step_size, &mut steps);
+                            let current_energy = if let Some(energy) = energy_fn(&mut e)
+                            {
+                                energy
+                            } else {
+                                e.undo_steps_quiet(&mut steps);
+                                continue;
+                            };
+
+                            let new_distance = h.distance(&current_energy);
+                            if new_distance <= distance {
+                                energy = current_energy;
+                                distance = new_distance;
+                                if distance == 0.0 {
+                                    break;
+                                }
+                            }else {
+                                e.undo_steps_quiet(&mut steps);
+                            }
+                        }
+                    }
+                    (h, e, energy)
+                }
+            ).collect_into_vec(&mut res);
+
+        let mut ensembles_rw_lock = Vec::with_capacity(res.len() * chunk_size.get());
+        let mut walker = Vec::with_capacity(chunk_size.get() * res.len());
+
+        let mut counter = 0;
+
+        for (mut h, mut e, energy) in res.into_iter()
+        {
+            h.reset();
+            for _ in 0..chunk_size.get()-1 {
+                let mut ensemble = e.clone();
+                let mut rng = R2::from_rng(e.rng())
+                    .expect("unable to seed Rng");
+                ensemble.swap_rng(&mut rng);
+                
+                ensembles_rw_lock.push(RwLock::new(ensemble));
+                let rng = R::from_rng(e.rng())
+                   .expect("unable to seed Rng");
+                walker.push(
+                    RewlWalker::new(
+                        counter,
+                        rng,
+                        h.clone(),
+                        sweep_size,
+                        energy.clone()
+                    )
+                );
+                counter += 1;
+            }
+            let rng = R::from_rng(e.rng())
+                .expect("unable to seed Rng");
+            walker.push(
+                RewlWalker::new(
+                    counter,
+                    rng,
+                    h,
+                    sweep_size,
+                    energy
+                )
+            );
+            counter += 1;
+            ensembles_rw_lock.push(RwLock::new(e));
+
+        }
+
+        Self{
+            ensembles: ensembles_rw_lock,
+            replica_exchange_mode: true,
+            chunk_size,
+            walker,
+            log_f_threshold
+        }
 
     }
 
