@@ -11,3 +11,7 @@ This crate is not published on [crates.io](https://crates.io/) yet, though it wi
 the important parts and polished the Documentation a little bit.
 
 Currently working on Replica exchange Wang-Landau. The rest should already be functional and I already use it for simulations
+
+## TODO
+
+REWL: averaging of mergers of same window - log_f needs to be synchronized

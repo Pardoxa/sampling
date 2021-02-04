@@ -1,4 +1,4 @@
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, prelude::SliceRandom};
 use std::{num::NonZeroUsize, marker::PhantomData, sync::*, mem::*};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
@@ -9,24 +9,60 @@ use rayon::prelude::*;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+//five-point stencil 
+fn five_point_derivitive(data: &[f64]) -> Vec<f64>
+{
+    let mut d = vec![f64::NAN; data.len()];
+    if data.len() >= 5 {
+        for i in 2..data.len()-2 {
+            let mut tmp = data[i-1].mul_add(-8.0, data[i-2]);
+            tmp = data[i+1].mul_add(8.0, tmp) - data[i+2];
+            d[i] = tmp / 12.0;
+        }
+    }
+    d
+}
+
+fn derivative(data: &[f64]) -> Vec<f64>
+{
+    let mut d = vec![f64::NAN; data.len()];
+    if data.len() >= 3 {
+        for i in 1..data.len()-1 {
+            d[i] = (data[i+1] - data[i-1]) / 2.0;
+        }
+    }
+    d
+}
+
+fn derivative_merged(data: &[f64]) -> Vec<f64>
+{
+    if data.len() < 5 {
+        return derivative(data);
+    }
+    let mut d = five_point_derivitive(data);
+    d[1] = (data[2] - data[0]) / 2.0;
+    d[data.len() - 2] = (data[data.len() - 1] - data[data.len() - 3]) / 2.0;
+    d
+}
+
 
 fn merge_walker_prob<R, Hist, Energy, S, Res>(walker: &mut [RewlWalker<R, Hist, Energy, S, Res>])
 {
-    // The following if statement might be added later on - as of now it is unnessessary
-    //if walker.len() <= 2 {
-    //    return;
-    //}
+    
+    if walker.len() < 2 {
+        return;
+    }
     let len = walker[0].log_density.len();
     debug_assert![walker.iter().all(|w| w.log_density.len() == len)];
 
-    let num_walkers_recip = (walker.len() as f64).recip();
+    let num_walkers = walker.len() as f64;
     for i in 0..len {
         let mut val = walker[0].log_density[i];
         for w in walker[1..].iter()
         {
             val += w.log_density[i];
         }
-        val *= num_walkers_recip;
+        val /= num_walkers;
         for w in walker.iter_mut()
         {
             w.log_density[i] = val;
@@ -138,6 +174,26 @@ where R: Rng + Send + Sync,
         self.hist.bin_count() as f64 / self.step_count as f64
     }
 
+    pub(crate) fn all_bins_reached(&self) -> bool
+    {
+        !self.hist.any_bin_zero()
+    }
+
+    pub(crate) fn refine_f_reset_hist(&mut self)
+    {
+        // Check if log_f should be halfed or mode should be changed
+        if self.mode.is_mode_original() && !self.hist.any_bin_zero() {
+            let ref_1_t = self.log_f_1_t();
+            self.log_f *= 0.5;
+
+            if self.log_f < ref_1_t {
+                self.log_f = ref_1_t;
+                self.mode = WangLandauMode::Refine1T;
+            }
+        }
+        self.hist.reset();
+    }
+
     pub fn wang_landau_sweep<Ensemble, F>
     (
         &mut self,
@@ -190,18 +246,6 @@ where R: Rng + Send + Sync,
                 .expect("Histogram index Error, ERRORCODE 0x2");
             
             self.log_density[self.bin] += self.log_f;
-        }
-
-        // Check if log_f should be halfed or mode should be changed
-        if self.mode.is_mode_original() && !self.hist.any_bin_zero() {
-            let ref_1_t = self.log_f_1_t();
-            self.log_f *= 0.5;
-
-            if self.log_f < ref_1_t {
-                self.log_f = ref_1_t;
-                self.mode = WangLandauMode::Refine1T;
-            }
-            self.hist.reset();
         }
     }
 }
@@ -382,14 +426,24 @@ where R: Send + Sync + Rng + SeedableRng,
             .par_iter_mut()
             .for_each(|w| w.wang_landau_sweep(slice, step_size, energy_fn));
 
-        if self.chunk_size.get() >= 2 {
-            // I belive that this makes sense ? Maybe?
-            self.norm_max_to_0();
-
-            self.walker
-                .par_chunks_mut(self.chunk_size.get())
-                .for_each(merge_walker_prob);
-        }
+        // I belive that norming makes sense here - at the very least it is not wrong
+        self.norm_max_to_0();
+        self.walker
+            .par_chunks_mut(self.chunk_size.get())
+            .filter(|chunk| 
+                {
+                    chunk.iter()
+                        .all(RewlWalker::all_bins_reached)
+                }
+            )
+            .for_each(
+                |chunk|
+                {
+                    chunk.iter_mut()
+                        .for_each(RewlWalker::refine_f_reset_hist);
+                    merge_walker_prob(chunk);
+                }
+            );
 
         // replica exchange
         let walker_slice = if self.replica_exchange_mode 
@@ -398,17 +452,22 @@ where R: Send + Sync + Rng + SeedableRng,
         } else {
             &mut self.walker[self.chunk_size.get()..]
         };
-
         self.replica_exchange_mode = !self.replica_exchange_mode;
-        let chunk_size = self.chunk_size.get();
+
+        let chunk_size = self.chunk_size;
+
         walker_slice
             .par_chunks_exact_mut(2 * self.chunk_size.get())
             .for_each(
                 |walker_chunk|
                 {
-                    let (slice_a, slice_b) = walker_chunk.split_at_mut(chunk_size);
+                    let (slice_a, slice_b) = walker_chunk.split_at_mut(chunk_size.get());
+                    
+                    let mut slice_b_shuffled: Vec<_> = slice_b.iter_mut().collect();
+                    slice_b_shuffled.shuffle(&mut slice_a[0].rng);
+
                     for (walker_a, walker_b) in slice_a.iter_mut()
-                        .zip(slice_b.iter_mut())
+                        .zip(slice_b_shuffled.into_iter())
                     {
                         replica_exchange(walker_a, walker_b);
                     }
