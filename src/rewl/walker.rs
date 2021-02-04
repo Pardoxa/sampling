@@ -31,6 +31,11 @@ fn derivative(data: &[f64]) -> Vec<f64>
             d[i] = (data[i+1] - data[i-1]) / 2.0;
         }
     }
+    if data.len() >= 2 {
+        d[0] = (data[1] - data[0]) / 2.0;
+
+        d[data.len() - 1] = (data[data.len() - 1] - data[data.len() - 2]) / 2.0;
+    }
     d
 }
 
@@ -42,6 +47,11 @@ fn derivative_merged(data: &[f64]) -> Vec<f64>
     let mut d = five_point_derivitive(data);
     d[1] = (data[2] - data[0]) / 2.0;
     d[data.len() - 2] = (data[data.len() - 1] - data[data.len() - 3]) / 2.0;
+
+    d[0] = (data[1] - data[0]) / 2.0;
+
+    d[data.len() - 1] = (data[data.len() - 1] - data[data.len() - 2]) / 2.0;
+
     d
 }
 
@@ -52,22 +62,54 @@ fn merge_walker_prob<R, Hist, Energy, S, Res>(walker: &mut [RewlWalker<R, Hist, 
     if walker.len() < 2 {
         return;
     }
-    let len = walker[0].log_density.len();
-    debug_assert![walker.iter().all(|w| w.log_density.len() == len)];
+    let averaged = get_merged_walker_prob(walker);
+    
+    walker.iter_mut()
+        .skip(1)
+        .for_each(
+            |w|
+            {
+                w.log_density
+                    .copy_from_slice(&averaged)
+            }
+        );
+    walker[0].log_density = averaged;
+}
 
-    let num_walkers = walker.len() as f64;
-    for i in 0..len {
-        let mut val = walker[0].log_density[i];
-        for w in walker[1..].iter()
-        {
-            val += w.log_density[i];
-        }
-        val /= num_walkers;
-        for w in walker.iter_mut()
-        {
-            w.log_density[i] = val;
-        }
+fn get_merged_walker_prob<R, Hist, Energy, S, Res>(walker: &[RewlWalker<R, Hist, Energy, S, Res>]) -> Vec<f64>
+{
+    let log_len = walker[0].log_density.len();
+    debug_assert!(
+        walker.iter()
+            .all(|w| w.log_density.len() == log_len)
+    );
+
+    let mut averaged_log_density = walker[0].log_density
+        .clone();
+
+    if walker.len() > 1 {
+    
+        walker[1..].iter()
+            .for_each(
+                |w|
+                {
+                    averaged_log_density.iter_mut()
+                        .zip(w.log_density.iter())
+                        .for_each(
+                            |(average, other)|
+                            {
+                                *average += other;
+                            }
+                        )
+                }
+            );
+    
+        let number_of_walkers = walker.len() as f64;
+        averaged_log_density.iter_mut()
+            .for_each(|average| *average /= number_of_walkers);
     }
+
+    averaged_log_density
 }
 
 #[derive(Debug, Clone)]
@@ -426,8 +468,7 @@ where R: Send + Sync + Rng + SeedableRng,
             .par_iter_mut()
             .for_each(|w| w.wang_landau_sweep(slice, step_size, energy_fn));
 
-        // I belive that norming makes sense here - at the very least it is not wrong
-        self.norm_max_to_0();
+        
         self.walker
             .par_chunks_mut(self.chunk_size.get())
             .filter(|chunk| 
