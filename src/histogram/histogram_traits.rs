@@ -98,6 +98,16 @@ pub trait HistogramPartition: Sized
     fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>;
 }
 
+/// # Used to get a histogram, which contains the smaller histograms
+pub trait HistogramCombine: Sized
+{
+    fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
+    where S: Borrow<Self>;
+
+    fn align<S>(left: S, right: S)-> Result<usize, HistErrors>
+    where S: Borrow<Self>;
+}
+
 /// Possible Errors of the traits `Histogram` and `HistogramVal`
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]

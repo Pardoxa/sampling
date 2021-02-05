@@ -535,6 +535,149 @@ where R: Send + Sync + Rng + SeedableRng,
             );
     }
 
+    /// # Result of the simulations!
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns the log10 of the normalized probability density and the 
+    /// histogram, which contains the corresponding bins.
+    ///
+    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
+    pub fn merged_log10_prob(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (mut log_prob, e_hist) = self.merged_log_prob()?;
+
+        // switch base of log
+        log_prob.iter_mut()
+            .for_each(|val| *val *= std::f64::consts::LOG10_E);
+
+        Ok((log_prob, e_hist))
+
+    }
+
+    pub fn merged_log_prob(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (mut log_prob, e_hist) = self.merged_log_probability_helper()?;
+
+        subtract_max(&mut log_prob);
+
+        // calculate actual sum in non log space
+        let sum = log_prob.iter()
+            .fold(0.0, |acc, &val| {
+                if val.is_finite(){
+                   acc +  val.exp()
+                } else {
+                    acc
+                }
+            }  
+        );
+
+        let sum = sum.ln();
+
+        log_prob.iter_mut()
+            .for_each(|val| *val -= sum);
+        
+        Ok((log_prob, e_hist))
+    }
+
+    fn merged_log_probability_helper(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    where Hist: HistogramCombine
+    {
+        // get the log_probabilities - the walkers over the same intervals are merged
+        let mut log_prob: Vec<_> = self.walker
+            .par_chunks(self.chunk_size.get())
+            .map(get_merged_walker_prob)
+            .collect();
+        
+        log_prob
+            .par_iter_mut()
+            .for_each(|v| subtract_max(v));
+
+
+        // get the derivative, for merging later
+        let derivatives: Vec<_> = log_prob.par_iter()
+            .map(|v| derivative_merged(v))
+            .collect();
+
+        let hists: Vec<_> = self.walker.iter()
+            .step_by(self.chunk_size.get())
+            .map(|w| &w.hist)
+            .collect();
+
+        let e_hist = Hist::encapsulating_hist(&hists)?;
+
+        let alignment  = hists.iter()
+            .zip(hists.iter().skip(1))
+            .map(|(&left, &right)| Hist::align(left, right))
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        
+        let merge_points: Vec<_> = derivatives.iter()
+            .zip(derivatives.iter().skip(1))
+            .zip(alignment.iter())
+            .map(
+                |((left, right), &align)|
+                {
+                    (align..)
+                        .zip(
+                            left[align..].iter()
+                            .zip(right.iter())
+                        )
+                        .map(
+                            |(index, (&left, &right))|
+                            {
+                                (index, (left - right).abs())
+                            }
+                        ).fold( (usize::MAX, f64::INFINITY),
+                            |a, b|
+                            if a.1 < b.1 {
+                                a
+                            } else {
+                                b
+                            }
+                        ).0
+                }
+            ).collect();
+
+        let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+        
+        merged_log_prob[..=merge_points[0]]
+            .copy_from_slice(&log_prob[0][..=merge_points[0]]);
+
+        let mut align_sum = vec![0];
+        for (i, val) in alignment.iter().enumerate()
+        {
+            align_sum.push(align_sum[i] + val);
+        }
+        // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
+        let mut align_sum = 0;
+        for (index, (&a, &mp)) in alignment.iter().zip(merge_points.iter()).enumerate()
+        {
+            let index_copied = mp + align_sum;
+            align_sum += a;
+            let left = mp - a;
+
+            let shift = merged_log_prob[index_copied] - log_prob[index + 1][left];
+
+            merged_log_prob[index_copied..]
+                .iter_mut()
+                .zip(log_prob[index + 1][left..].iter())
+                .for_each(
+                    |(merge, val)|
+                    {
+                        *merge = val + shift;
+                    }
+                );
+
+
+        }
+
+        Ok((merged_log_prob, e_hist))
+
+    }
+
     /// # Get Ids
     /// This is an indicator for how good the replica exchange worked.
     /// In the beginning, this will be a sorted vector, e.g. [0,1,2,3,4].
