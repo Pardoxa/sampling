@@ -312,7 +312,26 @@ where R: Send + Sync + Rng + SeedableRng,
     S: Send + Sync
 {
 
-    pub fn par_greed<F, R2>
+    pub fn par_greed<F>
+    (
+        ensemble: Ensemble,
+        hists: Vec<Hist>,
+        step_size: usize,
+        sweep_size: NonZeroUsize,
+        log_f_threshold: f64,
+        chunk_size: NonZeroUsize,
+        energy_fn: F
+    ) -> Self
+    where 
+        Ensemble: Send + Sync + HasRng<R> + Clone,
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Hist: Clone
+    {
+        Self::par_greed_rng(ensemble, hists, step_size, sweep_size, log_f_threshold, chunk_size, energy_fn)
+    }
+
+    pub fn par_greed_rng<F, R2>
     (
         mut ensemble: Ensemble,
         hists: Vec<Hist>,

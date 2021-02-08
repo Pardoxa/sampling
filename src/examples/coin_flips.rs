@@ -152,3 +152,69 @@ impl<R> HasRng<R> for CoinFlipSequence<R>
         std::mem::swap(&mut self.rng, rng);
     }
 }
+
+#[cfg(test)]
+mod test
+{
+    use super::*;
+    use rand::SeedableRng;
+    use rand_pcg::Pcg64;
+    use crate::rewl::*;
+    use std::num::*;
+    use statrs::distribution::{Binomial, Discrete};
+
+    #[test]
+    fn rewl()
+    {
+        let n = 20;
+        // length of coin flip sequence
+        let interval_count = 3;
+        
+        // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
+        let hist = HistUsizeFast::new_inclusive(0, n).unwrap();
+
+        // now the overlapping histograms for sampling
+        // lets create 3 histograms. The parameter Overlap should be larger than 0. Normally, 1 is sufficient
+        let hist_list = hist.overlapping_partition(interval_count, 2).unwrap();
+        let rng = Pcg64::seed_from_u64(834628956578);
+
+        let ensemble = CoinFlipSequence::new(n, rng);
+
+        let mut rewl = Rewl::par_greed(
+            ensemble,
+            hist_list,
+            1,
+            NonZeroUsize::new(100).unwrap(),
+            0.001,
+            NonZeroUsize::new(1).unwrap(),
+            |e| Some(e.head_count())
+        );
+
+        rewl.simulate_until_convergence(
+            1,
+            |e| e.head_count()
+        );
+
+        let merged = rewl.merged_log_prob()
+            .unwrap();
+
+        let prob = merged.0;
+
+        let binomial = Binomial::new(0.5, n as u64).unwrap();
+
+        let ln_prob_true: Vec<_> = (0..=n)
+            .map(|k| binomial.ln_pmf(k as u64))
+            .collect();
+
+        for (index, val) in prob.into_iter().zip(ln_prob_true.into_iter()).enumerate()
+        {
+            println!("{} {} {}", index, val.0, val.1);
+        }
+
+        let order = rewl.get_id_vec();
+
+        for (index, id) in order.into_iter().enumerate() {
+            println!("index {} id {}", index, id);
+        }
+    }
+}

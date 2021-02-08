@@ -451,7 +451,7 @@ mod tests{
     }
 
     #[test]
-    fn test_hist_combine()
+    fn hist_combine()
     {
         let left = HistI8Fast::new_inclusive(-5,0).unwrap();
         let right = HistI8Fast::new_inclusive(-1, 2).unwrap();
@@ -484,6 +484,11 @@ mod tests{
 
         assert_eq!(255, align);
 
+        let en = HistI8Fast::encapsulating_hist(&[&left]).unwrap();
+        assert_eq!(en.bin_count(), 256);
+        let slice = [&left];
+        let en = HistI8Fast::encapsulating_hist(&slice[1..]);
+        assert_eq!(en.err(), Some(HistErrors::EmptySlice));
         let en = HistI8Fast::encapsulating_hist(&[small, left]).unwrap();
 
         assert_eq!(en.bin_count(), 256);
