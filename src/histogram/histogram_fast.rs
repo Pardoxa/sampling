@@ -275,6 +275,59 @@ where Self: HistogramVal<T>,
     }
 }
 
+impl<T> HistogramCombine for HistogramFast<T>
+    where   Self: HistogramVal<T>,
+    T: PartialOrd + Copy + PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
++ HasUnsignedVersion,
+    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
+    + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+{
+    fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
+    where S: Borrow<Self> {
+        if hists.len() == 0 {
+            Err(HistErrors::EmptySlice)
+        } else if hists.len() == 1 {
+            let h = hists[0].borrow();
+            Ok(Self{
+                left: h.left,
+                right: h.right,
+                hist: vec![0; h.hist.len()]
+            })
+        } else {
+            let mut min = hists[0].borrow().left;
+            let mut max = hists[0].borrow().right;
+            hists[1..].iter()
+                .for_each(
+                    |h|
+                    {
+                        let h = h.borrow();
+                        if h.left < min {
+                            min = h.left;
+                        }
+                        if h.right > max {
+                            max = h.right;
+                        }
+                    }
+                );
+            Self::new_inclusive(min, max)
+        }
+    }
+
+    fn align<S>(&self, right: S) -> Result<usize, HistErrors>
+    where S: Borrow<Self> {
+        let right = right.borrow();
+
+        if self.is_inside(right.left) {
+            (to_u(right.left) - to_u(self.left))
+                .to_usize()
+                .ok_or(HistErrors::UsizeCastError)
+        } else { 
+            Err(HistErrors::OutsideHist)
+        }
+    }
+}
+
+
 
 
 
@@ -395,6 +448,45 @@ mod tests{
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_hist_combine()
+    {
+        let left = HistI8Fast::new_inclusive(-5,0).unwrap();
+        let right = HistI8Fast::new_inclusive(-1, 2).unwrap();
+
+        let en = HistI8Fast::encapsulating_hist(&[&left, &right]).unwrap();
+
+        assert_eq!(en.left, left.left);
+        assert_eq!(en.right, right.right);
+        assert_eq!(en.bin_count(), 8);
+
+        let align = left.align(right).unwrap();
+
+        assert_eq!(align, 4);
+
+        let left = HistI8Fast::new_inclusive(i8::MIN, 0).unwrap();
+        let right = HistI8Fast::new_inclusive(0, i8::MAX).unwrap();
+
+        let en = HistI8Fast::encapsulating_hist(&[&left, &right]).unwrap();
+
+        assert_eq!(en.bin_count(), 256);
+
+        let align = left.align(right).unwrap();
+
+        assert_eq!(128, align);
+
+        let left = HistI8Fast::new_inclusive(i8::MIN, i8::MAX).unwrap();
+        let small = HistI8Fast::new_inclusive(127, 127).unwrap();
+
+        let align = left.align(&small).unwrap();
+
+        assert_eq!(255, align);
+
+        let en = HistI8Fast::encapsulating_hist(&[small, left]).unwrap();
+
+        assert_eq!(en.bin_count(), 256);
     }
 
 }

@@ -104,7 +104,7 @@ pub trait HistogramCombine: Sized
     fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
     where S: Borrow<Self>;
 
-    fn align<S>(left: S, right: S)-> Result<usize, HistErrors>
+    fn align<S>(&self, right: S)-> Result<usize, HistErrors>
     where S: Borrow<Self>;
 }
 
@@ -138,5 +138,8 @@ pub enum HistErrors{
 
     /// Cannot create requested interval with 
     /// bins, that all have the same width!
-    ModuloError
+    ModuloError,
+
+    /// Unable to perform operation on empty slice
+    EmptySlice
 }

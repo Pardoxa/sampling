@@ -523,18 +523,6 @@ where R: Send + Sync + Rng + SeedableRng,
             .all(|w| w.log_f < self.log_f_threshold)
     }
 
-    fn norm_max_to_0(&mut self)
-    {
-        self.walker
-            .par_iter_mut()
-            .for_each(
-                |w|
-                {
-                    subtract_max(&mut w.log_density)
-                }
-            );
-    }
-
     /// # Result of the simulations!
     /// This is what we do the simulation for!
     /// 
@@ -610,7 +598,7 @@ where R: Send + Sync + Rng + SeedableRng,
 
         let alignment  = hists.iter()
             .zip(hists.iter().skip(1))
-            .map(|(&left, &right)| Hist::align(left, right))
+            .map(|(&left, &right)| left.align(right))
             .collect::<Result<Vec<_>, _>>()?;
         
         
@@ -646,22 +634,18 @@ where R: Send + Sync + Rng + SeedableRng,
         merged_log_prob[..=merge_points[0]]
             .copy_from_slice(&log_prob[0][..=merge_points[0]]);
 
-        let mut align_sum = vec![0];
-        for (i, val) in alignment.iter().enumerate()
-        {
-            align_sum.push(align_sum[i] + val);
-        }
+
         // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
         let mut align_sum = 0;
         for (index, (&a, &mp)) in alignment.iter().zip(merge_points.iter()).enumerate()
         {
-            let index_copied = mp + align_sum;
+            let position_l = mp + align_sum;
             align_sum += a;
             let left = mp - a;
 
-            let shift = merged_log_prob[index_copied] - log_prob[index + 1][left];
+            let shift = merged_log_prob[position_l] - log_prob[index + 1][left];
 
-            merged_log_prob[index_copied..]
+            merged_log_prob[position_l..]
                 .iter_mut()
                 .zip(log_prob[index + 1][left..].iter())
                 .for_each(
