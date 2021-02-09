@@ -101,9 +101,15 @@ pub trait HistogramPartition: Sized
 /// # Used to get a histogram, which contains the smaller histograms
 pub trait HistogramCombine: Sized
 {
+    /// # Create a histogram, which encapsulates the histograms passed
+    /// # possible errors
+    /// * bin size of histograms is uneqal
+    /// * bins do not align
     fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
     where S: Borrow<Self>;
 
+    /// # Get bin difference between histograms
+    /// * index of bin of self corresponding to the leftest bin of `right`
     fn align<S>(&self, right: S)-> Result<usize, HistErrors>
     where S: Borrow<Self>;
 }

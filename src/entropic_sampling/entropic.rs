@@ -299,6 +299,22 @@ where Hist: Histogram + HistogramVal<T>,
         }
     }
 
+    /// # Entropic sampling using an accumulating markov step
+    /// * performs `self.entropic_step_acc(&mut energy_fn)` until `condition(self) == false`
+    /// # Parameter
+    /// * `energy_fn` function calculating the energy `E` of the system
+    /// (or rather the Parameter of which you wish to obtain the probability distribution)
+    /// during the markov steps, which can be more efficient.
+    /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
+    /// * `print_fn`: see below
+    /// # Correlations
+    /// * if you want to measure correlations between "energy" and other measurable quantities,
+    /// use `print_fn`, which will be called after each step - use this function to write to 
+    /// a file or whatever you desire
+    /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
+    ///  just call `self.energy()` 
+    /// * you have access to your ensemble with `self.ensemble()`
+    /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_while_acc<F, G, W>(
         &mut self,
         mut energy_fn: F,
@@ -386,6 +402,22 @@ where Hist: Histogram + HistogramVal<T>,
         }
     }
 
+    /// # Entropic sampling using an accumulating markov step
+    /// * performs `self.entropic_step_acc(&mut energy_fn)` until `self.step_count >= self.step_goal`
+    /// # Parameter
+    /// * `energy_fn` function calculating the energy `E` of the system
+    /// (or rather the Parameter of which you wish to obtain the probability distribution)
+    /// during the markov steps, which can be more efficient.
+    /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
+    /// * `print_fn`: see below
+    /// # Correlations
+    /// * if you want to measure correlations between "energy" and other measurable quantities,
+    /// use `print_fn`, which will be called after each step - use this function to write to 
+    /// a file or whatever you desire
+    /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
+    ///  just call `self.energy()` 
+    /// * you have access to your ensemble with `self.ensemble()`
+    /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_acc<F, G>(
         &mut self,
         mut energy_fn: F,
@@ -494,6 +526,23 @@ where Hist: Histogram + HistogramVal<T>,
         }
     }
 
+
+    /// # Entropic sampling using an accumulating markov step
+    /// * performs `self.entropic_step_acc(&mut energy_fn)` until `self.step_count == self.step_goal`
+    /// # Parameter
+    /// * `energy_fn` function calculating the energy `E` of the system
+    /// (or rather the Parameter of which you wish to obtain the probability distribution)
+    /// during the markov steps, which can be more efficient.
+    /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
+    /// * `print_fn`: see below
+    /// # Correlations
+    /// * if you want to measure correlations between "energy" and other measurable quantities,
+    /// use `print_fn`, which will be called after each step - use this function to write to 
+    /// a file or whatever you desire
+    /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
+    ///  just call `self.energy()` 
+    /// * you have access to your ensemble with `self.ensemble()`
+    /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_step_acc<F>(
         &mut self,
         energy_fn: F,

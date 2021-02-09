@@ -54,7 +54,7 @@ pub struct WangLandauAdaptive<Hist, R, E, S, Res, Energy>
 }
 
 
-impl<R, E, S, Res, Hist, T> WangLandau for WangLandauAdaptive<Hist, R, E, S, Res, T>
+impl<R, E, S, Res, Hist, Energy> WangLandau for WangLandauAdaptive<Hist, R, E, S, Res, Energy>
 {
     fn total_steps_accepted(&self) -> usize {
         self.total_steps_accepted + 
@@ -218,7 +218,7 @@ impl<R, E, S, Res, Hist, Energy> WangLandauHist<Hist>
     }
 }
 
-impl<R, E, S, Res, Hist, T> WangLandauAdaptive<Hist, R, E, S, Res, T>
+impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy>
 {
 
     /// # Smallest possible markov step (`m_steps` of MarkovChain trait) tried by wang landau step
@@ -285,7 +285,7 @@ impl<R, E, S, Res, Hist, T> WangLandauAdaptive<Hist, R, E, S, Res, T>
 
     /// # Estimate accept/reject statistics
     /// * contains list of estimated probabilities for accepting a step of corresponding step size
-    /// * list[i] corresponds to step size `i + self.min_step`
+    /// * list\[i\] corresponds to step size `i + self.min_step`
     /// * O(trial_step_max - trial_step_min)
     pub fn estimate_statistics(&self) -> Result<Vec<f64>, WangLandauErrors>
     {
@@ -332,10 +332,10 @@ impl<R, E, S, Res, Hist, T> WangLandauAdaptive<Hist, R, E, S, Res, T>
     
 }
 
-impl<R, E, S, Res, Hist, T> WangLandauAdaptive<Hist, R, E, S, Res, T> 
+impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy> 
 where R: Rng,
     E: MarkovChain<S, Res>,
-    Hist: Histogram + HistogramVal<T>
+    Hist: Histogram + HistogramVal<Energy>
 {
     
     fn reset_statistics(&mut self)
@@ -436,11 +436,11 @@ where R: Rng,
 }
 
 
-impl<R, E, S, Res, Hist, T> WangLandauAdaptive<Hist, R, E, S, Res, T> 
+impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy> 
 where R: Rng,
     E: MarkovChain<S, Res>,
-    Hist: Histogram + HistogramVal<T>,
-    T: Clone
+    Hist: Histogram + HistogramVal<Energy>,
+    Energy: Clone
 {
    
     /// # New WangLandauAdaptive
@@ -544,7 +544,7 @@ where R: Rng,
         energy_fn: F,
         step_limit: Option<u64>
     ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<T>
+    where F: Fn(&mut E) -> Option<Energy>
     {
         
         self.old_energy = energy_fn(&mut self.ensemble);
@@ -594,7 +594,7 @@ where R: Rng,
         assert!(self.old_bin.is_some(), "Error in heuristic - old bin invalid");
     }
 
-    fn old_energy_ref(&self) -> &T {
+    fn old_energy_ref(&self) -> &Energy {
         self.old_energy
             .as_ref()
             .unwrap()
@@ -605,8 +605,8 @@ where R: Rng,
         old_distance: &mut J,
         energy_fn: F,
         distance_fn: H,
-    )   where F: Fn(&mut E) -> Option<T>,
-            H: Fn(&Hist, &T) -> J,
+    )   where F: Fn(&mut E) -> Option<Energy>,
+            H: Fn(&Hist, &Energy) -> J,
             J: PartialOrd
     {
         let size = self.get_stepsize();
@@ -654,8 +654,8 @@ where R: Rng,
         energy_fn: F,
         step_limit: Option<u64>
     ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<T>,
-        Hist: HistogramIntervalDistance<T>,
+    where F: Fn(&mut E) -> Option<Energy>,
+        Hist: HistogramIntervalDistance<Energy>,
         U: One + Bounded + WrappingAdd + Eq + PartialOrd
     {
         let overlap = overlap.max(1);
@@ -674,7 +674,7 @@ where R: Rng,
         let mut counter: U = U::min_value();
         let min_val = U::min_value();
         let one = U::one();
-        let dist_interval = |h: &Hist, val: &T| h.interval_distance_overlap(val, overlap);
+        let dist_interval = |h: &Hist, val: &Energy| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
         loop {
             if counter == min_val {
@@ -737,8 +737,8 @@ where R: Rng,
         energy_fn: F,
         step_limit: Option<u64>,
     ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<T>,
-        Hist: HistogramIntervalDistance<T>
+    where F: Fn(&mut E) -> Option<Energy>,
+        Hist: HistogramIntervalDistance<Energy>
     {
         let overlap = overlap.max(1);
         self.init(&energy_fn, step_limit)?;
@@ -748,7 +748,7 @@ where R: Rng,
                 overlap
             );
         
-        let dist = |h: &Hist, val: &T| h.interval_distance_overlap(val, overlap);
+        let dist = |h: &Hist, val: &Energy| h.interval_distance_overlap(val, overlap);
         let mut step_count = 0;
 
         while old_dist != 0 {
@@ -787,7 +787,7 @@ where R: Rng,
         energy_fn: F,
         step_limit: Option<u64>,
     ) -> Result<(), WangLandauErrors>
-    where F: Fn(&mut E) -> Option<T>,
+    where F: Fn(&mut E) -> Option<Energy>,
     {
         self.init(&energy_fn, step_limit)?;
         let mut old_distance = self.histogram
@@ -824,7 +824,7 @@ where R: Rng,
         &mut self,
         energy_fn: F,
         mut condition: W
-    ) where F: Fn(&E) -> Option<T>,
+    ) where F: Fn(&E) -> Option<Energy>,
         W: FnMut(&Self) -> bool,
     {
         while !self.is_finished() && condition(&self) {
@@ -832,11 +832,18 @@ where R: Rng,
         }
     }
 
+    /// # Wang Landau Simulation
+    /// * similar to [`wang_landau_while`](`crate::wang_landau::WangLandauAdaptive::wang_landau_while`)
+    /// ## Difference
+    /// uses accumulating markov steps, i.e., it updates the Energy during the markov steps.
+    /// This can be more efficient. Therefore the `energy_fn` now gets the state of the ensemble 
+    /// after the markov step `&E`, the step that was performed `&S` as well as a mutable
+    /// reference to the old Energy `&mut Energy` which is to change
     pub fn wang_landau_while_acc<F, W>(
         &mut self,
         mut energy_fn: F,
         mut condition: W
-    ) where F: FnMut(&E, &S, &mut T),
+    ) where F: FnMut(&E, &S, &mut Energy),
         W: FnMut(&Self) -> bool,
     {
         while !self.is_finished() && condition(&self) {
@@ -858,7 +865,7 @@ where R: Rng,
         &mut self,
         mut energy_fn: F,
         mut condition: W
-    ) where F: FnMut(&mut E) -> Option<T>,
+    ) where F: FnMut(&mut E) -> Option<Energy>,
         W: FnMut(&Self) -> bool,
     {
         while !self.is_finished() && condition(&self) {
@@ -875,18 +882,26 @@ where R: Rng,
     pub fn wang_landau_convergence<F>(
         &mut self,
         energy_fn: F,
-    )where F: Fn(&E) -> Option<T>,
+    )where F: Fn(&E) -> Option<Energy>,
     {
         while !self.is_finished() {
             self.wang_landau_step(&energy_fn);
         }
     }
 
+    
+    /// # Wang Landau simulation
+    /// * similar to [`wang_landau_convergence`](`crate::WangLandauAdaptive::wang_landau_convergence`)
+    /// ## Difference
+    /// uses accumulating markov steps, i.e., it updates the Energy during the markov steps.
+    /// This can be more efficient. Therefore the `energy_fn` now gets the state of the ensemble 
+    /// after the markov step `&E`, the step that was performed `&S` as well as a mutable
+    /// reference to the old Energy `&mut Energy` which is to change
     pub fn wang_landau_convergence_acc<F>(
         &mut self,
         mut energy_fn: F,
     ) 
-    where F: FnMut(&E, &S, &mut T)
+    where F: FnMut(&E, &S, &mut Energy)
     {
         while !self.is_finished() {
             self.wang_landau_step_acc(&mut energy_fn);
@@ -905,7 +920,7 @@ where R: Rng,
     pub unsafe fn wang_landau_convergence_unsafe<F>(
         &mut self,
         mut energy_fn: F,
-    )where F: FnMut(&mut E) -> Option<T>,
+    )where F: FnMut(&mut E) -> Option<Energy>,
     {
         while !self.is_finished() {
             self.wang_landau_step_unsafe(&mut energy_fn);
@@ -914,7 +929,7 @@ where R: Rng,
 
     fn wl_step_helper(
         &mut self,
-        energy: Option<T>,
+        energy: Option<Energy>,
     )
     {
         let old_bin = self.old_bin.expect(
@@ -975,7 +990,7 @@ where R: Rng,
     pub fn wang_landau_step<F>(
         &mut self,
         energy_fn: F
-    )where F: Fn(&E) -> Option<T>
+    )where F: Fn(&E) -> Option<Energy>
     {
         unsafe {
             self.wang_landau_step_unsafe(|e| energy_fn(e))
@@ -1001,7 +1016,7 @@ where R: Rng,
     pub unsafe fn wang_landau_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,
-    )where F: FnMut(&mut E) -> Option<T>
+    )where F: FnMut(&mut E) -> Option<Energy>
     {
         debug_assert!(
             self.old_energy.is_some(),
@@ -1021,11 +1036,19 @@ where R: Rng,
     }
 
 
+    /// # Accumulating wang landau step
+    /// * similar to [`wang_landau_step`](`crate::WangLandauAdaptive::wang_landau_step`)
+    /// ## Difference
+    /// * this uses accumulating markov steps, i.e., it calculates the Energy during each markov step,
+    /// which can be more efficient. This assumes, that cloning the Energy is cheap, which is true for 
+    /// primitive types like usize or f64
+    /// * parameter of `energy_fn`: `&E` Ensemble after the markov step `&S` was performed.
+    /// `&mut Energy` is the old energy, which has to be changed to the new energy of the sytem
     pub fn wang_landau_step_acc<F>(
         &mut self,
         energy_fn: F
     )    
-    where F: FnMut(&E, &S, &mut T)
+    where F: FnMut(&E, &S, &mut Energy)
     {
         debug_assert!(
             self.old_energy.is_some(),

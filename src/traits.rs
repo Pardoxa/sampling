@@ -40,7 +40,8 @@ pub trait MarkovChain<S, Res> {
     }
 
     /// # Accumulating markov step
-    /// * this calculates something while performing the markov chain, e.g., the current energy
+    /// * this calculates something while performing the markov chain, e.g., the current energy,
+    /// which can be more efficient then calculating it from scratch afterwards
     #[inline]
     fn m_step_acc<Acc, AccFn>(&mut self, acc: &mut Acc, mut acc_fn: AccFn) -> S
     where AccFn: FnMut(&Self, &S, &mut Acc)
@@ -50,6 +51,9 @@ pub trait MarkovChain<S, Res> {
         s
     }
 
+    /// # Accumulating markov steps
+    /// * this calculates something while performing the markov chain, e.g., the current energy
+    /// which can be more efficient then calculating it from scratch afterwards
     #[inline]
     fn m_steps_acc<Acc, AccFn>
     (
@@ -68,6 +72,10 @@ pub trait MarkovChain<S, Res> {
         );
     }
 
+    /// # Accumulating markov steps
+    /// * this calculates something while performing the markov chain, e.g., the current energy
+    /// which can be more efficient then calculating it from scratch afterwards
+    /// * quiet step, i.e., you will not be able to undo the step
     #[inline]
     fn m_steps_acc_quiet<Acc, AccFn>(&mut self, count: usize, acc: &mut Acc, mut acc_fn: AccFn)
     where AccFn: FnMut(&Self, &S, &mut Acc)

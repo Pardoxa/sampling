@@ -27,6 +27,7 @@ impl CoinFlip
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// Result of markov Step
 pub struct CoinFlipMove{
     previouse: CoinFlip,
     index: usize,
@@ -180,19 +181,19 @@ mod test
 
         let ensemble = CoinFlipSequence::new(n, rng);
 
-        let mut rewl = Rewl::par_greed(
+        let mut rewl = Rewl::par_greed_from_ensemble(
             ensemble,
             hist_list,
             1,
             NonZeroUsize::new(100).unwrap(),
-            0.001,
+            0.00001,
             NonZeroUsize::new(1).unwrap(),
             |e| Some(e.head_count())
-        );
+        ).unwrap();
 
         rewl.simulate_until_convergence(
             1,
-            |e| e.head_count()
+            |e| Some(e.head_count())
         );
 
         let merged = rewl.merged_log_prob()

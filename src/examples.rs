@@ -446,4 +446,4 @@
 /// ```
 pub mod coin_flips;
 
-pub mod ising_spins;
+//pub mod ising_spins;

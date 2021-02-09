@@ -9,6 +9,21 @@ use rayon::prelude::*;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// Errors encountered during the creation of a Rewl struct (**R**eplica **e**xchange **W**ang **L**andau)
+pub enum RewlCreationErrors
+{
+    /// histograms must have at least two bins - everything else makes no sense!
+    HistsizeError,
+
+    /// You tried to pass an empty slice
+    EmptySlice,
+
+    /// The length of the histogram vector has to be equal to the length of the ensemble vector!
+    LenMissmatch,
+}
+
 //five-point stencil 
 fn five_point_derivitive(data: &[f64]) -> Vec<f64>
 {
@@ -112,6 +127,10 @@ fn get_merged_walker_prob<R, Hist, Energy, S, Res>(walker: &[RewlWalker<R, Hist,
     averaged_log_density
 }
 
+
+/// # Walker for Replica exchange Wang Landau
+/// * used by [`Rewl`](`crate::rewl::Rewl`)
+/// * performes the random walk in its respective domain 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct RewlWalker<R, Hist, Energy, S, Res>
@@ -179,7 +198,7 @@ where R: Rng + Send + Sync,
     S: Send + Sync,
     Res: Send + Sync
 {
-    pub fn new
+    pub(crate) fn new
     (
         id: usize,
         rng: R,
@@ -206,6 +225,8 @@ where R: Rng + Send + Sync,
         }
     }
 
+    /// # Current (logarithm of) factor f
+    /// * See the paper for more info
     pub fn log_f(&self) -> f64
     {
         self.log_f
@@ -236,14 +257,14 @@ where R: Rng + Send + Sync,
         self.hist.reset();
     }
 
-    pub fn wang_landau_sweep<Ensemble, F>
+    pub(crate) fn wang_landau_sweep<Ensemble, F>
     (
         &mut self,
         ensemble_vec: &[RwLock<Ensemble>],
         step_size: usize,
         energy_fn: F
     )
-    where F: Fn(&mut Ensemble) -> Energy,
+    where F: Fn(&mut Ensemble) -> Option<Energy>,
         Ensemble: MarkovChain<S, Res>
     {
         let mut e = ensemble_vec[self.id]
@@ -256,10 +277,17 @@ where R: Rng + Send + Sync,
         let mut steps = Vec::with_capacity(step_size);
         for _ in 0..self.sweep_size.get()
         {   
-            e.m_steps(step_size, &mut steps);
-            let energy = energy_fn(&mut e);
-
             self.step_count = self.step_count.saturating_add(1);
+            e.m_steps(step_size, &mut steps);
+
+            let energy = match energy_fn(&mut e){
+                Some(energy) => energy,
+                None => {
+                    e.undo_steps_quiet(&mut steps);
+                    continue;
+                }
+            };
+
             
             if self.mode.is_mode_1_t() {
                 self.log_f = self.log_f_1_t();
@@ -293,15 +321,23 @@ where R: Rng + Send + Sync,
 }
 
 
+/// # Efficient replica exchange Wang landau
+/// * use this to quickly build your own parallel replica exchange wang landau simulation
+/// ## Tipp
+/// Use the short hand `Rewl`  
 #[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct Rewl<Ensemble, R, Hist, Energy, S, Res>{
+pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     chunk_size: NonZeroUsize,
     ensembles: Vec<RwLock<Ensemble>>,
     walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     log_f_threshold: f64,
     replica_exchange_mode: bool,
 }
+
+
+/// Short for [`ReplicaExchangeWangLandau`](crate::rewl::ReplicaExchangeWangLandau)
+pub type Rewl<Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>;
 
 impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
 where R: Send + Sync + Rng + SeedableRng,
@@ -312,7 +348,7 @@ where R: Send + Sync + Rng + SeedableRng,
     S: Send + Sync
 {
 
-    pub fn par_greed<F>
+    pub fn par_greed_from_ensemble<F>
     (
         ensemble: Ensemble,
         hists: Vec<Hist>,
@@ -321,36 +357,25 @@ where R: Send + Sync + Rng + SeedableRng,
         log_f_threshold: f64,
         chunk_size: NonZeroUsize,
         energy_fn: F
-    ) -> Self
+    ) -> Result<Self, RewlCreationErrors>
     where 
         Ensemble: Send + Sync + HasRng<R> + Clone,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
         Hist: Clone
     {
-        Self::par_greed_rng(ensemble, hists, step_size, sweep_size, log_f_threshold, chunk_size, energy_fn)
+        let size = NonZeroUsize::new(hists.len()).ok_or(RewlCreationErrors::EmptySlice)?;
+        let ensembles = Self::clone_and_seed_ensembles(ensemble, size);
+        Self::par_greed_from_ensemles_rng(ensembles, hists, step_size, sweep_size, log_f_threshold, chunk_size, energy_fn)
     }
 
-    pub fn par_greed_rng<F, R2>
-    (
-        mut ensemble: Ensemble,
-        hists: Vec<Hist>,
-        step_size: usize,
-        sweep_size: NonZeroUsize,
-        log_f_threshold: f64,
-        chunk_size: NonZeroUsize,
-        energy_fn: F
-    ) -> Self
-    where 
-        Ensemble: Send + Sync + HasRng<R2> + Clone,
-        R: Send + Sync,
-        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
-        R2: Send + Sync + Rng + SeedableRng,
-        Hist: Clone
+    fn clone_and_seed_ensembles<R2>(mut ensemble: Ensemble, size: NonZeroUsize) -> Vec<Ensemble>
+    where Ensemble: Clone + HasRng<R2>,
+        R2: SeedableRng + Rng
     {
-        let mut ensembles = Vec::with_capacity(hists.len());
+        let mut ensembles = Vec::with_capacity(size.get());
         ensembles.extend(
-            (1..hists.len())
+            (1..size.get())
                 .map(|_| {
                     let mut e = ensemble.clone();
                     let mut rng = R2::from_rng(ensemble.rng())
@@ -360,8 +385,51 @@ where R: Send + Sync + Rng + SeedableRng,
                 })
         );
         ensembles.push(ensemble);
+        ensembles
+    }
 
-        debug_assert_eq!(hists.len(), ensembles.len());
+    pub fn par_greed_from_ensembles<F>
+    (
+        ensemble: Vec<Ensemble>,
+        hists: Vec<Hist>,
+        step_size: usize,
+        sweep_size: NonZeroUsize,
+        log_f_threshold: f64,
+        chunk_size: NonZeroUsize,
+        energy_fn: F
+    ) -> Result<Self, RewlCreationErrors>
+    where 
+        Ensemble: Send + Sync + HasRng<R> + Clone,
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Hist: Clone
+    {
+        Self::par_greed_from_ensemles_rng(ensemble, hists, step_size, sweep_size, log_f_threshold, chunk_size, energy_fn)
+    }
+
+    pub fn par_greed_from_ensemles_rng<F, R2>
+    (
+        ensembles: Vec<Ensemble>,
+        hists: Vec<Hist>,
+        step_size: usize,
+        sweep_size: NonZeroUsize,
+        log_f_threshold: f64,
+        chunk_size: NonZeroUsize,
+        energy_fn: F
+    ) -> Result<Self, RewlCreationErrors>
+    where 
+        Ensemble: Send + Sync + HasRng<R2> + Clone,
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        R2: Send + Sync + Rng + SeedableRng,
+        Hist: Clone
+    {
+        
+
+        if hists.len() != ensembles.len()
+        {
+            return Err(RewlCreationErrors::LenMissmatch);
+        }
 
         let mut res = Vec::with_capacity(hists.len());
 
@@ -451,13 +519,17 @@ where R: Send + Sync + Rng + SeedableRng,
 
         }
 
-        Self{
-            ensembles: ensembles_rw_lock,
-            replica_exchange_mode: true,
-            chunk_size,
-            walker,
-            log_f_threshold
-        }
+        Ok(
+            Self
+            {
+                ensembles: ensembles_rw_lock,
+                replica_exchange_mode: true,
+                chunk_size,
+                walker,
+                log_f_threshold
+            }
+        )
+
 
     }
 
@@ -469,7 +541,7 @@ where R: Send + Sync + Rng + SeedableRng,
     where 
         Ensemble: Send + Sync,
         R: Send + Sync,
-        F: Fn(&mut Ensemble) -> Energy + Copy + Send + Sync
+        F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync
     {
         while !self.is_finished()
         {
@@ -480,7 +552,7 @@ where R: Send + Sync + Rng + SeedableRng,
     pub fn sweep<F>(&mut self, step_size: usize, energy_fn: F)
     where Ensemble: Send + Sync,
         R: Send + Sync,
-        F: Fn(&mut Ensemble) -> Energy + Copy + Send + Sync
+        F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync
     {
         let slice = self.ensembles.as_slice();
         self.walker
@@ -682,7 +754,7 @@ where R: Send + Sync + Rng + SeedableRng,
     }
 
     /// # Get Ids
-    /// This is an indicator for how good the replica exchange worked.
+    /// This is an indicator that the replica exchange works.
     /// In the beginning, this will be a sorted vector, e.g. [0,1,2,3,4].
     /// Then it will show, where the ensemble, which the corresponding walkers currently work with,
     /// originated from. E.g. If the vector is [3,1,0,2,4], Then walker 0 has a
@@ -696,58 +768,3 @@ where R: Send + Sync + Rng + SeedableRng,
             .collect()
     }
 }
-
-
-pub trait TestEnsemble{
-    fn num(&self) -> usize;
-    fn add_one(&mut self);
-}
-
-struct TestEns{
-    num: usize
-}
-
-impl TestEns{
-    #[allow(dead_code)]
-    pub fn new(id: usize) -> Self {
-        TestEns{
-            num: id
-        }
-    }
-}
-
-impl TestEnsemble for TestEns
-{
-    fn num(&self) -> usize {
-        self.num
-    }
-
-    fn add_one(&mut self) {
-        self.num = self.num.wrapping_add(1);
-    }
-}
-
-//#[cfg(test)]
-//mod tests
-//{
-//    use super::*;
-//    use rand_pcg::Pcg64Mcg;
-//
-//
-//    #[test]
-//    fn proof_of_concept()
-//    {
-//        let ensembles = (0..50)
-//            .map(|num| TestEns::new(num))
-//            .collect();
-//        
-//        let mut rng = Pcg64Mcg::seed_from_u64(94375982592);
-//
-//        let mut rewl = Rewl::new(&mut rng, ensembles, 1);
-//
-//        for _ in 0..10 {
-//            rewl.sweep_test();
-//            println!()
-//        }
-//    }
-//}
