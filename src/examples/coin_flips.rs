@@ -160,7 +160,6 @@ mod test
     use super::*;
     use rand::SeedableRng;
     use rand_pcg::Pcg64;
-    use crate::rewl::*;
     use std::num::*;
     use statrs::distribution::{Binomial, Discrete};
 
