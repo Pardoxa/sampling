@@ -189,11 +189,8 @@ mod test
             0.0000025
         ).unwrap();
 
-        let mut rewl = rewl_builder.try_greedy_build
-        (
-            |e| Some(e.head_count()),
-            || true
-        ).unwrap();
+        let mut rewl = rewl_builder
+            .greedy_build(|e| Some(e.head_count()));
 
 
         rewl.simulate_until_convergence(

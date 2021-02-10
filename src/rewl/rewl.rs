@@ -132,42 +132,6 @@ where Hist: Histogram,
         Ok(ensembles)
     }
 
-    //fn greedy_sweep<F, Energy>(
-    //    ensemble: &mut Ensemble,
-    //    hist: &Hist,
-    //    sweep_size: NonZeroUsize,
-    //    step_size: NonZeroUsize,
-    //    steps: &mut Vec<S>,
-    //    energy_fn: F,
-    //    distance: &mut f64,
-    //    energy: &mut Energy
-    //)where F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
-    //Hist: HistogramVal<Energy>,
-    //{
-    //    for _ in 0..sweep_size.get()
-    //    {
-    //        ensemble.m_steps(step_size.get(), &mut steps);
-    //        let current_energy = if let Some(energy) = energy_fn(&mut ensemble)
-    //        {
-    //            energy
-    //        } else {
-    //            ensemble.undo_steps_quiet(&mut steps);
-    //            continue;
-    //        };
-//
-    //        let new_distance = hist.distance(&current_energy);
-    //        if new_distance <= *distance {
-    //            energy = current_energy;
-    //            *distance = new_distance;
-    //            if *distance == 0.0 {
-    //                break 'outer2;
-    //            }
-    //        }else {
-    //            e.undo_steps_quiet(&mut steps);
-    //        }
-    //    }
-    //}
-
     fn build<Energy, R, R2>
     (
         container: Vec<(Hist, Ensemble, Option<Energy>)>,
@@ -255,6 +219,22 @@ where Hist: Histogram,
             }
         )
     }
+
+
+    pub fn greedy_build<R, F, Energy>(self, energy_fn: F) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
+    where Hist: HistogramVal<Energy>,
+        Ensemble: HasRng<R> + Sized,
+        R: Rng + SeedableRng + Send + Sync,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        match Self::try_greedy_choose_rng_build(self, energy_fn, || true){
+            Ok(result) => result,
+            _ => unreachable!()
+        }
+    }
+    
     
     pub fn try_greedy_build<R, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
@@ -266,6 +246,22 @@ where Hist: Histogram,
         walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
     {
         Self::try_greedy_choose_rng_build(self, energy_fn, condition)
+    }
+
+    pub fn greedy_choose_rng_build<R, R2, F, Energy>(self, energy_fn: F) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
+    where Hist: HistogramVal<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R2> + Sized,
+        R2: Rng + SeedableRng,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        match self.try_greedy_choose_rng_build(energy_fn, || true)
+        {
+            Ok(result) => result,
+            _ => unreachable!()
+        }
     }
 
     pub fn try_greedy_choose_rng_build<R, R2, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
@@ -348,7 +344,27 @@ where Hist: Histogram,
         )
     }
 
-    pub fn try_interval_heuristik_build<R, R2, F, C, Energy>
+    pub fn interval_heuristik_build<R, R2, F, Energy>
+    (
+        self,
+        energy_fn: F,
+        overlap: usize
+    ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R> + Sized,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        match Self::try_interval_heuristik_build(self, energy_fn, || true, overlap){
+            Ok(result) => result,
+            _ => unreachable!()
+        }
+    }
+
+
+    pub fn try_interval_heuristik_build<R, F, C, Energy>
     (
         self,
         energy_fn: F,
@@ -364,6 +380,26 @@ where Hist: Histogram,
         walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
     {
         Self::try_interval_heuristik_choose_rng_build(self, energy_fn, condition, overlap)
+    }
+    
+    pub fn interval_heuristik_choose_rng_build<R, R2, F, Energy>
+    (
+        self,
+        energy_fn: F,
+        overlap: usize
+    ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R2> + Sized,
+        R2: Rng + SeedableRng,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        match self.try_interval_heuristik_choose_rng_build(energy_fn, || true, overlap) {
+            Ok(result) => result,
+            _ => unreachable!()
+        }
     }
 
     pub fn try_interval_heuristik_choose_rng_build<R, R2, F, C, Energy>
@@ -427,6 +463,159 @@ where Hist: Histogram,
                                     energy = current_energy;
                                     distance = new_distance;
                                     if distance == 0 {
+                                        break 'outer2;
+                                    }
+                                }else {
+                                    e.undo_steps_quiet(&mut steps);
+                                }
+                            }
+                            if !condition()
+                            {
+                                return (h, e, None);
+                            }
+                        }
+                    }
+                    (h, e, Some(energy))
+                }
+            ).collect_into_vec(&mut container);
+
+        Self::build(
+            container,
+            self.chunk_size,
+            self.log_f_threshold,
+            step_size,
+            sweep_size
+        )
+    }
+
+    pub fn mixed_heuristik_build<R, F, Energy>
+    (
+        self,
+        energy_fn: F,
+        overlap: usize
+    ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R> + Sized,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        match Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, || true, overlap){
+            Ok(result) => result,
+            Err(_) => unreachable!()
+        }
+    }
+
+    pub fn try_mixed_heuristik_build<R, F, C, Energy>
+    (
+        self,
+        energy_fn: F,
+        condition: C,
+        overlap: usize
+    ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R> + Sized,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        C: Fn() -> bool + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, condition, overlap)
+    }
+
+
+    pub fn try_mixed_heuristik_choose_rng_build<R, R2, F, C, Energy>
+    (
+        self,
+        energy_fn: F,
+        condition: C,
+        overlap: usize
+    ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R2> + Sized,
+        R2: Rng + SeedableRng,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        C: Fn() -> bool + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        let mut container = Vec::with_capacity(self.hists.len());
+        let ensembles = self.ensembles;
+        let hists = self.hists;
+        let step_size = self.step_size;
+        let sweep_size = self.sweep_size;
+        ensembles.into_par_iter()
+            .zip(hists.into_par_iter())
+            .map(
+                |(mut e, h)|
+                {
+                    let mut energy = 'outer: loop
+                    {
+                        for _ in 0..sweep_size.get(){
+                            if let Some(energy) = energy_fn(&mut e){
+                                break 'outer energy;
+                            }
+                            e.m_steps_quiet(step_size.get());
+                        }
+                        if !condition(){
+                            return (h, e, None);
+                        }
+                    };
+
+                    if !h.is_inside(&energy) {
+                        let mut distance_interval;
+                        let mut distance;
+
+                        let mut steps = Vec::with_capacity(step_size.get());
+                        'outer2: loop 
+                        {
+                            distance_interval = h.interval_distance_overlap(&energy, overlap);
+                            for _ in 0..sweep_size.get()
+                            {
+                                e.m_steps(step_size.get(), &mut steps);
+                                let current_energy = if let Some(energy) = energy_fn(&mut e)
+                                {
+                                    energy
+                                } else {
+                                    e.undo_steps_quiet(&mut steps);
+                                    continue;
+                                };
+    
+                                let new_distance = h.interval_distance_overlap(&current_energy, overlap);
+                                if new_distance <= distance_interval {
+                                    energy = current_energy;
+                                    distance_interval = new_distance;
+                                    if distance_interval == 0 {
+                                        break 'outer2;
+                                    }
+                                }else {
+                                    e.undo_steps_quiet(&mut steps);
+                                }
+                            }
+                            if !condition()
+                            {
+                                return (h, e, None);
+                            }
+                            distance = h.distance(&energy);
+                            for _ in 0..sweep_size.get()
+                            {
+                                e.m_steps(step_size.get(), &mut steps);
+                                let current_energy = if let Some(energy) = energy_fn(&mut e)
+                                {
+                                    energy
+                                } else {
+                                    e.undo_steps_quiet(&mut steps);
+                                    continue;
+                                };
+    
+                                let new_distance = h.distance(&current_energy);
+                                if new_distance <= distance {
+                                    energy = current_energy;
+                                    distance = new_distance;
+                                    if distance == 0.0 {
                                         break 'outer2;
                                     }
                                 }else {
