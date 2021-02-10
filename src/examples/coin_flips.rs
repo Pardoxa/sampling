@@ -180,15 +180,21 @@ mod test
 
         let ensemble = CoinFlipSequence::new(n, rng);
 
-        let mut rewl = Rewl::par_greed_from_ensemble(
+        let rewl_builder = RewlBuilder::new_clone_ensemble(
             ensemble,
             hist_list,
-            1,
-            NonZeroUsize::new(100).unwrap(),
-            0.00001,
             NonZeroUsize::new(1).unwrap(),
-            |e| Some(e.head_count())
+            NonZeroUsize::new(3000).unwrap(),
+            NonZeroUsize::new(4).unwrap(),
+            0.0000025
         ).unwrap();
+
+        let mut rewl = rewl_builder.try_greedy_into_rewl
+        (
+            |e| Some(e.head_count()),
+            || true
+        ).unwrap();
+
 
         rewl.simulate_until_convergence(
             1,
