@@ -132,7 +132,131 @@ where Hist: Histogram,
         Ok(ensembles)
     }
 
-    pub fn try_greedy_into_rewl<R, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    //fn greedy_sweep<F, Energy>(
+    //    ensemble: &mut Ensemble,
+    //    hist: &Hist,
+    //    sweep_size: NonZeroUsize,
+    //    step_size: NonZeroUsize,
+    //    steps: &mut Vec<S>,
+    //    energy_fn: F,
+    //    distance: &mut f64,
+    //    energy: &mut Energy
+    //)where F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+    //Hist: HistogramVal<Energy>,
+    //{
+    //    for _ in 0..sweep_size.get()
+    //    {
+    //        ensemble.m_steps(step_size.get(), &mut steps);
+    //        let current_energy = if let Some(energy) = energy_fn(&mut ensemble)
+    //        {
+    //            energy
+    //        } else {
+    //            ensemble.undo_steps_quiet(&mut steps);
+    //            continue;
+    //        };
+//
+    //        let new_distance = hist.distance(&current_energy);
+    //        if new_distance <= *distance {
+    //            energy = current_energy;
+    //            *distance = new_distance;
+    //            if *distance == 0.0 {
+    //                break 'outer2;
+    //            }
+    //        }else {
+    //            e.undo_steps_quiet(&mut steps);
+    //        }
+    //    }
+    //}
+
+    fn build<Energy, R, R2>
+    (
+        container: Vec<(Hist, Ensemble, Option<Energy>)>,
+        chunk_size: NonZeroUsize,
+        log_f_threshold: f64,
+        step_size: NonZeroUsize,
+        sweep_size: NonZeroUsize
+
+    ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    where Energy: Clone,
+    R2: Rng + SeedableRng,
+    Ensemble: HasRng<R2>,
+    R: SeedableRng + Rng + Send + Sync,
+    walker::RewlWalker<R, Hist, Energy, S, Res>: Send +  Sync,
+    Hist: HistogramVal<Energy>,
+    Energy: Send + Sync
+    {
+        if container.iter().any(|(_, _, e)| e.is_none()){
+            let (hists, ensembles) = container.into_iter()
+                .map(|(h, e, _)| (h, e))
+                .unzip();
+            return Err(
+                Self{
+                    ensembles,
+                    hists,
+                    chunk_size,
+                    s: PhantomData::<S>,
+                    res: PhantomData::<Res>,
+                    log_f_threshold,
+                    step_size,
+                    sweep_size
+                }
+            );
+        }
+
+        let mut ensembles_rw_lock = Vec::with_capacity(container.len() * chunk_size.get());
+        let mut walker = Vec::with_capacity(chunk_size.get() * container.len());
+        let mut counter = 0;
+
+        for (mut h, mut e, energy) in container.into_iter()
+        {
+            let energy = energy.unwrap();
+            h.reset();
+            for _ in 0..chunk_size.get()-1 {
+                let mut ensemble = e.clone();
+                let mut rng = R2::from_rng(e.rng())
+                    .expect("unable to seed Rng");
+                ensemble.swap_rng(&mut rng);
+                
+                ensembles_rw_lock.push(RwLock::new(ensemble));
+                let rng = R::from_rng(e.rng())
+                   .expect("unable to seed Rng");
+                walker.push(
+                    RewlWalker::<R, Hist, Energy, S, Res>::new(
+                        counter,
+                        rng,
+                        h.clone(),
+                        sweep_size,
+                        energy.clone()
+                    )
+                );
+                counter += 1;
+            }
+            let rng = R::from_rng(e.rng())
+                .expect("unable to seed Rng");
+            walker.push(
+                RewlWalker::new(
+                    counter,
+                    rng,
+                    h,
+                    sweep_size,
+                    energy
+                )
+            );
+            counter += 1;
+            ensembles_rw_lock.push(RwLock::new(e));
+        }
+        Ok(
+            Rewl{
+                ensembles: ensembles_rw_lock,
+                replica_exchange_mode: true,
+                chunk_size,
+                walker,
+                log_f_threshold
+            }
+        )
+    }
+    
+    pub fn try_greedy_build<R, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
         Ensemble: HasRng<R> + Sized,
         R: Rng + SeedableRng + Send + Sync,
@@ -141,10 +265,10 @@ where Hist: Histogram,
         Energy: Sync + Send + Clone,
         walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
     {
-        Self::try_greedy_into_rewl_choose_rng(self, energy_fn, condition)
+        Self::try_greedy_choose_rng_build(self, energy_fn, condition)
     }
 
-    pub fn try_greedy_into_rewl_choose_rng<R, R2, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    pub fn try_greedy_choose_rng_build<R, R2, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
         R: Rng + SeedableRng + Send + Sync,
         Ensemble: HasRng<R2> + Sized,
@@ -154,7 +278,7 @@ where Hist: Histogram,
         Energy: Sync + Send + Clone,
         walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
     {
-        let mut res = Vec::with_capacity(self.hists.len());
+        let mut container = Vec::with_capacity(self.hists.len());
         let ensembles = self.ensembles;
         let hists = self.hists;
         let step_size = self.step_size;
@@ -213,76 +337,118 @@ where Hist: Histogram,
                     }
                     (h, e, Some(energy))
                 }
-            ).collect_into_vec(&mut res);
+            ).collect_into_vec(&mut container);
 
-        if res.iter().any(|(_, _, e)| e.is_none()){
-            let (hists, ensembles) = res.into_iter()
-                .map(|(h, e, _)| (h, e))
-                .unzip();
-            return Err(
-                Self{
-                    ensembles,
-                    hists,
-                    chunk_size: self.chunk_size,
-                    s: self.s,
-                    res: self.res,
-                    log_f_threshold: self.log_f_threshold,
-                    step_size,
-                    sweep_size
+        Self::build(
+            container,
+            self.chunk_size,
+            self.log_f_threshold,
+            step_size,
+            sweep_size
+        )
+    }
+
+    pub fn try_interval_heuristik_build<R, R2, F, C, Energy>
+    (
+        self,
+        energy_fn: F,
+        condition: C,
+        overlap: usize
+    ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R> + Sized,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        C: Fn() -> bool + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        Self::try_interval_heuristik_choose_rng_build(self, energy_fn, condition, overlap)
+    }
+
+    pub fn try_interval_heuristik_choose_rng_build<R, R2, F, C, Energy>
+    (
+        self,
+        energy_fn: F,
+        condition: C,
+        overlap: usize
+    ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
+    where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
+        R: Rng + SeedableRng + Send + Sync,
+        Ensemble: HasRng<R2> + Sized,
+        R2: Rng + SeedableRng,
+        F: Fn(&mut Ensemble) -> Option::<Energy> + Copy + Send + Sync,
+        C: Fn() -> bool + Copy + Send + Sync,
+        Energy: Sync + Send + Clone,
+        walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
+    {
+        let mut container = Vec::with_capacity(self.hists.len());
+        let ensembles = self.ensembles;
+        let hists = self.hists;
+        let step_size = self.step_size;
+        let sweep_size = self.sweep_size;
+        ensembles.into_par_iter()
+            .zip(hists.into_par_iter())
+            .map(
+                |(mut e, h)|
+                {
+                    let mut energy = 'outer: loop
+                    {
+                        for _ in 0..sweep_size.get(){
+                            if let Some(energy) = energy_fn(&mut e){
+                                break 'outer energy;
+                            }
+                            e.m_steps_quiet(step_size.get());
+                        }
+                        if !condition(){
+                            return (h, e, None);
+                        }
+                    };
+
+                    if !h.is_inside(&energy) {
+                        let mut distance = h.interval_distance_overlap(&energy, overlap);
+
+                        let mut steps = Vec::with_capacity(step_size.get());
+                        'outer2: loop 
+                        {
+                            for _ in 0..sweep_size.get()
+                            {
+                                e.m_steps(step_size.get(), &mut steps);
+                                let current_energy = if let Some(energy) = energy_fn(&mut e)
+                                {
+                                    energy
+                                } else {
+                                    e.undo_steps_quiet(&mut steps);
+                                    continue;
+                                };
+    
+                                let new_distance = h.interval_distance_overlap(&current_energy, overlap);
+                                if new_distance <= distance {
+                                    energy = current_energy;
+                                    distance = new_distance;
+                                    if distance == 0 {
+                                        break 'outer2;
+                                    }
+                                }else {
+                                    e.undo_steps_quiet(&mut steps);
+                                }
+                            }
+                            if !condition()
+                            {
+                                return (h, e, None);
+                            }
+                        }
+                    }
+                    (h, e, Some(energy))
                 }
-            );
-        }
+            ).collect_into_vec(&mut container);
 
-        let mut ensembles_rw_lock = Vec::with_capacity(res.len() * self.chunk_size.get());
-        let mut walker = Vec::with_capacity(self.chunk_size.get() * res.len());
-        let mut counter = 0;
-
-        for (mut h, mut e, energy) in res.into_iter()
-        {
-            let energy = energy.unwrap();
-            h.reset();
-            for _ in 0..self.chunk_size.get()-1 {
-                let mut ensemble = e.clone();
-                let mut rng = R2::from_rng(e.rng())
-                    .expect("unable to seed Rng");
-                ensemble.swap_rng(&mut rng);
-                
-                ensembles_rw_lock.push(RwLock::new(ensemble));
-                let rng = R::from_rng(e.rng())
-                   .expect("unable to seed Rng");
-                walker.push(
-                    RewlWalker::<R,Hist, Energy, S, Res>::new(
-                        counter,
-                        rng,
-                        h.clone(),
-                        sweep_size,
-                        energy.clone()
-                    )
-                );
-                counter += 1;
-            }
-            let rng = R::from_rng(e.rng())
-                .expect("unable to seed Rng");
-            walker.push(
-                RewlWalker::new(
-                    counter,
-                    rng,
-                    h,
-                    sweep_size,
-                    energy
-                )
-            );
-            counter += 1;
-            ensembles_rw_lock.push(RwLock::new(e));
-        }
-        Ok(
-            Rewl{
-                ensembles: ensembles_rw_lock,
-                replica_exchange_mode: true,
-                chunk_size: self.chunk_size,
-                walker,
-                log_f_threshold: self.log_f_threshold
-            }
+        Self::build(
+            container,
+            self.chunk_size,
+            self.log_f_threshold,
+            step_size,
+            sweep_size
         )
     }
 }

@@ -189,7 +189,7 @@ mod test
             0.0000025
         ).unwrap();
 
-        let mut rewl = rewl_builder.try_greedy_into_rewl
+        let mut rewl = rewl_builder.try_greedy_build
         (
             |e| Some(e.head_count()),
             || true
