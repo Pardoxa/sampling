@@ -35,6 +35,9 @@ where R: Send + Sync + Rng + SeedableRng,
     S: Send + Sync
 {  
 
+    /// # Perform the Replica exchange wang landau simulation
+    /// * will simulate until **all** walkers have factors `log_f`
+    /// that are below the threshold you chose
     pub fn simulate_until_convergence<F>(
         &mut self,
         step_size: usize,
@@ -51,6 +54,10 @@ where R: Send + Sync + Rng + SeedableRng,
         }
     }
 
+    /// # Sweep
+    /// * Performs one sweep of the Replica exchange wang landau simulation
+    /// * You can make a complete simulation, by repeatatly calling this method
+    /// until `self.is_finished()` returns true
     pub fn sweep<F>(&mut self, step_size: usize, energy_fn: F)
     where Ensemble: Send + Sync,
         R: Send + Sync,
@@ -109,6 +116,29 @@ where R: Send + Sync + Rng + SeedableRng,
             )
     }
 
+    /// returns largest value of factor log_f present in the walkers
+    pub fn largest_log_f(&self) -> f64
+    {
+        self.walker
+            .iter()
+            .map(|w| w.log_f())
+            .fold(std::f64::NEG_INFINITY, |acc, x| x.max(acc))
+
+    }
+
+    /// # Log_f factors of the walkers
+    /// * the log_f's will be reduced towards 0 during the simulation
+    pub fn log_f_vec(&self) -> Vec<f64>
+    {
+        self.walker
+            .iter()
+            .map(|w| w.log_f())
+            .collect()
+    }
+
+    /// # Is the simulation finished?
+    /// checks if **all** walkers have factors `log_f`
+    /// that are below the threshold you chose
     pub fn is_finished(&self) -> bool
     {
         self.walker
@@ -119,7 +149,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// # Result of the simulations!
     /// This is what we do the simulation for!
     /// 
-    /// It returns the log10 of the normalized probability density and the 
+    /// It returns the log10 of the normalized (i.e. sum=1 within numerical precision) probability density and the 
     /// histogram, which contains the corresponding bins.
     ///
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
@@ -137,6 +167,14 @@ where R: Send + Sync + Rng + SeedableRng,
 
     }
 
+    /// # Result of the simulations!
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns the natural logarithm of the normalized (i.e. sum=1 within numerical precision) probability density and the 
+    /// histogram, which contains the corresponding bins.
+    ///
+    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
     pub fn merged_log_prob(&self) -> Result<(Vec<f64>, Hist), HistErrors>
     where Hist: HistogramCombine
     {

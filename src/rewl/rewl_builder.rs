@@ -29,6 +29,8 @@ pub struct ReplicaExchangeWangLandauBuilder<Ensemble, Hist, S, Res>
 /// # Short for `ReplicaExchangeWangLandauBuilder`
 pub type RewlBuilder<Ensemble, Hist, S, Res> = ReplicaExchangeWangLandauBuilder<Ensemble, Hist, S, Res>;
 
+/// # Errors
+/// that can arise during the construction of RewlBuilder
 #[derive(Debug)]
 pub enum RewlBuilderErr{
     /// * The threshold for `log_f` needs to be a normal number.
@@ -455,7 +457,7 @@ where Hist: Histogram,
     /// ## Note
     /// * Depending on how complex your energy landscape is, this can take a very long time,
     /// maybe not even terminating at all.
-    /// * You can use `self.try_greedy_choose_rng_build` to limit the time of the search
+    /// * You can use [`try_interval_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_interval_heuristik_build`) to limit the time of the search
     pub fn interval_heuristik_build<R, R2, F, Energy>
     (
         self,
@@ -476,6 +478,12 @@ where Hist: Histogram,
     }
 
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`interval_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::interval_heuristik_build`)
+    /// * `condition` can be used to limit the time of the search - it will end when `condition`
+    /// returns false.
+    /// ##Note
+    /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
     pub fn try_interval_heuristik_build<R, F, C, Energy>
     (
         self,
@@ -494,6 +502,11 @@ where Hist: Histogram,
         Self::try_interval_heuristik_choose_rng_build(self, energy_fn, condition, overlap)
     }
     
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`try_interval_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_interval_heuristik_build`)
+    /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
+    /// acceptance of the replica exchange moves etc.)
+    /// * usage: `self.try_interval_heuristik_build::<RNG,_,_,_,_>(energy_fn, overlap)`
     pub fn interval_heuristik_choose_rng_build<R, R2, F, Energy>
     (
         self,
@@ -514,6 +527,11 @@ where Hist: Histogram,
         }
     }
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`interval_heuristik_choose_rng_build`](`crate::ReplicaExchangeWangLandauBuilder::interval_heuristik_choose_rng_build`)
+    /// * Difference: You can choose the Random numbver generator used for the Rewl Walkers, i.e., for 
+    /// accepting or rejecting the markov steps and replica exchanges. 
+    /// * usage: `self.try_interval_heuristik_choose_rng_build<RNG, _,_,_,_>(energy_fn, condition, overlap)]
     pub fn try_interval_heuristik_choose_rng_build<R, R2, F, C, Energy>
     (
         self,
@@ -600,6 +618,17 @@ where Hist: Histogram,
         )
     }
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * alternates between interval-heuristik and greedy-heuristik
+    /// * The interval heuristik uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
+    /// or it is in an interval closer to the target interval. 
+    /// Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
+    /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
+    /// 
+    /// ## Note
+    /// * Depending on how complex your energy landscape is, this can take a very long time,
+    /// maybe not even terminating at all.
+    /// * You can use [`try_mixed_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_mixed_heuristik_build`) to limit the time of the search
     pub fn mixed_heuristik_build<R, F, Energy>
     (
         self,
@@ -619,6 +648,17 @@ where Hist: Histogram,
         }
     }
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * alternates between interval-heuristik and greedy-heuristik
+    /// * The interval heuristik uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
+    /// or it is in an interval closer to the target interval. 
+    /// Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
+    /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
+    /// 
+    /// ## Note
+    /// * `condition` can be used to limit the time of the search - it will end when `condition`
+    /// returns false (or a valid solution is found)
+    /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
     pub fn try_mixed_heuristik_build<R, F, C, Energy>
     (
         self,
@@ -637,7 +677,11 @@ where Hist: Histogram,
         Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, condition, overlap)
     }
 
-
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`try_mixed_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_mixed_heuristik_build`)
+    /// * difference: Lets you choose the rng type for the Rewl simulation, i.e., the rng used for 
+    /// accepting or rejecting markov steps and replica exchange moves
+    /// * usage: `self.try_mixed_heuristik_choose_rng_build<RNG_TYPE, _, _, _, _>(energy_fn, condition, overlap)`
     pub fn try_mixed_heuristik_choose_rng_build<R, R2, F, C, Energy>
     (
         self,
