@@ -1,6 +1,6 @@
 use num_traits::{float::*, cast::*, identities::*};
 use crate::histogram::*;
-use std::borrow::*;
+use std::{borrow::*, num::*};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -185,14 +185,13 @@ where T: Float + Zero + NumCast {
 impl<T> HistogramIntervalDistance<T> for HistogramFloat<T> 
 where T: Float + FromPrimitive + Zero + NumCast
 {
-    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, mut overlap: usize) -> usize {
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
         let val = val.borrow();
-        overlap = 1usize.max(overlap);
         
         debug_assert!(self.interval_length() > T::zero());
         debug_assert!(val.is_finite());
         if self.not_inside(val) {
-            let num_bins_overlap = self.bin_count() / overlap;
+            let num_bins_overlap = self.bin_count() / overlap.get();
             let dist = 
             if *val < self.first_border() { 
                 let tmp = self.first_border() - *val;

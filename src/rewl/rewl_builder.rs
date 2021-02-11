@@ -9,11 +9,14 @@ use serde::{Serialize, Deserialize};
 
 /// # Use this to create a replica exchange wang landau simulation
 /// * Tipp: Use shorthand `RewlBuilder`
+/// ## Notes
+/// * Don't be intimidated by the number of trait bounds an generic parameters.
+/// You should very rarely have to explicitly write the types, as Rust will infer them for you.
 #[derive(Debug,Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ReplicaExchangeWangLandauBuilder<Ensemble, Hist, S, Res>
 {
-    chunk_size: NonZeroUsize,
+    walker_per_interval: NonZeroUsize,
     ensembles: Vec<Ensemble>,
     hists: Vec<Hist>,
     log_f_threshold: f64,
@@ -32,6 +35,8 @@ pub enum RewlBuilderErr{
     /// * That basically means: the number is neither zero, infinite, subnormal, or NaN. 
     /// For more info, see the [Documentation](`std::primitive::f64::is_normal`)
     NonNormalThreshold,
+    /// log_f_threshold must not be negative
+    Negative,
     /// Histogram vector needs to contain at least one entry.
     Empty,
     /// Each histogram needs to have **at least** two bins. Though more than two bins are 
@@ -52,19 +57,43 @@ where Hist: Histogram,
     S: Send + Sync,
     Res: Sync + Send
 {
-    pub fn new(
+    /// # new rewl builder
+    /// * used to create a **R**eplica **e**xchange **w**ang **l**andau simulation.
+    /// * use this method, if you want to have fine control over each walker, i.e., if you can
+    /// provide ensembles, who's energy is already inside the corresponding intervals `hists`
+    /// * you might want to use [from_ensemble](crate::ReplicaExchangeWangLandauBuilder::from_ensemble) or
+    /// [from_ensemble_tuple](crate::ReplicaExchangeWangLandauBuilder::from_ensemble_tuple) instead
+    ///
+    /// | Parameter             | meaning                                                                                                                                                  |
+    /// |-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+    /// | `ensembles`           | a vector of ensembles, one for each interval. Corresponds to the `hists` entries.                                                                        |
+    /// | `hists`               | Overlapping intervals for the wang landau walkers. Should be sorted according to their respective left bins.                                             |
+    /// | `step_size`           | step_size for the markov steps, which will be performed                                                                                                  |
+    /// | `sweep_size`          | How many steps will be performed until the replica exchanges are proposed                                                                                |
+    /// | `walker_per_interval` | How many walkers should be used for each interval (entry of `hists`)                                                                                     |
+    /// | `log_f_threshold`     | Threshold for the logaritm of the factor f (see paper). Rewl Simulation is finished, when all(!) walkers have a factor log_f smaller than this threshold |
+    ///
+    /// ## Notes
+    /// * for proper statistics, you should seed the random number generators (used for the markov chain) of all ensembles 
+    /// differently!
+    /// * `log_f_threshold` has to be a [normal](`std::primitive::f64::is_normal`) and non negative number
+    /// * each enty of `ensembles` will be cloned `walker_per_interval - 1` times and their respective rngs will be 
+    /// seeded via the `HasRng` trait
+    pub fn from_ensemble_vec(
         ensembles: Vec<Ensemble>,
         hists: Vec<Hist>,
         step_size: NonZeroUsize,
         sweep_size: NonZeroUsize,
-        chunk_size: NonZeroUsize,
+        walker_per_interval: NonZeroUsize,
         log_f_threshold: f64
     ) -> Result<Self, RewlBuilderErr>
     {
         if !log_f_threshold.is_normal(){
             return Err(RewlBuilderErr::NonNormalThreshold);
         }
-        let log_f_threshold = log_f_threshold.abs();
+        if log_f_threshold < 0.0 {
+            return Err(RewlBuilderErr::Negative);
+        }
         if hists.len() == 0 
         {
             return Err(RewlBuilderErr::Empty);
@@ -83,7 +112,7 @@ where Hist: Histogram,
                 ensembles,
                 step_size,
                 sweep_size,
-                chunk_size,
+                walker_per_interval,
                 hists,
                 log_f_threshold,
                 s: PhantomData::<S>,
@@ -94,8 +123,9 @@ where Hist: Histogram,
     
     /// # Create a builder to create a replica exchange wang landau (Rewl) simulation
     /// * creates vector of ensembles and (re)seeds their respective rngs (by using the `HasRng` trait)
-    /// * calls [`Self::new(…)`](`crate::ReplicaExchangeWangLandauBuilder::new`) afterwards
-    pub fn new_clone_ensemble<R>(
+    /// * calls [`Self::from_ensemble_vec(…)`](`crate::ReplicaExchangeWangLandauBuilder::from_ensemble_vec`) afterwards,
+    /// look there for more information about the parameter
+    pub fn from_ensemble<R>(
         ensemble: Ensemble,
         hists: Vec<Hist>,
         step_size: NonZeroUsize,
@@ -110,7 +140,7 @@ where Hist: Histogram,
         let len = NonZeroUsize::new(hists.len())
             .ok_or(RewlBuilderErr::Empty)?;
         let ensembles = Self::clone_and_seed_ensembles(ensemble, len)?;
-        Self::new(ensembles, hists, step_size, sweep_size, chunk_size, log_f_threshold)
+        Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, chunk_size, log_f_threshold)
     }
 
     fn clone_and_seed_ensembles<R>(mut ensemble: Ensemble, size: NonZeroUsize) -> Result<Vec<Ensemble>, RewlBuilderErr>
@@ -130,10 +160,60 @@ where Hist: Histogram,
         Ok(ensembles)
     }
 
+    /// # Create a builder to create a replica exchange wang landau (Rewl) simulation
+    /// * creates vector of ensembles and (re)seeds their respective rngs (by using the `HasRng` trait).
+    /// The vector is created by cloning `ensemble_tuple.0` for everything up to the middle of the vector and 
+    /// `ensemble_tuple.1` for the rest. The length of the vector will be the same as `hists.len()`.
+    /// If It is an uneven number, the middle element will be a clone of `ensemble_tuple.1`
+    /// * calls [`Self::from_ensemble_vec(…)`](`crate::ReplicaExchangeWangLandauBuilder::from_ensemble_vec`) afterwards,
+    /// look there for more information about the parameter
+    /// * use this, if you know configurations, that would be good starting points for finding 
+    /// configurations at either end of the intervals. 
+    pub fn from_ensemble_tuple<R>(
+        ensemble_tuple: (Ensemble, Ensemble),
+        hists: Vec<Hist>,
+        step_size: NonZeroUsize,
+        sweep_size: NonZeroUsize,
+        chunk_size: NonZeroUsize,
+        log_f_threshold: f64,
+    ) -> Result<Self,RewlBuilderErr>
+    where Ensemble: HasRng<R> + Clone,
+        R: Rng + SeedableRng
+    {
+        let len = NonZeroUsize::new(hists.len())
+            .ok_or(RewlBuilderErr::Empty)?;
+        if len < unsafe{NonZeroUsize::new_unchecked(2)} {
+            return Err(RewlBuilderErr::LenMissmatch);
+        }
+        let (left, mut right) = ensemble_tuple;
+        let mut ensembles = Vec::with_capacity(len.get());
+        let mid = len.get() / 2;
+
+        for _ in 1..mid {
+            let mut e = left.clone();
+            let mut rng = R::from_rng(right.rng())
+               .map_err(|e| RewlBuilderErr::SeedError(e))?;
+            e.swap_rng(&mut rng);
+            ensembles.push(e);
+        }
+        ensembles.push(left);
+        for _ in mid..len.get()-1
+        {
+            let mut e = right.clone();
+            let mut rng = R::from_rng(right.rng())
+               .map_err(|e| RewlBuilderErr::SeedError(e))?;
+            e.swap_rng(&mut rng);
+            ensembles.push(e);
+        }
+        ensembles.push(right);
+
+        Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, chunk_size, log_f_threshold)
+    }
+
     fn build<Energy, R, R2>
     (
         container: Vec<(Hist, Ensemble, Option<Energy>)>,
-        chunk_size: NonZeroUsize,
+        walker_per_interval: NonZeroUsize,
         log_f_threshold: f64,
         step_size: NonZeroUsize,
         sweep_size: NonZeroUsize
@@ -155,7 +235,7 @@ where Hist: Histogram,
                 Self{
                     ensembles,
                     hists,
-                    chunk_size,
+                    walker_per_interval,
                     s: PhantomData::<S>,
                     res: PhantomData::<Res>,
                     log_f_threshold,
@@ -165,15 +245,15 @@ where Hist: Histogram,
             );
         }
 
-        let mut ensembles_rw_lock = Vec::with_capacity(container.len() * chunk_size.get());
-        let mut walker = Vec::with_capacity(chunk_size.get() * container.len());
+        let mut ensembles_rw_lock = Vec::with_capacity(container.len() * walker_per_interval.get());
+        let mut walker = Vec::with_capacity(walker_per_interval.get() * container.len());
         let mut counter = 0;
 
         for (mut h, mut e, energy) in container.into_iter()
         {
             let energy = energy.unwrap();
             h.reset();
-            for _ in 0..chunk_size.get()-1 {
+            for _ in 0..walker_per_interval.get()-1 {
                 let mut ensemble = e.clone();
                 let mut rng = R2::from_rng(e.rng())
                     .expect("unable to seed Rng");
@@ -211,7 +291,7 @@ where Hist: Histogram,
             Rewl{
                 ensembles: ensembles_rw_lock,
                 replica_exchange_mode: true,
-                chunk_size,
+                chunk_size: walker_per_interval,
                 walker,
                 log_f_threshold
             }
@@ -219,6 +299,13 @@ where Hist: Histogram,
     }
 
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * uses a greedy heuristik to find valid configurations, meaning configurations that 
+    /// are within the required intervals, i.e., histograms
+    /// ## Note
+    /// * Depending on how complex your energy landscape is, this can take a very long time,
+    /// maybe not even terminating at all.
+    /// * You can use `self.try_greedy_choose_rng_build` to limit the time of the search
     pub fn greedy_build<R, F, Energy>(self, energy_fn: F) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy>,
         Ensemble: HasRng<R> + Sized,
@@ -233,7 +320,12 @@ where Hist: Histogram,
         }
     }
     
-    
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`greedy_build`](`crate::ReplicaExchangeWangLandauBuilder::greedy_build`)
+    /// * `condition` can be used to limit the time of the search - it will end when `condition`
+    /// returns false.
+    /// ##Note
+    /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
     pub fn try_greedy_build<R, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
         Ensemble: HasRng<R> + Sized,
@@ -246,6 +338,11 @@ where Hist: Histogram,
         Self::try_greedy_choose_rng_build(self, energy_fn, condition)
     }
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`greedy_build`](`crate::ReplicaExchangeWangLandauBuilder::greedy_build`)
+    /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
+    /// acceptance of the replica exchange moves etc.)
+    /// * usage: `self.greedy_choose_rng_build::<RNG,_,_,_>(energy_fn)`
     pub fn greedy_choose_rng_build<R, R2, F, Energy>(self, energy_fn: F) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -262,6 +359,11 @@ where Hist: Histogram,
         }
     }
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * similar to [`try_greedy_build`](`crate::ReplicaExchangeWangLandauBuilder::try_greedy_build`)
+    /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
+    /// acceptance of the replica exchange moves etc.)
+    /// * usage: `self.try_greedy_choose_rng_build::<RNG,_,_,_,_>(energy_fn, condition)`
     pub fn try_greedy_choose_rng_build<R, R2, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -335,18 +437,30 @@ where Hist: Histogram,
 
         Self::build(
             container,
-            self.chunk_size,
+            self.walker_per_interval,
             self.log_f_threshold,
             step_size,
             sweep_size
         )
     }
 
+    /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
+    /// * uses an interval heuristik to find valid configurations, meaning configurations that 
+    /// are within the required intervals, i.e., histograms
+    /// * Uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
+    /// or it is in an interval closer to the target interval. 
+    /// Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
+    /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
+    /// 
+    /// ## Note
+    /// * Depending on how complex your energy landscape is, this can take a very long time,
+    /// maybe not even terminating at all.
+    /// * You can use `self.try_greedy_choose_rng_build` to limit the time of the search
     pub fn interval_heuristik_build<R, R2, F, Energy>
     (
         self,
         energy_fn: F,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -367,7 +481,7 @@ where Hist: Histogram,
         self,
         energy_fn: F,
         condition: C,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -384,7 +498,7 @@ where Hist: Histogram,
     (
         self,
         energy_fn: F,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -405,7 +519,7 @@ where Hist: Histogram,
         self,
         energy_fn: F,
         condition: C,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -479,7 +593,7 @@ where Hist: Histogram,
 
         Self::build(
             container,
-            self.chunk_size,
+            self.walker_per_interval,
             self.log_f_threshold,
             step_size,
             sweep_size
@@ -490,7 +604,7 @@ where Hist: Histogram,
     (
         self,
         energy_fn: F,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -510,7 +624,7 @@ where Hist: Histogram,
         self,
         energy_fn: F,
         condition: C,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -529,7 +643,7 @@ where Hist: Histogram,
         self,
         energy_fn: F,
         condition: C,
-        overlap: usize
+        overlap: NonZeroUsize
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -632,7 +746,7 @@ where Hist: Histogram,
 
         Self::build(
             container,
-            self.chunk_size,
+            self.walker_per_interval,
             self.log_f_threshold,
             step_size,
             sweep_size

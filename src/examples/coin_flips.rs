@@ -180,7 +180,7 @@ mod test
 
         let ensemble = CoinFlipSequence::new(n, rng);
 
-        let rewl_builder = RewlBuilder::new_clone_ensemble(
+        let rewl_builder = RewlBuilder::from_ensemble(
             ensemble,
             hist_list,
             NonZeroUsize::new(1).unwrap(),

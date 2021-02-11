@@ -2,7 +2,7 @@
 
 use num_traits::{int::*, ops::{checked::*, saturating::*, wrapping::*}, cast::*, identities::*, Bounded};
 use crate::histogram::*;
-use std::{borrow::*, ops::*};
+use std::{borrow::*, ops::*, num::*};
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
@@ -257,11 +257,10 @@ impl<T> HistogramIntervalDistance<T> for HistogramFast<T>
 where Self: HistogramVal<T>,
     T: PartialOrd + std::ops::Sub<Output=T> + NumCast + Copy
 {
-    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, mut overlap: usize) -> usize {
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
         let val = val.borrow();
-        overlap = overlap.max(1);
         if self.not_inside(val) {
-            let num_bins_overlap = 1usize.max(self.bin_count() / overlap);
+            let num_bins_overlap = 1usize.max(self.bin_count() / overlap.get());
             let dist = 
             if *val < self.left { 
                 self.left - *val
@@ -347,12 +346,13 @@ mod tests{
         let mut hist = HistogramFast::<T>::new_inclusive(left, right).unwrap();
         assert!(hist.not_inside(T::max_value()));
         assert!(hist.not_inside(T::min_value()));
+        let two = unsafe{NonZeroUsize::new_unchecked(2)};
         for (id, i) in (left..=right).enumerate() {
             assert!(hist.is_inside(i));
             assert_eq!(hist.is_inside(i), !hist.not_inside(i));
             assert!(hist.get_bin_index(i).unwrap() == id);
             assert_eq!(hist.distance(i), 0.0);
-            assert_eq!(hist.interval_distance_overlap(i, 2), 0);
+            assert_eq!(hist.interval_distance_overlap(i, two), 0);
             hist.count_val(i).unwrap();
         }
         let lm1 = left - T::one();
@@ -363,8 +363,9 @@ mod tests{
         assert_eq!(hist.is_inside(rp1), !hist.not_inside(rp1));
         assert_eq!(hist.distance(lm1), 1.0);
         assert_eq!(hist.distance(rp1), 1.0);
-        assert_eq!(hist.interval_distance_overlap(rp1, 1), 1);
-        assert_eq!(hist.interval_distance_overlap(lm1, 1), 1);
+        let one = unsafe{NonZeroUsize::new_unchecked(1)};
+        assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
+        assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
         assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
     }
 

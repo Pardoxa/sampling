@@ -1,7 +1,7 @@
 use rand::{Rng, seq::*};
 use std::{marker::PhantomData, iter::*, io::Write};
 use crate::{*, traits::*};
-use std::{collections::*, cmp::*};
+use std::{collections::*, cmp::*, num::*};
 use num_traits::{Bounded, ops::wrapping::*, identities::*};
 
 #[cfg(feature = "serde_support")]
@@ -633,7 +633,7 @@ where R: Rng,
     /// * if the ensemble is already at a valid starting point,
     /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
     /// * `overlap` - see trait HistogramIntervalDistance. 
-    /// Should be greater than 0 and smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
+    /// Should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// * `mid` - should be something like `128u8`, `0i8` or `0i16`. It is very unlikely that using a type with more than 16 bit makes sense for mid
     /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
     /// a valid state is found or forever
@@ -649,7 +649,7 @@ where R: Rng,
     pub fn init_mixed_heuristik<F, U>
     (
         &mut self,
-        overlap: usize,
+        overlap: NonZeroUsize,
         mid: U,
         energy_fn: F,
         step_limit: Option<u64>
@@ -658,7 +658,6 @@ where R: Rng,
         Hist: HistogramIntervalDistance<Energy>,
         U: One + Bounded + WrappingAdd + Eq + PartialOrd
     {
-        let overlap = overlap.max(1);
         self.init(&energy_fn, step_limit)?;
         if self.histogram
             .is_inside(
@@ -733,14 +732,13 @@ where R: Rng,
     /// will always be rejected 
     pub fn init_interval_heuristik<F>(
         &mut self,
-        overlap: usize,
+        overlap: NonZeroUsize,
         energy_fn: F,
         step_limit: Option<u64>,
     ) -> Result<(), WangLandauErrors>
     where F: Fn(&mut E) -> Option<Energy>,
         Hist: HistogramIntervalDistance<Energy>
     {
-        let overlap = overlap.max(1);
         self.init(&energy_fn, step_limit)?;
         let mut old_dist = self.histogram
             .interval_distance_overlap(
@@ -1100,7 +1098,7 @@ mod tests {
         ).unwrap();
 
         wl.init_mixed_heuristik(
-            3,
+            NonZeroUsize::new(3).unwrap(),
             6400i16,
             |e|  {
                 Some(e.head_count())

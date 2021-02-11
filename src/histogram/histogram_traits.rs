@@ -1,4 +1,4 @@
-use std::borrow::*;
+use std::{borrow::*,num::NonZeroUsize};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -76,7 +76,7 @@ pub trait HistogramIntervalDistance<T> {
     /// and returns distance of said interval to the target interval
     /// * used for heuristiks
     /// * overlap should be bigger 0, otherwise it will be set to 1
-    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: usize) -> usize;
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize;
 }
 
 

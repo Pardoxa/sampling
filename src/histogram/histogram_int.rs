@@ -1,6 +1,6 @@
 use num_traits::{ops::{checked::*, wrapping::*}, cast::*, identities::*, Bounded};
 use crate::histogram::*;
-use std::{borrow::*, ops::*};
+use std::{borrow::*, ops::*, num::*};
 
 
 #[cfg(feature = "serde_support")]
@@ -199,11 +199,10 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 impl<T> HistogramIntervalDistance<T> for HistogramInt<T> 
 where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 {
-    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, mut overlap: usize) -> usize {
+    fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
         let val = val.borrow();
-        overlap = overlap.max(1);
         if self.not_inside(val) {
-            let num_bins_overlap = 1usize.max(self.bin_count() / overlap);
+            let num_bins_overlap = 1usize.max(self.bin_count() / overlap.get());
             let dist = 
             if *val < self.first_border() { 
                 self.first_border() - *val
@@ -325,7 +324,7 @@ mod tests{
             assert_eq!(hist.is_inside(i), !hist.not_inside(i));
             assert!(hist.get_bin_index(i).unwrap() == id);
             assert_eq!(hist.distance(i), 0.0);
-            assert_eq!(hist.interval_distance_overlap(i, 2), 0);
+            assert_eq!(hist.interval_distance_overlap(i, unsafe{NonZeroUsize::new_unchecked(2)}), 0);
             hist.count_val(i).unwrap();
         }
         let lm1 = left - T::one();
@@ -336,8 +335,9 @@ mod tests{
         assert_eq!(hist.is_inside(rp1), !hist.not_inside(rp1));
         assert_eq!(hist.distance(lm1), 1.0);
         assert_eq!(hist.distance(rp1), 1.0);
-        assert_eq!(hist.interval_distance_overlap(rp1, 1), 1);
-        assert_eq!(hist.interval_distance_overlap(lm1, 1), 1);
+        let one = unsafe{NonZeroUsize::new_unchecked(1)};
+        assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
+        assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
         assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
         assert_eq!(
             HistogramInt::<T>::new_inclusive(left, T::max_value(), bin_count).expect_err("err"),
