@@ -20,6 +20,7 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     pub(crate) walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     pub(crate) log_f_threshold: f64,
     pub(crate) replica_exchange_mode: bool,
+    pub(crate) step_size: Vec<usize>
 }
 
 
@@ -33,14 +34,38 @@ where R: Send + Sync + Rng + SeedableRng,
     Ensemble: MarkovChain<S, Res>,
     Res: Send + Sync,
     S: Send + Sync
-{  
+{
+
+    /// # Get the number of intervals present
+    pub fn num_intervals(&self) -> usize
+    {
+        self.walker.len() / self.chunk_size.get()
+    }
+
+    /// # Change step size for markov chain of walkers
+    /// * changes the step size used in the sweep
+    /// * changes step size of all walkers in the nth interval
+    /// * returns Err if index out of bounds, i.e., the requested interval does not exist
+    /// * interval counting starts at 0, i.e., n=0 is the first interval
+    pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Result<(), ()>
+    {
+        let start = n * self.chunk_size.get();
+        let end = start + self.chunk_size.get();
+        if self.step_size.len() < end {
+            Err(())
+        } else {
+            let slice = &mut self.step_size[start..start+self.chunk_size.get()];
+            slice.iter_mut()
+                .for_each(|entry| *entry = step_size);
+            Ok(())
+        }
+    }
 
     /// # Perform the Replica exchange wang landau simulation
     /// * will simulate until **all** walkers have factors `log_f`
     /// that are below the threshold you chose
     pub fn simulate_until_convergence<F>(
         &mut self,
-        step_size: usize,
         energy_fn: F
     )
     where 
@@ -50,7 +75,28 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         while !self.is_finished()
         {
-            self.sweep(step_size, energy_fn);
+            self.sweep(energy_fn);
+        }
+    }
+
+    /// # Perform the Replica exchange wang landau simulation
+    /// * will simulate until **all** walkers have factors `log_f`
+    /// that are below the threshold you chose **or**
+    /// * until condition returns false
+    pub fn simulate_while<F, C>(
+        &mut self,
+        energy_fn: F,
+        condition: C
+    )
+    where 
+        Ensemble: Send + Sync,
+        R: Send + Sync,
+        F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
+        C: Fn(&Self) -> bool
+    {
+        while !self.is_finished() && condition(&self)
+        {
+            self.sweep(energy_fn);
         }
     }
 
@@ -58,7 +104,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// * Performs one sweep of the Replica exchange wang landau simulation
     /// * You can make a complete simulation, by repeatatly calling this method
     /// until `self.is_finished()` returns true
-    pub fn sweep<F>(&mut self, step_size: usize, energy_fn: F)
+    pub fn sweep<F>(&mut self, energy_fn: F)
     where Ensemble: Send + Sync,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync
@@ -66,7 +112,8 @@ where R: Send + Sync + Rng + SeedableRng,
         let slice = self.ensembles.as_slice();
         self.walker
             .par_iter_mut()
-            .for_each(|w| w.wang_landau_sweep(slice, step_size, energy_fn));
+            .zip(self.step_size.par_iter())
+            .for_each(|(w, &step_size)| w.wang_landau_sweep(slice, step_size, energy_fn));
 
         
         self.walker

@@ -183,7 +183,7 @@ mod test
         let rewl_builder = RewlBuilder::from_ensemble(
             ensemble,
             hist_list,
-            NonZeroUsize::new(1).unwrap(),
+            1,
             NonZeroUsize::new(3000).unwrap(),
             NonZeroUsize::new(4).unwrap(),
             0.0000025
@@ -194,7 +194,6 @@ mod test
 
 
         rewl.simulate_until_convergence(
-            1,
             |e| Some(e.head_count())
         );
 

@@ -1,7 +1,7 @@
 use crate::*;
 use crate::rewl::*;
 use rand::{Rng, SeedableRng, Error};
-use std::{marker::PhantomData, num::NonZeroUsize, sync::*};
+use std::{marker::PhantomData, num::NonZeroUsize, sync::*, iter::repeat};
 use rayon::prelude::*;
 
 #[cfg(feature = "serde_support")]
@@ -21,7 +21,7 @@ pub struct ReplicaExchangeWangLandauBuilder<Ensemble, Hist, S, Res>
     hists: Vec<Hist>,
     log_f_threshold: f64,
     sweep_size: NonZeroUsize,
-    step_size: NonZeroUsize,
+    step_size: Vec<usize>,
     res: PhantomData<Res>,
     s: PhantomData<S>
 }
@@ -59,6 +59,13 @@ where Hist: Histogram,
     S: Send + Sync,
     Res: Sync + Send
 {
+
+    ///
+    pub fn step_size_slice(&mut self) -> &mut [usize]
+    {
+        self.step_size.as_mut_slice()
+    }
+
     /// # new rewl builder
     /// * used to create a **R**eplica **e**xchange **w**ang **l**andau simulation.
     /// * use this method, if you want to have fine control over each walker, i.e., if you can
@@ -84,7 +91,7 @@ where Hist: Histogram,
     pub fn from_ensemble_vec(
         ensembles: Vec<Ensemble>,
         hists: Vec<Hist>,
-        step_size: NonZeroUsize,
+        step_size: usize,
         sweep_size: NonZeroUsize,
         walker_per_interval: NonZeroUsize,
         log_f_threshold: f64
@@ -108,6 +115,9 @@ where Hist: Histogram,
         {
             return Err(RewlBuilderErr::HistBinCount);
         }
+        let step_size = (0..ensembles.len())
+            .map(|_| step_size)
+            .collect();
 
         Ok(
             Self{
@@ -130,7 +140,7 @@ where Hist: Histogram,
     pub fn from_ensemble<R>(
         ensemble: Ensemble,
         hists: Vec<Hist>,
-        step_size: NonZeroUsize,
+        step_size: usize,
         sweep_size: NonZeroUsize,
         chunk_size: NonZeroUsize,
         log_f_threshold: f64,
@@ -174,7 +184,7 @@ where Hist: Histogram,
     pub fn from_ensemble_tuple<R>(
         ensemble_tuple: (Ensemble, Ensemble),
         hists: Vec<Hist>,
-        step_size: NonZeroUsize,
+        step_size: usize,
         sweep_size: NonZeroUsize,
         chunk_size: NonZeroUsize,
         log_f_threshold: f64,
@@ -217,7 +227,7 @@ where Hist: Histogram,
         container: Vec<(Hist, Ensemble, Option<Energy>)>,
         walker_per_interval: NonZeroUsize,
         log_f_threshold: f64,
-        step_size: NonZeroUsize,
+        step_size: Vec<usize>,
         sweep_size: NonZeroUsize
 
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
@@ -289,13 +299,20 @@ where Hist: Histogram,
             counter += 1;
             ensembles_rw_lock.push(RwLock::new(e));
         }
+
+        let mut step_sizes = Vec::with_capacity(ensembles_rw_lock.len());
+        step_sizes.extend(
+            step_size.into_iter()
+                    .flat_map(|size| repeat(size).take(walker_per_interval.get()))
+        );
         Ok(
             Rewl{
                 ensembles: ensembles_rw_lock,
                 replica_exchange_mode: true,
                 chunk_size: walker_per_interval,
                 walker,
-                log_f_threshold
+                log_f_threshold,
+                step_size: step_sizes
             }
         )
     }
@@ -383,8 +400,9 @@ where Hist: Histogram,
         let sweep_size = self.sweep_size;
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
+            .zip(step_size.par_iter())
             .map(
-                |(mut e, h)|
+                |((mut e, h), &step_size)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -392,7 +410,7 @@ where Hist: Histogram,
                             if let Some(energy) = energy_fn(&mut e){
                                 break 'outer energy;
                             }
-                            e.m_steps_quiet(step_size.get());
+                            e.m_steps_quiet(step_size);
                         }
                         if !condition(){
                             return (h, e, None);
@@ -402,12 +420,12 @@ where Hist: Histogram,
                     if !h.is_inside(&energy) {
                         let mut distance = h.distance(&energy);
 
-                        let mut steps = Vec::with_capacity(step_size.get());
+                        let mut steps = Vec::with_capacity(step_size);
                         'outer2: loop 
                         {
                             for _ in 0..sweep_size.get()
                             {
-                                e.m_steps(step_size.get(), &mut steps);
+                                e.m_steps(step_size, &mut steps);
                                 let current_energy = if let Some(energy) = energy_fn(&mut e)
                                 {
                                     energy
@@ -555,8 +573,9 @@ where Hist: Histogram,
         let sweep_size = self.sweep_size;
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
+            .zip(step_size.par_iter())
             .map(
-                |(mut e, h)|
+                |((mut e, h), &step_size)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -564,7 +583,7 @@ where Hist: Histogram,
                             if let Some(energy) = energy_fn(&mut e){
                                 break 'outer energy;
                             }
-                            e.m_steps_quiet(step_size.get());
+                            e.m_steps_quiet(step_size);
                         }
                         if !condition(){
                             return (h, e, None);
@@ -574,12 +593,12 @@ where Hist: Histogram,
                     if !h.is_inside(&energy) {
                         let mut distance = h.interval_distance_overlap(&energy, overlap);
 
-                        let mut steps = Vec::with_capacity(step_size.get());
+                        let mut steps = Vec::with_capacity(step_size);
                         'outer2: loop 
                         {
                             for _ in 0..sweep_size.get()
                             {
-                                e.m_steps(step_size.get(), &mut steps);
+                                e.m_steps(step_size, &mut steps);
                                 let current_energy = if let Some(energy) = energy_fn(&mut e)
                                 {
                                     energy
@@ -705,8 +724,9 @@ where Hist: Histogram,
         let sweep_size = self.sweep_size;
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
+            .zip(step_size.par_iter())
             .map(
-                |(mut e, h)|
+                |((mut e, h), &step_size)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -714,7 +734,7 @@ where Hist: Histogram,
                             if let Some(energy) = energy_fn(&mut e){
                                 break 'outer energy;
                             }
-                            e.m_steps_quiet(step_size.get());
+                            e.m_steps_quiet(step_size);
                         }
                         if !condition(){
                             return (h, e, None);
@@ -725,13 +745,13 @@ where Hist: Histogram,
                         let mut distance_interval;
                         let mut distance;
 
-                        let mut steps = Vec::with_capacity(step_size.get());
+                        let mut steps = Vec::with_capacity(step_size);
                         'outer2: loop 
                         {
                             distance_interval = h.interval_distance_overlap(&energy, overlap);
                             for _ in 0..sweep_size.get()
                             {
-                                e.m_steps(step_size.get(), &mut steps);
+                                e.m_steps(step_size, &mut steps);
                                 let current_energy = if let Some(energy) = energy_fn(&mut e)
                                 {
                                     energy
@@ -758,7 +778,7 @@ where Hist: Histogram,
                             distance = h.distance(&energy);
                             for _ in 0..sweep_size.get()
                             {
-                                e.m_steps(step_size.get(), &mut steps);
+                                e.m_steps(step_size, &mut steps);
                                 let current_energy = if let Some(energy) = energy_fn(&mut e)
                                 {
                                     energy
