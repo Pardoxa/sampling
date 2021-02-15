@@ -200,7 +200,7 @@ mod test
         let merged = rewl.merged_log_prob()
             .unwrap();
 
-        let prob = merged.0;
+        let prob = merged.1;
 
         let binomial = Binomial::new(0.5, n as u64).unwrap();
 

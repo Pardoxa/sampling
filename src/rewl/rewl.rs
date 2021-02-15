@@ -207,18 +207,52 @@ where R: Send + Sync + Rng + SeedableRng,
     ///
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log10_prob(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    pub fn merged_log10_prob(&self) -> Result<(Hist, Vec<f64>), HistErrors>
     where Hist: HistogramCombine
     {
-        let (mut log_prob, e_hist) = self.merged_log_prob()?;
+        let (e_hist, mut log_prob) = self.merged_log_prob()?;
 
         // switch base of log
         log_prob.iter_mut()
             .for_each(|val| *val *= std::f64::consts::LOG10_E);
 
-        Ok((log_prob, e_hist))
+        Ok((e_hist, log_prob))
 
     }
+
+    /// # Results of the simulation
+    /// 
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns histogram, which contains the corresponding bins and
+    /// the logarithm with base 10 of the normalized (i.e. sum=1 within numerical precision) 
+    /// probability density. Lastly it returns the vector of the aligned probability estimates (also log10) of the
+    /// different intervals. This can be used to see, how good the simulation worked,
+    /// e.g., by plotting them to see, if they match
+    ///
+    /// ## Notes
+    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
+    pub fn merged_log10_prob_and_aligned(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (e_hist, mut log_prob, mut aligned) = self.merged_log_prob_and_aligned()?;
+        log_prob.iter_mut()
+            .for_each(|val| *val *= std::f64::consts::LOG10_E);
+        
+        aligned.par_iter_mut()
+            .for_each(
+                |a| 
+                {
+                    a.iter_mut()
+                        .for_each(|val| *val *= std::f64::consts::LOG10_E)
+                }
+            );
+        Ok(
+            (e_hist, log_prob, aligned)
+        )
+    }
+
 
     /// # Result of the simulations!
     /// This is what we do the simulation for!
@@ -228,10 +262,10 @@ where R: Send + Sync + Rng + SeedableRng,
     ///
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log_prob(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    pub fn merged_log_prob(&self) -> Result<(Hist, Vec<f64>), HistErrors>
     where Hist: HistogramCombine
     {
-        let (mut log_prob, e_hist) = self.merged_log_probability_helper()?;
+        let (mut log_prob, e_hist) = self.merged_log_probability()?;
 
         subtract_max(&mut log_prob);
 
@@ -251,10 +285,86 @@ where R: Send + Sync + Rng + SeedableRng,
         log_prob.iter_mut()
             .for_each(|val| *val -= sum);
         
-        Ok((log_prob, e_hist))
+        Ok((e_hist, log_prob))
     }
 
-    fn merged_log_probability_helper(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    /// # Results of the simulation
+    /// 
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns histogram, which contains the corresponding bins and
+    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
+    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
+    /// different intervals. This can be used to see, how good the simulation worked,
+    /// e.g., by plotting them to see, if they match
+    ///
+    /// ## Notes
+    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
+    pub fn merged_log_prob_and_aligned(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    where Hist: HistogramCombine 
+    {
+        let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
+        subtract_max(&mut log_prob);
+
+        // calculate actual sum in non log space
+        let sum = log_prob.iter()
+            .fold(0.0, |acc, &val| {
+                if val.is_finite(){
+                   acc +  val.exp()
+                } else {
+                    acc
+                }
+            }  
+        );
+
+        let sum = sum.ln();
+        log_prob.iter_mut()
+            .for_each(|val| *val -= sum);
+        aligned.par_iter_mut()
+            .for_each(
+                |aligned|
+                {
+                    aligned.iter_mut()
+                        .for_each(|val| *val -= sum)
+                }
+            );
+        Ok(
+            (
+                e_hist,
+                log_prob,
+                aligned
+            )
+        )
+    }
+
+    fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
+        Ok(
+            Self::only_merged(
+                merge_points,
+                alignment,
+                log_prob,
+                e_hist
+            )
+        )
+    }
+
+    fn merged_log_probability_and_align(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
+        self.merged_and_aligned(
+            merge_points,
+            alignment,
+            log_prob,
+            e_hist
+        )
+    }
+
+    fn merged_log_probability_helper(&self) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
         // get the log_probabilities - the walkers over the same intervals are merged
@@ -313,6 +423,24 @@ where R: Send + Sync + Rng + SeedableRng,
                 }
             ).collect();
 
+        Ok(
+            (
+                merge_points,
+                alignment,
+                log_prob,
+                e_hist
+            )
+        )
+
+    }
+
+    fn only_merged(
+        merge_points: Vec<usize>,
+        alignment: Vec<usize>,
+        log_prob: Vec<Vec<f64>>,
+        e_hist: Hist
+    ) -> (Vec<f64>, Hist)
+    {
         let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
         
         merged_log_prob[..=merge_points[0]]
@@ -342,8 +470,71 @@ where R: Send + Sync + Rng + SeedableRng,
 
         }
 
-        Ok((merged_log_prob, e_hist))
+        (merged_log_prob, e_hist)
+    }
 
+    fn merged_and_aligned(
+        &self,
+        merge_points: Vec<usize>,
+        alignment: Vec<usize>,
+        log_prob: Vec<Vec<f64>>,
+        e_hist: Hist
+    ) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    where Hist: HistogramCombine
+    {
+        let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+
+        let mut aligned_intervals = vec![merged_log_prob.clone(); alignment.len() + 1];
+
+        aligned_intervals[0][..log_prob[0].len()]
+            .copy_from_slice(&log_prob[0]);
+        
+        merged_log_prob[..=merge_points[0]]
+            .copy_from_slice(&log_prob[0][..=merge_points[0]]);
+
+
+        // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
+        let mut align_sum = 0;
+
+        for ((index, (&a, &mp)), hist) in alignment.iter()
+            .zip(merge_points.iter()).enumerate()
+            .zip(
+                self.walker.iter()
+                    .step_by(self.walkers_per_interval().get())
+                    .skip(1)
+                    .map(|v| v.hist())
+            )
+        {
+            let position_l = mp + align_sum;
+            align_sum += a;
+            let left = mp - a;
+
+            let index_p1 = index + 1; 
+
+            let shift = merged_log_prob[position_l] - log_prob[index_p1][left];
+
+            let unmerged_align = e_hist.align(hist)?;
+
+            aligned_intervals[index_p1][unmerged_align..]
+                .iter_mut()
+                .zip(log_prob[index_p1].iter())
+                .for_each(|(v, &val)| *v = val + shift);
+
+            merged_log_prob[position_l..]
+                .iter_mut()
+                .zip(log_prob[index_p1][left..].iter())
+                .for_each(
+                    |(merge, val)|
+                    {
+                        *merge = val + shift;
+                    }
+                );
+
+
+        }
+        Ok(
+            (e_hist, merged_log_prob, aligned_intervals)
+        )
     }
 
     /// # Get Ids
