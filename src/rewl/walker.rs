@@ -99,6 +99,44 @@ where R: Rng + Send + Sync,
         self.log_f
     }
 
+    /// Current non normalized estimate of the natural logarithm of the probability density function
+    pub fn log_density(&self) -> &[f64]
+    {
+        &self.log_density
+    }
+
+    /// # Current estimate of log10 of probability density
+    /// * normalized (sum over non log values is 1 (within numerical precision))
+    pub fn log10_density(&self) -> Vec<f64>
+    {
+
+        let max = self.log_density.iter()
+            .fold(f64::NEG_INFINITY,  |acc, &val| acc.max(val));
+        let mut log_density: Vec<f64> = Vec::with_capacity(self.log_density.len());
+        log_density.extend(
+            self.log_density.iter()
+                .map(|&val| val - max)
+        );
+        
+        let sum = log_density.iter()
+            .fold(0.0, |acc, &val| 
+                {
+                    if val.is_finite(){
+                        acc +  val.exp()
+                    } else {
+                        acc
+                    }
+                }
+            );
+        let sum = -sum.log10();
+
+        log_density.iter_mut()
+            .for_each(|val| *val = val.mul_add(std::f64::consts::LOG10_E, sum));
+
+        log_density
+            
+    }
+
     fn log_f_1_t(&self) -> f64
     {
         self.hist.bin_count() as f64 / self.step_count as f64

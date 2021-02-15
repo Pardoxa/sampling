@@ -19,6 +19,7 @@ pub struct ReplicaExchangeWangLandauBuilder<Ensemble, Hist, S, Res>
     walker_per_interval: NonZeroUsize,
     ensembles: Vec<Ensemble>,
     hists: Vec<Hist>,
+    finished: Vec<bool>,
     log_f_threshold: f64,
     sweep_size: NonZeroUsize,
     step_size: Vec<usize>,
@@ -60,10 +61,51 @@ where Hist: Histogram,
     Res: Sync + Send
 {
 
-    ///
-    pub fn step_size_slice(&mut self) -> &mut [usize]
+    /// # Fraction of finished intervals
+    /// * which fraction of the intervals has found valid starting configurations?
+    /// ## Note
+    /// * even if every interval has a valid configuration directly after using one of 
+    /// the `from_…` methods, it fill show a fraction of 0.0 - the fraction 
+    /// will only be correct after calling one of the `…build` methods (on the Error of the result)
+    pub fn finished_fraction(&self) -> f64
     {
-        self.step_size.as_mut_slice()
+        let done = self.finished
+            .iter()
+            .filter(|&&f| f)
+            .count();
+        
+        done as f64 / self.finished.len() as f64
+    }
+
+    /// # Is the interval in a valid statring configuration?
+    /// Check which intervals have valid starting points
+    /// ## Note
+    /// * in the beginning the RewlBuilder has no way of knowing, if the intervals have
+    /// valid starting configuration - as it does not know the energy function yet.
+    /// Therefore this will only be correct after calling one of the `…build` methods 
+    /// (on the Error of the result)
+    pub fn finished_slice(&self) -> &[bool]
+    {
+        &self.finished
+    }
+
+    /// # Read access to histograms
+    pub fn hists(&self) -> &[Hist]
+    {
+        &self.hists
+    }
+
+    /// # Read access to the ensembles
+    pub fn ensembles(&self) -> &[Ensemble]
+    {
+        &self.ensembles
+    }
+
+    /// # Change step size of individual intervals
+    /// * change step size of intervals
+    pub fn step_size(&mut self) -> &mut [usize]
+    {
+        &mut self.step_size
     }
 
     /// # new rewl builder
@@ -119,6 +161,7 @@ where Hist: Histogram,
             .map(|_| step_size)
             .collect();
 
+        let finished = vec![false; hists.len()];
         Ok(
             Self{
                 ensembles,
@@ -128,7 +171,8 @@ where Hist: Histogram,
                 hists,
                 log_f_threshold,
                 s: PhantomData::<S>,
-                res: PhantomData::<Res>
+                res: PhantomData::<Res>,
+                finished
             }
         )
     }
@@ -142,7 +186,7 @@ where Hist: Histogram,
         hists: Vec<Hist>,
         step_size: usize,
         sweep_size: NonZeroUsize,
-        chunk_size: NonZeroUsize,
+        walker_per_interval: NonZeroUsize,
         log_f_threshold: f64,
 
     ) -> Result<Self,RewlBuilderErr>
@@ -152,7 +196,7 @@ where Hist: Histogram,
         let len = NonZeroUsize::new(hists.len())
             .ok_or(RewlBuilderErr::Empty)?;
         let ensembles = Self::clone_and_seed_ensembles(ensemble, len)?;
-        Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, chunk_size, log_f_threshold)
+        Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, walker_per_interval, log_f_threshold)
     }
 
     fn clone_and_seed_ensembles<R>(mut ensemble: Ensemble, size: NonZeroUsize) -> Result<Vec<Ensemble>, RewlBuilderErr>
@@ -186,7 +230,7 @@ where Hist: Histogram,
         hists: Vec<Hist>,
         step_size: usize,
         sweep_size: NonZeroUsize,
-        chunk_size: NonZeroUsize,
+        walker_per_interval: NonZeroUsize,
         log_f_threshold: f64,
     ) -> Result<Self,RewlBuilderErr>
     where Ensemble: HasRng<R> + Clone,
@@ -219,7 +263,7 @@ where Hist: Histogram,
         }
         ensembles.push(right);
 
-        Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, chunk_size, log_f_threshold)
+        Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, walker_per_interval, log_f_threshold)
     }
 
     fn build<Energy, R, R2>
@@ -228,7 +272,8 @@ where Hist: Histogram,
         walker_per_interval: NonZeroUsize,
         log_f_threshold: f64,
         step_size: Vec<usize>,
-        sweep_size: NonZeroUsize
+        sweep_size: NonZeroUsize,
+        finished: Vec<bool>
 
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Energy: Clone,
@@ -252,7 +297,8 @@ where Hist: Histogram,
                     res: PhantomData::<Res>,
                     log_f_threshold,
                     step_size,
-                    sweep_size
+                    sweep_size,
+                    finished
                 }
             );
         }
@@ -398,11 +444,13 @@ where Hist: Histogram,
         let hists = self.hists;
         let step_size = self.step_size;
         let sweep_size = self.sweep_size;
+        let mut finished = self.finished;
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
+            .zip(finished.par_iter_mut())
             .map(
-                |((mut e, h), &step_size)|
+                |(((mut e, h), &step_size), finished)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -451,6 +499,7 @@ where Hist: Histogram,
                             }
                         }
                     }
+                    *finished = true;
                     (h, e, Some(energy))
                 }
             ).collect_into_vec(&mut container);
@@ -460,7 +509,8 @@ where Hist: Histogram,
             self.walker_per_interval,
             self.log_f_threshold,
             step_size,
-            sweep_size
+            sweep_size,
+            finished
         )
     }
 
@@ -571,11 +621,13 @@ where Hist: Histogram,
         let hists = self.hists;
         let step_size = self.step_size;
         let sweep_size = self.sweep_size;
+        let mut finished = self.finished;
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
+            .zip(finished.par_iter_mut())
             .map(
-                |((mut e, h), &step_size)|
+                |(((mut e, h), &step_size), finished)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -624,6 +676,7 @@ where Hist: Histogram,
                             }
                         }
                     }
+                    *finished = true;
                     (h, e, Some(energy))
                 }
             ).collect_into_vec(&mut container);
@@ -633,7 +686,8 @@ where Hist: Histogram,
             self.walker_per_interval,
             self.log_f_threshold,
             step_size,
-            sweep_size
+            sweep_size,
+            finished
         )
     }
 
@@ -722,11 +776,13 @@ where Hist: Histogram,
         let hists = self.hists;
         let step_size = self.step_size;
         let sweep_size = self.sweep_size;
+        let mut finished = self.finished;
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
+            .zip(finished.par_iter_mut())
             .map(
-                |((mut e, h), &step_size)|
+                |(((mut e, h), &step_size), finished)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -804,6 +860,7 @@ where Hist: Histogram,
                             }
                         }
                     }
+                    *finished = true;
                     (h, e, Some(energy))
                 }
             ).collect_into_vec(&mut container);
@@ -813,7 +870,8 @@ where Hist: Histogram,
             self.walker_per_interval,
             self.log_f_threshold,
             step_size,
-            sweep_size
+            sweep_size,
+            finished
         )
     }
 }

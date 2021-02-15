@@ -42,6 +42,12 @@ where R: Send + Sync + Rng + SeedableRng,
         self.walker.len() / self.chunk_size.get()
     }
 
+    /// Returns number of walkers per interval
+    pub fn walkers_per_interval(&self) -> NonZeroUsize
+    {
+        self.chunk_size
+    }
+
     /// # Change step size for markov chain of walkers
     /// * changes the step size used in the sweep
     /// * changes step size of all walkers in the nth interval
@@ -353,5 +359,31 @@ where R: Send + Sync + Rng + SeedableRng,
             .iter()
             .map(|w| w.id())
             .collect()
+    }
+
+    /// # read access to your ensembles
+    /// * If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn ensembles<'a>(&'a self) -> Vec<RwLockReadGuard<'a, Ensemble>>
+    {
+        self.ensembles.iter()
+            .map(|e| e.read().unwrap())
+            .collect()
+    }
+
+    /// # read access to the internal histograms used by the walkers
+    pub fn hists(&self) -> Vec<&Hist>
+    {
+        self.walker.iter()
+            .map(|w| w.hist())
+            .collect()
+    }
+
+    /// # Read access to internal rewl walkers
+    /// * each of these walkers independently samples an interval. 
+    /// * see paper for more infos
+    pub fn walker(&self) -> &Vec<RewlWalker<R, Hist, Energy, S, Res>>
+    {
+        &self.walker
     }
 }

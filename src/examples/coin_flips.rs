@@ -192,7 +192,7 @@ mod test
         let mut rewl = rewl_builder
             .greedy_build(|e| Some(e.head_count()));
 
-
+        
         rewl.simulate_until_convergence(
             |e| Some(e.head_count())
         );
