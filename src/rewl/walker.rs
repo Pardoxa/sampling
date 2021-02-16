@@ -3,7 +3,7 @@ use std::{marker::PhantomData, mem::*, num::NonZeroUsize, sync::*, usize};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
 
-#[cfg(feature = "rewl_sweep_time")]
+#[cfg(feature = "rewl_sweep_time_optimization")]
 use std::time::*;
 
 #[cfg(feature = "serde_support")]
@@ -45,7 +45,7 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     bin: usize,
     marker_s: PhantomData<S>,
     marker_res: PhantomData<Res>,
-    #[cfg(feature = "rewl_sweep_time")]
+    #[cfg(feature = "rewl_sweep_time_optimization")]
     duration: Duration
 }
 
@@ -81,7 +81,7 @@ where R: Rng + Send + Sync,
             bin,
             marker_res: PhantomData::<Res>,
             marker_s: PhantomData::<S>,
-            #[cfg(feature = "rewl_sweep_time")]
+            #[cfg(feature = "rewl_sweep_time_optimization")]
             duration: Duration::from_millis(0)
         }
     }
@@ -94,7 +94,7 @@ where R: Rng + Send + Sync,
     }
 
     /// # Returns duration of last sweep that was performed
-    #[cfg(feature = "rewl_sweep_time")]
+    #[cfg(feature = "rewl_sweep_time_optimization")]
     pub fn duration(&self) -> Duration
     {
         self.duration
@@ -186,7 +186,7 @@ where R: Rng + Send + Sync,
     where F: Fn(&mut Ensemble) -> Option<Energy>,
         Ensemble: MarkovChain<S, Res>
     {
-        #[cfg(feature = "rewl_sweep_time")]
+        #[cfg(feature = "rewl_sweep_time_optimization")]
         let start = Instant::now();
 
         let mut e = ensemble_vec[self.id]
@@ -239,7 +239,7 @@ where R: Rng + Send + Sync,
             
             self.log_density[self.bin] += self.log_f;
 
-            #[cfg(feature = "rewl_sweep_time")]
+            #[cfg(feature = "rewl_sweep_time_optimization")]
             {
                 self.duration = start.elapsed();
             }
