@@ -21,6 +21,7 @@ statrs = "0.13.0"
 [features]
 serde_support = ["serde"]
 bootstrap = ["average"]
+rewl_sweep_time = []
 default = ["serde_support", "bootstrap"]
 
 [[bench]]

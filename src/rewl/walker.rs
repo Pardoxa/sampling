@@ -3,6 +3,9 @@ use std::{marker::PhantomData, mem::*, num::NonZeroUsize, sync::*, usize};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
 
+#[cfg(feature = "rewl_sweep_time")]
+use std::time::*;
+
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
@@ -42,6 +45,8 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     bin: usize,
     marker_s: PhantomData<S>,
     marker_res: PhantomData<Res>,
+    #[cfg(feature = "rewl_sweep_time")]
+    duration: Duration
 }
 
 impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
@@ -75,7 +80,9 @@ where R: Rng + Send + Sync,
             old_energy,
             bin,
             marker_res: PhantomData::<Res>,
-            marker_s: PhantomData::<S>
+            marker_s: PhantomData::<S>,
+            #[cfg(feature = "rewl_sweep_time")]
+            duration: Duration::from_millis(0)
         }
     }
 
@@ -84,6 +91,13 @@ where R: Rng + Send + Sync,
     pub fn id(&self) -> usize
     {
         self.id
+    }
+
+    /// # Returns duration of last sweep that was performed
+    #[cfg(feature = "rewl_sweep_time")]
+    pub fn duration(&self) -> Duration
+    {
+        self.duration
     }
 
     /// # Reference to internal histogram
@@ -172,6 +186,9 @@ where R: Rng + Send + Sync,
     where F: Fn(&mut Ensemble) -> Option<Energy>,
         Ensemble: MarkovChain<S, Res>
     {
+        #[cfg(feature = "rewl_sweep_time")]
+        let start = Instant::now();
+
         let mut e = ensemble_vec[self.id]
             .write()
             .expect("Fatal Error encountered; ERRORCODE 0x1 - this should be \
@@ -221,6 +238,12 @@ where R: Rng + Send + Sync,
                 .expect("Histogram index Error, ERRORCODE 0x2");
             
             self.log_density[self.bin] += self.log_f;
+
+            #[cfg(feature = "rewl_sweep_time")]
+            {
+                self.duration = start.elapsed();
+            }
+
         }
     }
 }

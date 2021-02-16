@@ -5,6 +5,9 @@ use rand::{Rng, SeedableRng, prelude::SliceRandom};
 use std::{num::NonZeroUsize, sync::*};
 use rayon::prelude::*;
 
+#[cfg(feature = "rewl_sweep_time")]
+use std::cmp::Reverse;
+
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
@@ -116,7 +119,23 @@ where R: Send + Sync + Rng + SeedableRng,
         F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync
     {
         let slice = self.ensembles.as_slice();
-        self.walker
+
+        #[cfg(not(feature = "rewl_sweep_time"))]
+        let walker = &mut self.walker;
+
+        #[cfg(feature = "rewl_sweep_time")]
+        let mut walker = 
+        {
+            let mut walker = Vec::with_capacity(self.walker.len());
+            walker.extend(
+                self.walker.iter_mut()
+            );
+            walker.par_sort_unstable_by_key(|w| Reverse(w.duration()));
+            walker
+        };
+
+
+        walker
             .par_iter_mut()
             .zip(self.step_size.par_iter())
             .for_each(|(w, &step_size)| w.wang_landau_sweep(slice, step_size, energy_fn));
