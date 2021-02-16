@@ -21,7 +21,7 @@ pub struct ReplicaExchangeWangLandauBuilder<Ensemble, Hist, S, Res>
     hists: Vec<Hist>,
     finished: Vec<bool>,
     log_f_threshold: f64,
-    sweep_size: NonZeroUsize,
+    sweep_size: Vec<NonZeroUsize>,
     step_size: Vec<usize>,
     res: PhantomData<Res>,
     s: PhantomData<S>
@@ -101,11 +101,30 @@ where Hist: Histogram,
         &self.ensembles
     }
 
+    /// Access step sizes of individual intervals
+    pub fn step_sizes(&self) -> &[usize]
+    {
+        &self.step_size
+    }
+
     /// # Change step size of individual intervals
     /// * change step size of intervals
-    pub fn step_size(&mut self) -> &mut [usize]
+    pub fn step_sizes_mut(&mut self) -> &mut [usize]
     {
         &mut self.step_size
+    }
+
+    /// Accesss sweep size of individual intervals
+    pub fn sweep_sizes(&self) -> &[NonZeroUsize]
+    {
+        &self.sweep_size
+    }
+
+    /// # Change sweep size of individual intervals
+    /// * change sweep size of intervals
+    pub fn sweep_sizes_mut(&mut self) -> &mut [NonZeroUsize]
+    {
+        &mut self.sweep_size
     }
 
     /// # new rewl builder
@@ -160,13 +179,19 @@ where Hist: Histogram,
         let step_size = (0..ensembles.len())
             .map(|_| step_size)
             .collect();
+        
+        let mut sweep_size_vec = Vec::with_capacity(ensembles.len());
+        sweep_size_vec.extend(
+            (0..ensembles.len())
+                .map(|_| sweep_size)
+        );
 
         let finished = vec![false; hists.len()];
         Ok(
             Self{
                 ensembles,
                 step_size,
-                sweep_size,
+                sweep_size: sweep_size_vec,
                 walker_per_interval,
                 hists,
                 log_f_threshold,
@@ -272,7 +297,7 @@ where Hist: Histogram,
         walker_per_interval: NonZeroUsize,
         log_f_threshold: f64,
         step_size: Vec<usize>,
-        sweep_size: NonZeroUsize,
+        sweep_size: Vec<NonZeroUsize>,
         finished: Vec<bool>
 
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
@@ -307,8 +332,9 @@ where Hist: Histogram,
         let mut walker = Vec::with_capacity(walker_per_interval.get() * container.len());
         let mut counter = 0;
 
-        for ((mut h, mut e, energy), step_size) in container.into_iter()
+        for (((mut h, mut e, energy), step_size), sweep_size) in container.into_iter()
             .zip(step_size.into_iter())
+            .zip(sweep_size.into_iter())
         {
             let energy = energy.unwrap();
             h.reset();
@@ -446,8 +472,9 @@ where Hist: Histogram,
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
             .zip(finished.par_iter_mut())
+            .zip(sweep_size.par_iter())
             .map(
-                |(((mut e, h), &step_size), finished)|
+                |((((mut e, h), &step_size), finished), sweep_size)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -623,8 +650,9 @@ where Hist: Histogram,
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
             .zip(finished.par_iter_mut())
+            .zip(sweep_size.par_iter())
             .map(
-                |(((mut e, h), &step_size), finished)|
+                |((((mut e, h), &step_size), finished), sweep_size)|
                 {
                     let mut energy = 'outer: loop
                     {
@@ -778,8 +806,9 @@ where Hist: Histogram,
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
             .zip(finished.par_iter_mut())
+            .zip(sweep_size.par_iter())
             .map(
-                |(((mut e, h), &step_size), finished)|
+                |((((mut e, h), &step_size), finished), sweep_size)|
                 {
                     let mut energy = 'outer: loop
                     {
