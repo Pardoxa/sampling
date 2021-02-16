@@ -23,7 +23,6 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     pub(crate) walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     pub(crate) log_f_threshold: f64,
     pub(crate) replica_exchange_mode: bool,
-    pub(crate) step_size: Vec<usize>
 }
 
 
@@ -60,12 +59,12 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         let start = n * self.chunk_size.get();
         let end = start + self.chunk_size.get();
-        if self.step_size.len() < end {
+        if self.walker.len() < end {
             Err(())
         } else {
-            let slice = &mut self.step_size[start..start+self.chunk_size.get()];
+            let slice = &mut self.walker[start..start+self.chunk_size.get()];
             slice.iter_mut()
-                .for_each(|entry| *entry = step_size);
+                .for_each(|entry| entry.step_size_change(step_size));
             Ok(())
         }
     }
@@ -137,8 +136,7 @@ where R: Send + Sync + Rng + SeedableRng,
 
         walker
             .par_iter_mut()
-            .zip(self.step_size.par_iter())
-            .for_each(|(w, &step_size)| w.wang_landau_sweep(slice, step_size, energy_fn));
+            .for_each(|w| w.wang_landau_sweep(slice, energy_fn));
 
         
         self.walker

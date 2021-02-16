@@ -1,5 +1,5 @@
 use rand::Rng;
-use std::{marker::PhantomData, mem::*, num::NonZeroUsize, sync::*, usize};
+use std::{marker::PhantomData, mem::*, num::*, sync::*, usize};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
 
@@ -45,6 +45,7 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     bin: usize,
     marker_s: PhantomData<S>,
     marker_res: PhantomData<Res>,
+    step_size: usize,
     #[cfg(feature = "rewl_sweep_time_optimization")]
     duration: Duration
 }
@@ -63,7 +64,8 @@ where R: Rng + Send + Sync,
         rng: R,
         hist: Hist,
         sweep_size: NonZeroUsize,
-        old_energy: Energy
+        step_size: usize,
+        old_energy: Energy,
     ) -> RewlWalker<R, Hist, Energy, S, Res>
     {
         let log_density = vec![0.0; hist.bin_count()];
@@ -81,6 +83,7 @@ where R: Rng + Send + Sync,
             bin,
             marker_res: PhantomData::<Res>,
             marker_s: PhantomData::<S>,
+            step_size,
             #[cfg(feature = "rewl_sweep_time_optimization")]
             duration: Duration::from_millis(0)
         }
@@ -111,6 +114,30 @@ where R: Rng + Send + Sync,
     pub fn log_f(&self) -> f64
     {
         self.log_f
+    }
+
+    /// # how many steps per sweep
+    pub fn sweep_size(&self) -> NonZeroUsize
+    {
+        self.sweep_size
+    }
+
+    /// # change how many steps per sweep are performed
+    pub fn sweep_size_change(&mut self, sweep_size: NonZeroUsize)
+    {
+        self.sweep_size = sweep_size;
+    }
+
+    /// # step size for markov steps
+    pub fn step_size(&self) -> usize 
+    {
+        self.step_size
+    }
+
+    /// # Change step sitze for markov steps
+    pub fn step_size_change(&mut self, step_size: usize)
+    {
+        self.step_size = step_size;
     }
 
     /// Current non normalized estimate of the natural logarithm of the probability density function
@@ -180,7 +207,6 @@ where R: Rng + Send + Sync,
     (
         &mut self,
         ensemble_vec: &[RwLock<Ensemble>],
-        step_size: usize,
         energy_fn: F
     )
     where F: Fn(&mut Ensemble) -> Option<Energy>,
@@ -196,11 +222,11 @@ where R: Rng + Send + Sync,
                 'sampling' library, please contact the library author via github by opening an \
                 issue! https://github.com/Pardoxa/sampling/issues");
         
-        let mut steps = Vec::with_capacity(step_size);
+        let mut steps = Vec::with_capacity(self.step_size);
         for _ in 0..self.sweep_size.get()
         {   
             self.step_count = self.step_count.saturating_add(1);
-            e.m_steps(step_size, &mut steps);
+            e.m_steps(self.step_size, &mut steps);
 
             let energy = match energy_fn(&mut e){
                 Some(energy) => energy,

@@ -1,7 +1,7 @@
 use crate::*;
 use crate::rewl::*;
 use rand::{Rng, SeedableRng, Error};
-use std::{marker::PhantomData, num::NonZeroUsize, sync::*, iter::repeat};
+use std::{marker::PhantomData, num::NonZeroUsize, sync::*};
 use rayon::prelude::*;
 
 #[cfg(feature = "serde_support")]
@@ -307,7 +307,8 @@ where Hist: Histogram,
         let mut walker = Vec::with_capacity(walker_per_interval.get() * container.len());
         let mut counter = 0;
 
-        for (mut h, mut e, energy) in container.into_iter()
+        for ((mut h, mut e, energy), step_size) in container.into_iter()
+            .zip(step_size.into_iter())
         {
             let energy = energy.unwrap();
             h.reset();
@@ -326,6 +327,7 @@ where Hist: Histogram,
                         rng,
                         h.clone(),
                         sweep_size,
+                        step_size,
                         energy.clone()
                     )
                 );
@@ -339,6 +341,7 @@ where Hist: Histogram,
                     rng,
                     h,
                     sweep_size,
+                    step_size,
                     energy
                 )
             );
@@ -346,19 +349,13 @@ where Hist: Histogram,
             ensembles_rw_lock.push(RwLock::new(e));
         }
 
-        let mut step_sizes = Vec::with_capacity(ensembles_rw_lock.len());
-        step_sizes.extend(
-            step_size.into_iter()
-                    .flat_map(|size| repeat(size).take(walker_per_interval.get()))
-        );
         Ok(
             Rewl{
                 ensembles: ensembles_rw_lock,
                 replica_exchange_mode: true,
                 chunk_size: walker_per_interval,
                 walker,
-                log_f_threshold,
-                step_size: step_sizes
+                log_f_threshold
             }
         )
     }
