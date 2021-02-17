@@ -444,6 +444,186 @@
 /// splot $data matrix with image t "" 
 /// set output
 /// ```
+/// 
+/// # Example: Replica exchange wang landau
+/// * The same example as above, but with replica exchange wang landau
+/// * [see explanaition of the model](#example-coin-flips)
+/// ```
+/// use rand::SeedableRng;
+/// use rand_pcg::Pcg64;
+/// use sampling::{*, examples::coin_flips::*};
+/// use std::{num::*, time::*};
+/// use statrs::distribution::{Binomial, Discrete};
+/// use std::fs::File;
+/// use std::io::{BufWriter, Write};
+///
+/// let begin = Instant::now();
+/// // length of coin flip sequence
+/// let n = 20;
+/// // how many intervals do we want?
+/// let interval_count = 3;
+///
+/// // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
+/// let hist = HistUsizeFast::new_inclusive(0, n).unwrap();
+///
+/// // now the overlapping histograms for sampling
+/// // lets create 3 histograms. The parameter overlap here must be larger than 0. Normally, 2 should be good
+/// let hist_list = hist.overlapping_partition(interval_count, 2).unwrap();
+/// let rng = Pcg64::seed_from_u64(834628956578);
+/// 
+/// // create an ensemble
+/// let ensemble = CoinFlipSequence::new(n, rng);
+/// 
+/// // create the replica exchange simulation builder. Note: There are different methods for this
+/// let rewl_builder = RewlBuilder::from_ensemble(
+///     ensemble,                           // the ensemble
+///     hist_list,                          // the histograms, used as intervals for the Rewl
+///     1,                                  // step size for the markov steps
+///     NonZeroUsize::new(3000).unwrap(),   // sweep size, i.e., how many steps will be performed before a replica exchange will be tried
+///     NonZeroUsize::new(4).unwrap(),      // How many random walkers should sample each interval (independently)?
+///     0.0000025                           // Threshold for the simulation
+/// ).unwrap();
+///
+/// // Note: You can now change the sweep size and the step sizes for the different 
+/// // intervals independently.
+/// // Use the `rewl_builder.step_sizes_mut()` and `rewl_builder.sweep_sizes.mut()` respecively
+/// // The indice in the slices corresponds to the interval(index)
+/// 
+/// // uses greedy heuristik to find valid starting point.
+/// // (fastest, if the ensembles are already at their respective vaild starting points)
+/// // Note: there are different heuristiks. You have to try them out to see, which works best for your problem
+/// let mut rewl = rewl_builder
+///     .greedy_build(
+///         |e| Some(e.head_count()) // energy function. It is a logical error to use a different energy function later on
+///     );
+/// 
+/// // lets say, we want to limit our simulation to roughly 40 minutes at most
+/// let start = Instant::now();
+/// let seconds = 40 * 60; // seconds in 40 minutes
+///         
+/// // This is the heart pice - it performs the actual simulation
+/// rewl.simulate_while(
+///     |e| Some(e.head_count()), // energy function. has to be the same as used above
+///     |_| start.elapsed().as_secs() < seconds // condition for continuation of simulation
+/// );
+/// // note, the above simulation might take slightly longer than 40 seconds, 
+/// // because the condition is only checked after each sweep
+///
+/// // now lets get the result of the simulation:
+/// // The logarithm (here base e, there is also a function for base 10) of the probability density (or density of states)
+/// let merged = rewl.merged_log_prob()
+///     .unwrap();
+/// 
+/// // this is the above mentioned density. 
+/// // merged.0 will be the corresponding histogram
+/// let ln_prob = merged.1;
+///
+/// // For this example, we know the exact reut. Lets calculate it to compare
+/// let binomial = Binomial::new(0.5, n as u64).unwrap();
+/// let ln_prob_true: Vec<_> = (0..=n)
+///     .map(|k| binomial.ln_pmf(k as u64))
+///     .collect();
+///
+/// let mut max_ln_difference = f64::NEG_INFINITY;
+/// let mut max_difference = f64::NEG_INFINITY;
+/// let mut frac_difference_max = f64::NEG_INFINITY;
+/// let mut frac_difference_min = f64::INFINITY;
+/// for (index, val) in ln_prob.into_iter().zip(ln_prob_true.into_iter()).enumerate()
+/// {
+///     println!("{} {} {}", index, val.0, val.1);
+///     let val_simulation = val.0.exp();
+///     let val_real = val.1.exp();
+///     max_difference = f64::max((val_simulation - val_real).abs(), max_difference);
+///     max_ln_difference = f64::max(max_ln_difference, (val.0-val.1).abs());
+/// 
+///     let frac = val_simulation / val_real;
+///     frac_difference_max = frac_difference_max.max(frac);
+///     frac_difference_min = frac_difference_min.min(frac);
+///     
+/// }
+///
+/// println!("max_ln_difference: {}", max_ln_difference);
+/// println!("max absolute difference: {}", max_difference);
+/// println!("max frac: {}", frac_difference_max);
+/// println!("min frac: {}", frac_difference_min);
+///
+/// // at worst the simulated density overetimated the real result by under 0.4 %
+/// assert!((frac_difference_max - 1.0).abs() < 0.004);
+/// // and underestimated the result by under 1 %
+/// assert!((frac_difference_min - 1.0).abs() < 0.01);
+/// 
+/// 
+/// // Note: to get even better results, you can decrease the threshold 
+/// // I used 2.5E-6. Often it is good to use between 1E-6 and 1E-8
+/// // I used a larger threshold, since this is also a doc test and 
+/// // should run under 5 minutes in Debug mode
+/// // (on my machine it takes about 30 seconds in debug mode and under 2 seconds in release mode)
+/// 
+/// // if you want to see, how good the intervals align, you can do the following
+/// 
+/// let file = File::create("coin_flip_rewl.dat").unwrap();
+/// let mut buf = BufWriter::new(file);
+/// writeln!(&mut buf, "#left_border right_border merged_ln interval0_ln interval1_ln …").unwrap();
+/// 
+/// let (hist, ln_prob, aligned) = rewl.merged_log_prob_and_aligned().unwrap();
+/// 
+/// let borders = hist.borders_clone().unwrap();
+/// 
+/// borders.iter()
+///     .zip(borders[1..].iter())
+///     .zip(ln_prob.into_iter())
+///     .enumerate()
+///     .for_each(
+///         |(index, ((&left, &right), merged))|
+///         {
+///             write!(&mut buf, "{} {} {}",  left, right, merged).unwrap();
+///             aligned.iter()
+///                 .for_each(
+///                     |interval|
+///                     {
+///                         write!(&mut buf, " {}", interval[index]).unwrap();
+///                     }
+///                 );
+///             writeln!(&mut buf).unwrap();
+///         }
+///     );
+/// 
+/// 
+/// println!("Total time: {}", begin.elapsed().as_secs());
+/// ```
+/// 
+/// To plot it, use
+/// ```gp
+/// set format y "e^{%.0f}"
+/// set ylabel "probability"
+/// set xlabel "Number of heads"
+/// p "coin_flip_rewl.dat" u 1:3 t "merged", for[i=4:6] "" u 1:i t "interval ".(i-4)
+/// ```
+/// 
+/// The resulting file is "coin_flip_rewl.dat"
+/// ```dat
+///#left_border right_border merged_ln interval0_ln interval1_ln …
+///0 1 -13.872953478864323 -13.875252708616207 NaN NaN
+///1 2 -10.876127501760285 -10.87842673151217 NaN NaN
+///2 3 -8.624797686324959 -8.627096916076843 NaN NaN
+///3 4 -6.830725741526427 -6.833024971278311 NaN NaN
+///4 5 -5.379454261906195 -5.381753491658079 -5.384361112893961 NaN
+///5 6 -4.217770657939488 -4.220069887691372 -4.218225593403664 NaN
+///6 7 -3.2996599671567046 -3.3019591969085886 -3.3003648071330267 NaN
+///7 8 -2.6066364536303204 -2.6089356833822044 -2.6058184293123836 NaN
+///8 9 -2.1206231479145194 -2.1229223776664035 -2.1196854544629296 -2.120766256804037
+///9 10 -1.831067485933223 -1.833366715685107 -1.8321512577633903 -1.833366715685107
+///10 11 -1.7363188957632665 -1.7363188957632665 -1.7363188957632665 -1.7386181255151505
+///11 12 -1.8315690597012995 -1.8318967181251273 -1.8307403053774087 -1.8338682894531835
+///12 13 -2.1181028239814927 -2.120196204163127 -2.117328586128925 -2.1204020537333768
+///13 14 -2.6024219874546666 NaN -2.602276965966458 -2.6047212172065506
+///14 15 -3.2947955306988965 NaN -3.2972756231903495 -3.2970947604507805
+///15 16 -4.212201373416198 NaN -4.21424416030762 -4.214500603168082
+///16 17 -5.373257135516289 NaN -5.377684467439186 -5.375556365268173
+///17 18 -6.822681147387206 NaN NaN -6.82498037713909
+///18 19 -8.616339078363941 NaN NaN -8.618638308115825
+///19 20 -10.873245962692826 NaN NaN -10.87554519244471
+///20 21 -13.865882904904558 NaN NaN -13.868182134656442
 pub mod coin_flips;
 
 //pub mod ising_spins;

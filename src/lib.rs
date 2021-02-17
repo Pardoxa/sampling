@@ -3,6 +3,8 @@
 //! 
 //! * [Detailed example](examples/coin_flips/index.html) for Wang-landau with sucessive entropic sampling
 //! and comparison with analytical results
+//! * [Detailed example](examples/coin_flips/index.html#example-replica-exchange-wang-landau) for 
+//! parallel Replica exchange Wang Landau
 
 #![deny(missing_docs, warnings)]
 
