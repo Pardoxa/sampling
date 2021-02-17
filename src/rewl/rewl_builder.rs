@@ -723,6 +723,9 @@ where Hist: Histogram,
     /// Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
     /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// 
+    ///
+    /// * greedy_steps: How many steps to perform with greedy heuristik before switching to interval heuristik?
+    /// * interval_steps: How many steps to perform with interval heuristik before switching back to greedy heuristik?
     /// ## Note
     /// * Depending on how complex your energy landscape is, this can take a very long time,
     /// maybe not even terminating at all.
@@ -731,7 +734,9 @@ where Hist: Histogram,
     (
         self,
         energy_fn: F,
-        overlap: NonZeroUsize
+        overlap: NonZeroUsize,
+        greedy_steps: NonZeroUsize,
+        interval_steps: NonZeroUsize
     ) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -740,7 +745,7 @@ where Hist: Histogram,
         Energy: Sync + Send + Clone,
         walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
     {
-        match Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, || true, overlap){
+        match Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, || true, overlap, greedy_steps, interval_steps){
             Ok(result) => result,
             Err(_) => unreachable!()
         }
@@ -753,16 +758,21 @@ where Hist: Histogram,
     /// Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
     /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// 
+    /// * greedy_steps: How many steps to perform with greedy heuristik before switching to interval heuristik?
+    /// * interval_steps: How many steps to perform with interval heuristik before switching back to greedy heuristik?
+    /// 
     /// ## Note
     /// * `condition` can be used to limit the time of the search - it will end when `condition`
     /// returns false (or a valid solution is found)
-    /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
+    /// * condition will be checked each time the heuristik switches bewteen greedy and interval heuristik
     pub fn try_mixed_heuristik_build<R, F, C, Energy>
     (
         self,
         energy_fn: F,
         condition: C,
-        overlap: NonZeroUsize
+        overlap: NonZeroUsize,
+        greedy_steps: NonZeroUsize,
+        interval_steps: NonZeroUsize
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -772,20 +782,28 @@ where Hist: Histogram,
         Energy: Sync + Send + Clone,
         walker::RewlWalker<R, Hist, Energy, S, Res>: Send,
     {
-        Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, condition, overlap)
+        Self::try_mixed_heuristik_choose_rng_build(self, energy_fn, condition, overlap, greedy_steps, interval_steps)
     }
 
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`try_mixed_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_mixed_heuristik_build`)
     /// * difference: Lets you choose the rng type for the Rewl simulation, i.e., the rng used for 
     /// accepting or rejecting markov steps and replica exchange moves
-    /// * usage: `self.try_mixed_heuristik_choose_rng_build<RNG_TYPE, _, _, _, _>(energy_fn, condition, overlap)`
+    /// * usage: `self.try_mixed_heuristik_choose_rng_build<RNG_TYPE, _, _, _, _>(energy_fn, condition, overlap, greedy_steps, interval_steps)`
+    /// 
+    /// * greedy_steps: How many steps to perform with greedy heuristik before switching to interval heuristik?
+    /// * interval_steps: How many steps to perform with interval heuristik before switching back to greedy heuristik?
+    /// 
+    /// ## Note
+    /// * condition will be checked each time the heuristik switches bewteen greedy and interval heuristik
     pub fn try_mixed_heuristik_choose_rng_build<R, R2, F, C, Energy>
     (
         self,
         energy_fn: F,
         condition: C,
-        overlap: NonZeroUsize
+        overlap: NonZeroUsize,
+        greedy_steps: NonZeroUsize,
+        interval_steps: NonZeroUsize
     ) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy> + HistogramIntervalDistance<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -830,35 +848,8 @@ where Hist: Histogram,
                         let mut steps = Vec::with_capacity(step_size);
                         'outer2: loop 
                         {
-                            distance_interval = h.interval_distance_overlap(&energy, overlap);
-                            for _ in 0..sweep_size.get()
-                            {
-                                e.m_steps(step_size, &mut steps);
-                                let current_energy = if let Some(energy) = energy_fn(&mut e)
-                                {
-                                    energy
-                                } else {
-                                    e.undo_steps_quiet(&mut steps);
-                                    continue;
-                                };
-    
-                                let new_distance = h.interval_distance_overlap(&current_energy, overlap);
-                                if new_distance <= distance_interval {
-                                    energy = current_energy;
-                                    distance_interval = new_distance;
-                                    if distance_interval == 0 {
-                                        break 'outer2;
-                                    }
-                                }else {
-                                    e.undo_steps_quiet(&mut steps);
-                                }
-                            }
-                            if !condition()
-                            {
-                                return (h, e, None);
-                            }
                             distance = h.distance(&energy);
-                            for _ in 0..sweep_size.get()
+                            for _ in 0..greedy_steps.get()
                             {
                                 e.m_steps(step_size, &mut steps);
                                 let current_energy = if let Some(energy) = energy_fn(&mut e)
@@ -874,6 +865,34 @@ where Hist: Histogram,
                                     energy = current_energy;
                                     distance = new_distance;
                                     if distance == 0.0 {
+                                        break 'outer2;
+                                    }
+                                }else {
+                                    e.undo_steps_quiet(&mut steps);
+                                }
+                            }
+                            if !condition()
+                            {
+                                return (h, e, None);
+                            }
+
+                            distance_interval = h.interval_distance_overlap(&energy, overlap);
+                            for _ in 0..interval_steps.get()
+                            {
+                                e.m_steps(step_size, &mut steps);
+                                let current_energy = if let Some(energy) = energy_fn(&mut e)
+                                {
+                                    energy
+                                } else {
+                                    e.undo_steps_quiet(&mut steps);
+                                    continue;
+                                };
+    
+                                let new_distance = h.interval_distance_overlap(&current_energy, overlap);
+                                if new_distance <= distance_interval {
+                                    energy = current_energy;
+                                    distance_interval = new_distance;
+                                    if distance_interval == 0 {
                                         break 'outer2;
                                     }
                                 }else {
