@@ -15,6 +15,29 @@ use serde::{Serialize, Deserialize};
 /// * use this to quickly build your own parallel replica exchange wang landau simulation
 /// ## Tipp
 /// Use the short hand `Rewl`  
+/// ## Citations
+/// * the following paper were used to progamm this - you should cite them, if you use 
+/// this library for a publication!
+/// 
+/// > Y. W. Li, T. Vogel, T. Wüst and D. P. Landau,
+/// > “A new paradigm for petascale Monte Carlo simulation: Replica exchange Wang-Landau sampling,”
+/// > J.&nbsp;Phys.: Conf.&nbsp;Ser. **510** 012012 (2014), DOI&nbsp;[10.1088/1742-6596/510/1/012012](https://doi.org/10.1088/1742-6596/510/1/012012)
+///
+/// > T. Vogel, Y. W. Li, T. Wüst and D. P. Landau,
+/// > “Exploring new frontiers in statistical physics with a new, parallel Wang-Landau framework,”
+/// > J.&nbsp;Phys.: Conf.&nbsp;Ser. **487** 012001 (2014), DOI&nbsp;[10.1088/1742-6596/487/1/012001](https://doi.org/10.1088/1742-6596/487/1/012001)
+///
+/// > T. Vogel, Y. W. Li, T. Wüst and D. P. Landau,
+/// > “Scalable replica-exchange framework for Wang-Landau sampling,”
+/// > Phys.&nbsp;Rev.&nbsp;E **90**: 023302 (2014), DOI&nbsp;[10.1103/PhysRevE.90.023302](https://doi.org/10.1103/PhysRevE.90.023302)
+///
+/// > R. E. Belardinelli and V. D. Pereyra,
+/// > “Fast algorithm to calculate density of states,”
+/// > Phys.&nbsp;Rev.&nbsp;E&nbsp;**75**: 046701 (2007), DOI&nbsp;[10.1103/PhysRevE.75.046701](https://doi.org/10.1103/PhysRevE.75.046701)
+/// 
+/// > F. Wang and D. P. Landau,
+/// > “Efficient, multiple-range random walk algorithm to calculate the density of states,” 
+/// > Phys.&nbsp;Rev.&nbsp;Lett.&nbsp;**86**, 2050–2053 (2001), DOI&nbsp;[10.1103/PhysRevLett.86.2050](https://doi.org/10.1103/PhysRevLett.86.2050)
 #[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{

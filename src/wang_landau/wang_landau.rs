@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 
 /// # The 1/t Wang Landau approach comes from this paper
 /// > R. E. Belardinelli and V. D. Pereyra,
-/// > Fast algorithm to calculate density of states,”
+/// > “Fast algorithm to calculate density of states,”
 /// > Phys.&nbsp;Rev.&nbsp;E&nbsp;**75**: 046701 (2007), DOI&nbsp;[10.1103/PhysRevE.75.046701](https://doi.org/10.1103/PhysRevE.75.046701)
 /// 
 /// * The original Wang Landau algorithim comes from this paper
