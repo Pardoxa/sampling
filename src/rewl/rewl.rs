@@ -57,7 +57,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// # Read access to internal rewl walkers
     /// * each of these walkers independently samples an interval. 
     /// * see paper for more infos
-    pub fn walker(&self) -> &Vec<RewlWalker<R, Hist, Energy, S, Res>>
+    pub fn walkers(&self) -> &Vec<RewlWalker<R, Hist, Energy, S, Res>>
     {
         &self.walker
     }
@@ -340,23 +340,7 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         let (mut log_prob, e_hist) = self.merged_log_probability()?;
 
-        subtract_max(&mut log_prob);
-
-        // calculate actual sum in non log space
-        let sum = log_prob.iter()
-            .fold(0.0, |acc, &val| {
-                if val.is_finite(){
-                   acc +  val.exp()
-                } else {
-                    acc
-                }
-            }  
-        );
-
-        let sum = sum.ln();
-
-        log_prob.iter_mut()
-            .for_each(|val| *val -= sum);
+        norm_ln_prob(&mut log_prob);
         
         Ok((e_hist, log_prob))
     }
@@ -378,28 +362,15 @@ where R: Send + Sync + Rng + SeedableRng,
     where Hist: HistogramCombine 
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
-        subtract_max(&mut log_prob);
-
-        // calculate actual sum in non log space
-        let sum = log_prob.iter()
-            .fold(0.0, |acc, &val| {
-                if val.is_finite(){
-                   acc +  val.exp()
-                } else {
-                    acc
-                }
-            }  
-        );
-
-        let sum = sum.ln();
-        log_prob.iter_mut()
-            .for_each(|val| *val -= sum);
+        
+        let shift = norm_ln_prob(&mut log_prob);
+        
         aligned.par_iter_mut()
             .for_each(
                 |aligned|
                 {
                     aligned.iter_mut()
-                        .for_each(|val| *val -= sum)
+                        .for_each(|val| *val -= shift)
                 }
             );
         Ok(
@@ -585,7 +556,7 @@ fn merged_probs<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hi
         .flat_map(
             |rewl|
             {
-                rewl.walker()
+                rewl.walkers()
                     .chunks(rewl.walkers_per_interval().get())
                     .map(get_merged_walker_prob)
             }
@@ -601,7 +572,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
         .flat_map(
             |rewl|
             {
-                rewl.walker()
+                rewl.walkers()
                     .iter()
                     .step_by(rewl.walkers_per_interval().get())
                     .map(|w| w.hist())
@@ -629,7 +600,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
 
 
 
-fn align<Hist>(container: &Vec<(&[f64], &Hist)>) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+pub(crate) fn align<Hist>(container: &Vec<(&[f64], &Hist)>) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
 where Hist: HistogramCombine + Send + Sync
 {
     let hists: Vec<_> = container.iter()
@@ -793,4 +764,28 @@ where Hist: HistogramCombine + Histogram,
     Ok(
         (e_hist, merged_log_prob, aligned_intervals)
     )
+}
+
+
+pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
+{
+    subtract_max(ln_prob);
+    // calculate actual sum in non log space
+    let sum = ln_prob.iter()
+        .fold(0.0, |acc, &val| {
+            if val.is_finite(){
+               acc +  val.exp()
+            } else {
+                acc
+            }
+        }
+    );
+
+    let shift = sum.ln();
+
+    ln_prob.iter_mut()
+        .for_each(|val| *val -= shift);
+
+    shift
+
 }

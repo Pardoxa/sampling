@@ -1,4 +1,3 @@
-use glue_helper::subtract_max;
 use rand::Rng;
 use std::{marker::PhantomData, mem::*, num::*, sync::*, usize};
 use crate::{*, rewl::log_density_to_log10_density};
