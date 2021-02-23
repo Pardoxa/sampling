@@ -592,7 +592,7 @@
 /// println!("Total time: {}", begin.elapsed().as_secs());
 /// ```
 /// 
-/// To plot it, use
+/// To plot it, use gnuplot with
 /// ```gp
 /// set format y "e^{%.0f}"
 /// set ylabel "probability"

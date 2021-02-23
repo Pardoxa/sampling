@@ -25,6 +25,36 @@ pub enum RewlCreationErrors
 }
 
 
+pub(crate) fn log_density_to_log10_density(log_density: &[f64]) -> Vec<f64>
+{
+
+    let max = log_density.iter()
+        .fold(f64::NEG_INFINITY,  |acc, &val| acc.max(val));
+    let mut log_density_res: Vec<f64> = Vec::with_capacity(log_density.len());
+    log_density_res.extend(
+        log_density.iter()
+            .map(|&val| val - max)
+    );
+    
+    let sum = log_density_res.iter()
+        .fold(0.0, |acc, &val| 
+            {
+                if val.is_finite(){
+                    acc +  val.exp()
+                } else {
+                    acc
+                }
+            }
+        );
+    let sum = -sum.log10();
+
+    log_density_res.iter_mut()
+        .for_each(|val| *val = val.mul_add(std::f64::consts::LOG10_E, sum));
+    log_density_res
+            
+    
+}
+
 
 /// # Walker for Replica exchange Wang Landau
 /// * used by [`Rewl`](`crate::rewl::Rewl`)
@@ -33,62 +63,24 @@ pub enum RewlCreationErrors
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct RewlWalker<R, Hist, Energy, S, Res>
 {
-    id: usize,
-    sweep_size: NonZeroUsize,
+    pub(crate) id: usize,
+    pub(crate) sweep_size: NonZeroUsize,
     pub(crate) rng: R,
-    hist: Hist,
-    log_density: Vec<f64>,
+    pub(crate) hist: Hist,
+    pub(crate) log_density: Vec<f64>,
     log_f: f64,
-    step_count: usize,
+    pub(crate) step_count: usize,
     mode: WangLandauMode,
-    old_energy: Energy,
-    bin: usize,
-    marker_s: PhantomData<S>,
+    pub(crate) old_energy: Energy,
+    pub(crate) bin: usize,
+    pub(crate) markov_steps: Vec<S>,
     marker_res: PhantomData<Res>,
-    step_size: usize,
+    pub(crate) step_size: usize,
     #[cfg(feature = "rewl_sweep_time_optimization")]
-    duration: Duration
+    pub(crate) duration: Duration
 }
 
-impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
-where R: Rng + Send + Sync,
-    Self: Send + Sync,
-    Hist: Histogram + HistogramVal<Energy>,
-    Energy: Send + Sync,
-    S: Send + Sync,
-    Res: Send + Sync
-{
-    pub(crate) fn new
-    (
-        id: usize,
-        rng: R,
-        hist: Hist,
-        sweep_size: NonZeroUsize,
-        step_size: usize,
-        old_energy: Energy,
-    ) -> RewlWalker<R, Hist, Energy, S, Res>
-    {
-        let log_density = vec![0.0; hist.bin_count()];
-        let bin = hist.get_bin_index(&old_energy).unwrap();
-        RewlWalker{
-            id,
-            rng,
-            hist,
-            log_density,
-            sweep_size,
-            log_f: 1.0,
-            step_count: 0,
-            mode: WangLandauMode::RefineOriginal,
-            old_energy,
-            bin,
-            marker_res: PhantomData::<Res>,
-            marker_s: PhantomData::<S>,
-            step_size,
-            #[cfg(feature = "rewl_sweep_time_optimization")]
-            duration: Duration::from_millis(0)
-        }
-    }
-
+impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     /// # Returns id of walker
     /// * important for mapping the ensemble to the walker
     pub fn id(&self) -> usize
@@ -145,37 +137,56 @@ where R: Rng + Send + Sync,
     {
         &self.log_density
     }
+}
+
+
+impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
+where R: Rng + Send + Sync,
+    Self: Send + Sync,
+    Hist: Histogram + HistogramVal<Energy>,
+    Energy: Send + Sync,
+    S: Send + Sync,
+    Res: Send + Sync
+{
+    pub(crate) fn new
+    (
+        id: usize,
+        rng: R,
+        hist: Hist,
+        sweep_size: NonZeroUsize,
+        step_size: usize,
+        old_energy: Energy,
+    ) -> RewlWalker<R, Hist, Energy, S, Res>
+    {
+        let log_density = vec![0.0; hist.bin_count()];
+        let bin = hist.get_bin_index(&old_energy).unwrap();
+        let markov_steps = Vec::with_capacity(step_size);
+        RewlWalker{
+            id,
+            rng,
+            hist,
+            log_density,
+            sweep_size,
+            log_f: 1.0,
+            step_count: 0,
+            mode: WangLandauMode::RefineOriginal,
+            old_energy,
+            bin,
+            marker_res: PhantomData::<Res>,
+            markov_steps,
+            step_size,
+            #[cfg(feature = "rewl_sweep_time_optimization")]
+            duration: Duration::from_millis(0)
+        }
+    }
+
+    
 
     /// # Current estimate of log10 of probability density
     /// * normalized (sum over non log values is 1 (within numerical precision))
     pub fn log10_density(&self) -> Vec<f64>
     {
-
-        let max = self.log_density.iter()
-            .fold(f64::NEG_INFINITY,  |acc, &val| acc.max(val));
-        let mut log_density: Vec<f64> = Vec::with_capacity(self.log_density.len());
-        log_density.extend(
-            self.log_density.iter()
-                .map(|&val| val - max)
-        );
-        
-        let sum = log_density.iter()
-            .fold(0.0, |acc, &val| 
-                {
-                    if val.is_finite(){
-                        acc +  val.exp()
-                    } else {
-                        acc
-                    }
-                }
-            );
-        let sum = -sum.log10();
-
-        log_density.iter_mut()
-            .for_each(|val| *val = val.mul_add(std::f64::consts::LOG10_E, sum));
-
-        log_density
-            
+        log_density_to_log10_density(self.log_density())
     }
 
     fn log_f_1_t(&self) -> f64
@@ -222,16 +233,15 @@ where R: Rng + Send + Sync,
                 'sampling' library, please contact the library author via github by opening an \
                 issue! https://github.com/Pardoxa/sampling/issues");
         
-        let mut steps = Vec::with_capacity(self.step_size);
         for _ in 0..self.sweep_size.get()
         {   
             self.step_count = self.step_count.saturating_add(1);
-            e.m_steps(self.step_size, &mut steps);
+            e.m_steps(self.step_size, &mut self.markov_steps);
 
             let energy = match energy_fn(&mut e){
                 Some(energy) => energy,
                 None => {
-                    e.undo_steps_quiet(&mut steps);
+                    e.undo_steps_quiet(&self.markov_steps);
                     continue;
                 }
             };
@@ -249,14 +259,14 @@ where R: Rng + Send + Sync,
                         .exp();
                     if self.rng.gen::<f64>() > acception_prob 
                     {
-                        e.undo_steps_quiet(&steps);
+                        e.undo_steps_quiet(&self.markov_steps);
                     } else {
                         self.old_energy = energy;
                         self.bin = current_bin;
                     }
                 },
                 _ => {
-                    e.undo_steps_quiet(&steps);
+                    e.undo_steps_quiet(&self.markov_steps);
                 }
             }
 

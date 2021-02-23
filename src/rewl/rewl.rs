@@ -2,7 +2,7 @@ use crate::*;
 use crate::rewl::*;
 use crate::glue_helper::*;
 use rand::{Rng, SeedableRng, prelude::SliceRandom};
-use std::{num::NonZeroUsize, sync::*};
+use std::{num::NonZeroUsize, sync::*, cmp::*};
 use rayon::prelude::*;
 
 #[cfg(feature = "rewl_sweep_time_optimization")]
@@ -52,14 +52,15 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
 /// Short for [`ReplicaExchangeWangLandau`](crate::rewl::ReplicaExchangeWangLandau)
 pub type Rewl<Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>;
 
-impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
-where R: Send + Sync + Rng + SeedableRng,
-    Hist: Send + Sync + Histogram + HistogramVal<Energy>,
-    Energy: Send + Sync + Clone,
-    Ensemble: MarkovChain<S, Res>,
-    Res: Send + Sync,
-    S: Send + Sync
+impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
 {
+    /// # Read access to internal rewl walkers
+    /// * each of these walkers independently samples an interval. 
+    /// * see paper for more infos
+    pub fn walker(&self) -> &Vec<RewlWalker<R, Hist, Energy, S, Res>>
+    {
+        &self.walker
+    }
 
     /// # Get the number of intervals present
     pub fn num_intervals(&self) -> usize
@@ -72,6 +73,19 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         self.chunk_size
     }
+}
+
+
+impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
+where R: Send + Sync + Rng + SeedableRng,
+    Hist: Send + Sync + Histogram + HistogramVal<Energy>,
+    Energy: Send + Sync + Clone,
+    Ensemble: MarkovChain<S, Res>,
+    Res: Send + Sync,
+    S: Send + Sync
+{
+
+
 
     /// # Change step size for markov chain of walkers
     /// * changes the step size used in the sweep
@@ -136,13 +150,13 @@ where R: Send + Sync + Rng + SeedableRng,
     pub fn simulate_while<F, C>(
         &mut self,
         energy_fn: F,
-        condition: C
+        mut condition: C
     )
     where 
         Ensemble: Send + Sync,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
-        C: Fn(&Self) -> bool
+        C: FnMut(&Self) -> bool
     {
         while !self.is_finished() && condition(&self)
         {
@@ -402,7 +416,7 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
         Ok(
-            Self::only_merged(
+            only_merged(
                 merge_points,
                 alignment,
                 log_prob,
@@ -415,7 +429,10 @@ where R: Send + Sync + Rng + SeedableRng,
     where Hist: HistogramCombine
     {
         let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
-        self.merged_and_aligned(
+        merged_and_aligned(
+            self.walker.iter()
+                    .step_by(self.walkers_per_interval().get())
+                    .map(|v| v.hist()),
             merge_points,
             alignment,
             log_prob,
@@ -455,32 +472,7 @@ where R: Send + Sync + Rng + SeedableRng,
             .collect::<Result<Vec<_>, _>>()?;
         
         
-        let merge_points: Vec<_> = derivatives.iter()
-            .zip(derivatives.iter().skip(1))
-            .zip(alignment.iter())
-            .map(
-                |((left, right), &align)|
-                {
-                    (align..)
-                        .zip(
-                            left[align..].iter()
-                            .zip(right.iter())
-                        )
-                        .map(
-                            |(index, (&left, &right))|
-                            {
-                                (index, (left - right).abs())
-                            }
-                        ).fold( (usize::MAX, f64::INFINITY),
-                            |a, b|
-                            if a.1 < b.1 {
-                                a
-                            } else {
-                                b
-                            }
-                        ).0
-                }
-            ).collect();
+        let merge_points = calc_merge_points(&alignment, &derivatives);
 
         Ok(
             (
@@ -489,110 +481,6 @@ where R: Send + Sync + Rng + SeedableRng,
                 log_prob,
                 e_hist
             )
-        )
-
-    }
-
-    fn only_merged(
-        merge_points: Vec<usize>,
-        alignment: Vec<usize>,
-        log_prob: Vec<Vec<f64>>,
-        e_hist: Hist
-    ) -> (Vec<f64>, Hist)
-    {
-        let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
-        
-        merged_log_prob[..=merge_points[0]]
-            .copy_from_slice(&log_prob[0][..=merge_points[0]]);
-
-
-        // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
-        let mut align_sum = 0;
-        for (index, (&a, &mp)) in alignment.iter().zip(merge_points.iter()).enumerate()
-        {
-            let position_l = mp + align_sum;
-            align_sum += a;
-            let left = mp - a;
-
-            let shift = merged_log_prob[position_l] - log_prob[index + 1][left];
-
-            merged_log_prob[position_l..]
-                .iter_mut()
-                .zip(log_prob[index + 1][left..].iter())
-                .for_each(
-                    |(merge, val)|
-                    {
-                        *merge = val + shift;
-                    }
-                );
-
-
-        }
-
-        (merged_log_prob, e_hist)
-    }
-
-    fn merged_and_aligned(
-        &self,
-        merge_points: Vec<usize>,
-        alignment: Vec<usize>,
-        log_prob: Vec<Vec<f64>>,
-        e_hist: Hist
-    ) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
-    where Hist: HistogramCombine
-    {
-        let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
-
-        let mut aligned_intervals = vec![merged_log_prob.clone(); alignment.len() + 1];
-
-        aligned_intervals[0][..log_prob[0].len()]
-            .copy_from_slice(&log_prob[0]);
-        
-        merged_log_prob[..=merge_points[0]]
-            .copy_from_slice(&log_prob[0][..=merge_points[0]]);
-
-
-        // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
-        let mut align_sum = 0;
-
-        for ((index, (&a, &mp)), hist) in alignment.iter()
-            .zip(merge_points.iter()).enumerate()
-            .zip(
-                self.walker.iter()
-                    .step_by(self.walkers_per_interval().get())
-                    .skip(1)
-                    .map(|v| v.hist())
-            )
-        {
-            let position_l = mp + align_sum;
-            align_sum += a;
-            let left = mp - a;
-
-            let index_p1 = index + 1; 
-
-            let shift = merged_log_prob[position_l] - log_prob[index_p1][left];
-
-            let unmerged_align = e_hist.align(hist)?;
-
-            aligned_intervals[index_p1][unmerged_align..]
-                .iter_mut()
-                .zip(log_prob[index_p1].iter())
-                .for_each(|(v, &val)| *v = val + shift);
-
-            merged_log_prob[position_l..]
-                .iter_mut()
-                .zip(log_prob[index_p1][left..].iter())
-                .for_each(
-                    |(merge, val)|
-                    {
-                        *merge = val + shift;
-                    }
-                );
-
-
-        }
-        Ok(
-            (e_hist, merged_log_prob, aligned_intervals)
         )
     }
 
@@ -629,11 +517,280 @@ where R: Send + Sync + Rng + SeedableRng,
             .collect()
     }
 
-    /// # Read access to internal rewl walkers
-    /// * each of these walkers independently samples an interval. 
-    /// * see paper for more infos
-    pub fn walker(&self) -> &Vec<RewlWalker<R, Hist, Energy, S, Res>>
+    pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
     {
-        &self.walker
+        if extra.len() != self.walker.len()
+        {
+            Err((self, extra))
+        } else {
+            let mut walker = Vec::with_capacity(self.walker.len());
+            walker.extend(
+                self.walker
+                    .into_iter()
+                    .map(|w| w.into())
+            );
+            let rees = 
+            Rees{
+                walker,
+                ensembles: self.ensembles,
+                replica_exchange_mode: self.replica_exchange_mode,
+                extra,
+                chunk_size: self.chunk_size
+            };
+            Ok(
+                rees
+            )
+            
+        }
     }
+}
+
+pub fn merged_log_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
+where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+    Energy: PartialOrd
+{
+    let merged_prob = merged_probs(rewls);
+    let container = combine_container(rewls, &merged_prob);
+    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
+    Ok(
+        only_merged(
+            merge_points,
+            alignment,
+            log_prob,
+            e_hist
+        )
+    )
+}
+
+pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let merged_prob = merged_probs(rewls);
+    let container = combine_container(rewls, &merged_prob);
+    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
+    merged_and_aligned(
+        container.iter()
+            .map(|c| c.1),
+        merge_points,
+        alignment,
+        log_prob,
+        e_hist
+    )
+}
+
+fn merged_probs<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Vec<Vec<f64>>
+{
+    let merged_probs: Vec<_> = rewls.iter()
+        .flat_map(
+            |rewl|
+            {
+                rewl.walker()
+                    .chunks(rewl.walkers_per_interval().get())
+                    .map(get_merged_walker_prob)
+            }
+        ).collect();
+    merged_probs
+}
+
+fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res>(rewls: &'a [Rewl<Ensemble, R, Hist, Energy, S, Res>], merged_probs: &'a [Vec<f64>]) ->  Vec<(&'a [f64], &'a Hist)>
+where Hist: HistogramVal<Energy> + HistogramCombine,
+    Energy: PartialOrd
+{
+    let hists: Vec<_> = rewls.iter()
+        .flat_map(
+            |rewl|
+            {
+                rewl.walker()
+                    .iter()
+                    .step_by(rewl.walkers_per_interval().get())
+                    .map(|w| w.hist())
+            }
+        ).collect();
+
+    assert_eq!(hists.len(), merged_probs.len());
+
+    let mut container: Vec<_> = merged_probs.iter()
+        .zip(hists.into_iter())
+        .map(|(prob, hist)| (prob.as_slice(), hist))
+        .collect();
+
+    container
+        .sort_unstable_by(
+            |a, b|
+                {
+                    a.1.first_border()
+                        .partial_cmp(&b.1.first_border())
+                        .unwrap_or(Ordering::Equal)
+                }
+            );
+    container
+}
+
+
+
+fn align<Hist>(container: &Vec<(&[f64], &Hist)>) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+where Hist: HistogramCombine + Send + Sync
+{
+    let hists: Vec<_> = container.iter()
+        .map(|v| v.1)
+        .collect();
+    
+    let e_hist = Hist::encapsulating_hist(&hists)?;
+
+    let derivatives: Vec<_> = container.par_iter()
+        .map(|v| derivative_merged(v.0))
+        .collect();
+
+    let alignment = hists.iter()
+        .zip(hists.iter().skip(1))
+        .map(|(&left, &right)| left.align(right))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let merge_points = calc_merge_points(&alignment, &derivatives);
+
+    let log_prob = container.into_iter()
+        .map(|v| v.0.into())
+        .collect();
+
+    Ok(
+        (
+            merge_points,
+            alignment,
+            log_prob,
+            e_hist
+        )
+    )
+}
+
+pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -> Vec<usize>
+{
+    derivatives.iter()
+        .zip(derivatives[1..].iter())
+        .zip(alignment.iter())
+        .map(
+            |((left, right), &align)|
+            {
+                (align..)
+                    .zip(
+                        left[align..].iter()
+                        .zip(right.iter())
+                    )
+                    .map(
+                        |(index, (&left, &right))|
+                        {
+                            (index, (left - right).abs())
+                        }
+                    ).fold( (usize::MAX, f64::INFINITY),
+                        |a, b|
+                        if a.1 < b.1 {
+                            a
+                        } else {
+                            b
+                        }
+                    ).0
+            }
+        ).collect()
+}
+
+pub(crate) fn only_merged<Hist>(
+    merge_points: Vec<usize>,
+    alignment: Vec<usize>,
+    log_prob: Vec<Vec<f64>>,
+    e_hist: Hist
+) -> (Vec<f64>, Hist)
+where Hist: Histogram
+{
+    let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+    
+    merged_log_prob[..=merge_points[0]]
+        .copy_from_slice(&log_prob[0][..=merge_points[0]]);
+
+
+    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
+    let mut align_sum = 0;
+    for (index, (&a, &mp)) in alignment.iter().zip(merge_points.iter()).enumerate()
+    {
+        let position_l = mp + align_sum;
+        align_sum += a;
+        let left = mp - a;
+
+        let shift = merged_log_prob[position_l] - log_prob[index + 1][left];
+
+        merged_log_prob[position_l..]
+            .iter_mut()
+            .zip(log_prob[index + 1][left..].iter())
+            .for_each(
+                |(merge, val)|
+                {
+                    *merge = val + shift;
+                }
+            );
+
+
+    }
+
+    (merged_log_prob, e_hist)
+}
+
+pub(crate) fn merged_and_aligned<'a, Hist: 'a, I>(
+    hists: I,
+    merge_points: Vec<usize>,
+    alignment: Vec<usize>,
+    log_prob: Vec<Vec<f64>>,
+    e_hist: Hist
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + Histogram,
+    I: Iterator<Item = &'a Hist>
+{
+    let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+
+    let mut aligned_intervals = vec![merged_log_prob.clone(); alignment.len() + 1];
+
+    aligned_intervals[0][..log_prob[0].len()]
+        .copy_from_slice(&log_prob[0]);
+    
+    merged_log_prob[..=merge_points[0]]
+        .copy_from_slice(&log_prob[0][..=merge_points[0]]);
+
+
+    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
+    let mut align_sum = 0;
+
+    for ((index, (&a, &mp)), hist) in alignment.iter()
+        .zip(merge_points.iter()).enumerate()
+        .zip(
+            hists.skip(1)
+        )
+    {
+        let position_l = mp + align_sum;
+        align_sum += a;
+        let left = mp - a;
+
+        let index_p1 = index + 1; 
+
+        let shift = merged_log_prob[position_l] - log_prob[index_p1][left];
+
+        let unmerged_align = e_hist.align(hist)?;
+
+        aligned_intervals[index_p1][unmerged_align..]
+            .iter_mut()
+            .zip(log_prob[index_p1].iter())
+            .for_each(|(v, &val)| *v = val + shift);
+
+        merged_log_prob[position_l..]
+            .iter_mut()
+            .zip(log_prob[index_p1][left..].iter())
+            .for_each(
+                |(merge, val)|
+                {
+                    *merge = val + shift;
+                }
+            );
+
+
+    }
+    Ok(
+        (e_hist, merged_log_prob, aligned_intervals)
+    )
 }
