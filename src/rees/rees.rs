@@ -1,5 +1,5 @@
 use crate::*;
-use crate::{rees::*, rees::replica_exchange, rewl::Rewl};
+use crate::{rees::replica_exchange, rewl::Rewl};
 use rand::{Rng, prelude::SliceRandom};
 use std::{num::NonZeroUsize, sync::*, cmp::*};
 use rayon::{prelude::*};
