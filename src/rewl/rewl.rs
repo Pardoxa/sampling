@@ -286,8 +286,7 @@ where R: Send + Sync + Rng + SeedableRng,
         let (e_hist, mut log_prob) = self.merged_log_prob()?;
 
         // switch base of log
-        log_prob.iter_mut()
-            .for_each(|val| *val *= std::f64::consts::LOG10_E);
+        ln_to_log10(&mut log_prob);
 
         Ok((e_hist, log_prob))
 
@@ -310,15 +309,14 @@ where R: Send + Sync + Rng + SeedableRng,
     where Hist: HistogramCombine
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_prob_and_aligned()?;
-        log_prob.iter_mut()
-            .for_each(|val| *val *= std::f64::consts::LOG10_E);
+        
+        ln_to_log10(&mut log_prob);
         
         aligned.par_iter_mut()
             .for_each(
-                |a| 
+                |slice| 
                 {
-                    a.iter_mut()
-                        .for_each(|val| *val *= std::f64::consts::LOG10_E)
+                    ln_to_log10(slice);
                 }
             );
         Ok(
@@ -488,6 +486,11 @@ where R: Send + Sync + Rng + SeedableRng,
             .collect()
     }
 
+    pub fn into_rees(self) -> Rees<(), Ensemble, R, Hist, Energy, S, Res>
+    {
+        self.into()
+    }
+
     pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
     {
         if extra.len() != self.walker.len()
@@ -516,6 +519,15 @@ where R: Send + Sync + Rng + SeedableRng,
     }
 }
 
+pub fn merged_log10_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
+where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_prob(rewls)?;
+    ln_to_log10(&mut res.0);
+    Ok(res)
+}
+
 pub fn merged_log_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
@@ -531,6 +543,17 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
             e_hist
         )
     )
+}
+
+pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_probability_and_align(rewls)?;
+    ln_to_log10(&mut res.1);
+    res.2.par_iter_mut()
+        .for_each(|slice| ln_to_log10(slice));
+    Ok(res)
 }
 
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>

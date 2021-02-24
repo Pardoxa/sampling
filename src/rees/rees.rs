@@ -478,6 +478,15 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     )
 }
 
+pub fn merged_log10_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
+where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_prob(rees)?;
+    ln_to_log10(&mut res.0);
+    Ok(res)
+}
+
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
@@ -493,6 +502,17 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
         log_prob,
         e_hist
     )
+}
+
+pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_probability_and_align(rees)?;
+    ln_to_log10(&mut res.1);
+    res.2.par_iter_mut()
+        .for_each(|slice| ln_to_log10(slice));
+    Ok(res)
 }
 
 fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &'a [Rees<Extra, Ensemble, R, Hist, Energy, S, Res>], merged_probs: &'a [Vec<f64>]) ->  Vec<(&'a [f64], &'a Hist)>

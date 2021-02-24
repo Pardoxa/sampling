@@ -153,3 +153,140 @@ impl<R> HasRng<R> for CoinFlipSequence<R>
         std::mem::swap(&mut self.rng, rng);
     }
 }
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    use rand::SeedableRng;
+    use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
+    use statrs::distribution::{Binomial, Discrete};
+    use rand_pcg::{Pcg64Mcg, Pcg64};
+    use std::num::*;
+
+    #[test]
+    fn combine()
+    {
+        let n = 30;
+        let intervals = 3;
+
+        let hist1 = HistUsizeFast::new_inclusive(0, 2 * n / 3)
+            .unwrap();
+
+        let hist_list1 = hist1.overlapping_partition(intervals, 1).unwrap();
+
+        let mut rng = Pcg64Mcg::seed_from_u64(83467384789);
+
+        let ensemble1 = CoinFlipSequence::new
+        (
+            n,
+            Pcg64::from_rng(&mut rng).unwrap()
+        );
+
+        let rewl_builder1 = RewlBuilder::from_ensemble(
+            ensemble1,
+            hist_list1,
+            1,
+            NonZeroUsize::new(1999).unwrap(),
+            NonZeroUsize::new(2).unwrap(),
+            0.0000025
+        ).unwrap();
+
+        let rewl1 = rewl_builder1.greedy_build(|e| Some(e.head_count()));
+
+        let ensemble2 = CoinFlipSequence::new(
+            n,
+            Pcg64::from_rng(rng).unwrap()
+        );
+
+        let hist2 = HistUsizeFast::new_inclusive(n / 3, n)
+            .unwrap();
+
+        let hist_list2 = hist2.overlapping_partition(intervals, 1).unwrap();
+
+
+        let rewl_builder2 = RewlBuilder::from_ensemble(
+            ensemble2,
+            hist_list2,
+            1,
+            NonZeroUsize::new(1999).unwrap(),
+            NonZeroUsize::new(2).unwrap(),
+            0.0000025
+        ).unwrap();
+
+        let mut rewl2 = rewl_builder2.greedy_build(|e| Some(e.head_count()));
+
+        rewl2.simulate_until_convergence(|e| Some(e.head_count()));
+
+        let mut rewl_slice = vec![rewl1, rewl2];
+        rewl_slice.par_iter_mut()
+            .for_each(|rewl| rewl.simulate_until_convergence(|e| Some(e.head_count())));
+        
+        let binomial = Binomial::new(0.5, n as u64).unwrap();
+
+        let prob = rewl::merged_log_prob(&rewl_slice)
+            .unwrap();
+        let ln_prob_true: Vec<_> = (0..=n)
+             .map(|k| binomial.ln_pmf(k as u64))
+             .collect();
+        
+
+        let mut rees_slice: Vec<_> = rewl_slice.into_iter()
+            .map(|r| r.into_rees())
+            .collect();
+        
+        rees_slice.par_iter_mut()
+            .for_each(|rees| rees.simulate_until_convergence(|e| Some(e.head_count()), |_,_, _|{}));
+
+        let prob_rees = rees::merged_log_prob(&rees_slice).unwrap();
+
+        let mut max_ln_difference_rewl = f64::NEG_INFINITY;
+        let mut max_difference_rewl = f64::NEG_INFINITY;
+        let mut frac_difference_max_rewl = f64::NEG_INFINITY;
+        let mut frac_difference_min_rewl = f64::INFINITY;
+
+        let mut max_ln_difference_rees = f64::NEG_INFINITY;
+        let mut max_difference_rees = f64::NEG_INFINITY;
+        let mut frac_difference_max_rees = f64::NEG_INFINITY;
+        let mut frac_difference_min_rees = f64::INFINITY;
+        for (index, ((val_sim1, val_sim2), val_true)) in prob.0.into_iter().zip(prob_rees.0).zip(ln_prob_true).enumerate()
+        {
+            println!("{} {} {} {}", index, val_sim1, val_sim2, val_true);
+
+            let val_real = val_true.exp();
+            let val_simulation1 = val_sim1.exp();
+            let val_simulation2 = val_sim2.exp();
+
+            max_difference_rewl = f64::max((val_simulation1 - val_real).abs(), max_difference_rewl);
+            max_ln_difference_rewl = f64::max(max_ln_difference_rewl, (val_sim1-val_true).abs());
+
+            let frac = val_simulation1 / val_real;
+            frac_difference_max_rewl = frac_difference_max_rewl.max(frac);
+            frac_difference_min_rewl = frac_difference_min_rewl.min(frac);
+
+            max_difference_rees = f64::max((val_simulation2 - val_real).abs(), max_difference_rees);
+            max_ln_difference_rees = f64::max(max_ln_difference_rees, (val_sim2-val_true).abs());
+
+            let frac = val_simulation2 / val_real;
+            frac_difference_max_rees = frac_difference_max_rees.max(frac);
+            frac_difference_min_rees = frac_difference_min_rees.min(frac);
+        }
+
+        println!("max_ln_difference rewl: {}", max_ln_difference_rewl);
+        println!("max absolute difference rewl: {}", max_difference_rewl);
+        println!("max frac rewl: {}", frac_difference_max_rewl);
+        println!("min frac rewl: {}", frac_difference_min_rewl);
+
+        println!("max_ln_difference rees: {}", max_ln_difference_rees);
+        println!("max absolute difference rees: {}", max_difference_rees);
+        println!("max frac rees: {}", frac_difference_max_rees);
+        println!("min frac rees: {}", frac_difference_min_rees);
+
+        assert!(max_difference_rewl < 0.0003);
+        assert!(max_difference_rees < 0.0003);
+        assert!(frac_difference_max_rewl - 1.0 < 0.02);
+        assert!(frac_difference_max_rees - 1.0 < 0.02);
+        assert!((frac_difference_min_rewl - 1.0).abs() < 0.016);
+        assert!((frac_difference_min_rees - 1.0).abs() < 0.01);
+    }
+
+}

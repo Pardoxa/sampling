@@ -61,6 +61,7 @@ where Hist: Histogram
 
 
     }
+    norm_ln_prob(&mut merged_log_prob);
 
     (merged_log_prob, e_hist)
 }
@@ -122,6 +123,13 @@ where Hist: HistogramCombine + Histogram,
 
 
     }
+    let shift = norm_ln_prob(&mut merged_log_prob);
+    aligned_intervals.par_iter_mut()
+        .for_each(
+            |interval|
+            interval.iter_mut()
+                .for_each(|val| *val += shift)
+        );
     Ok(
         (e_hist, merged_log_prob, aligned_intervals)
     )
@@ -189,4 +197,11 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
                     ).0
             }
         ).collect()
+}
+
+
+pub(crate) fn ln_to_log10(slice: &mut [f64])
+{
+    slice.iter_mut()
+            .for_each(|val| *val *= std::f64::consts::LOG10_E);
 }
