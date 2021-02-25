@@ -20,6 +20,8 @@ pub struct ReesWalker<R, Hist, Energy, S, Res>
     hist: Hist,
     log_density: Vec<f64>,
     step_count: usize,
+    re: usize,
+    proposed_re: usize,
     old_energy: Energy,
     bin: usize,
     markov_steps: Vec<S>,
@@ -49,6 +51,8 @@ where Hist: Histogram
             old_energy: rewl_walker.old_energy,
             step_count: 0,
             step_threshold: rewl_walker.step_count,
+            re: 0,
+            proposed_re: 0,
             #[cfg(feature = "rewl_sweep_time_optimization")]
             duration: rewl_walker.duration,
         }    
@@ -105,6 +109,24 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     pub fn step_count(&self) -> usize
     {
         self.step_count
+    }
+
+    /// # How many successful replica exchanges were performed until now?
+    pub fn replica_exchanges(&self) -> usize
+    {
+        self.re
+    }
+
+    /// # How many replica exchanges were proposed until now?
+    pub fn proposed_replica_exchanges(&self) -> usize
+    {
+        self.proposed_re
+    }
+
+    /// fraction of how many replica exchanges were accepted and how many were proposed
+    pub fn replica_exchange_frac(&self) -> f64
+    {
+        self.re as f64 / self.proposed_re as f64
     }
 
     /// * Old non normalized estimate of the natural logarithm of the probability density function
@@ -255,6 +277,8 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
 ) where Hist: HistogramVal<Energy>,
     R: Rng
 {
+    walker_a.proposed_re += 1;
+    walker_b.proposed_re += 1;
     // check if exchange is even possible
     let new_bin_a = match walker_a.hist.get_bin_index(&walker_b.old_energy)
     {
@@ -286,6 +310,8 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         swap(&mut walker_b.old_energy, &mut walker_a.old_energy);
         walker_b.bin = new_bin_b;
         walker_a.bin = new_bin_a;
+        walker_a.re += 1;
+        walker_b.re += 1;
     }
 }
 

@@ -3,7 +3,7 @@ use crate::rewl::*;
 use crate::glue_helper::*;
 use rand::{Rng, SeedableRng, prelude::SliceRandom};
 use std::{num::NonZeroUsize, sync::*, cmp::*};
-use rayon::prelude::*;
+use rayon::{iter::ParallelIterator, prelude::*};
 
 #[cfg(feature = "rewl_sweep_time_optimization")]
 use std::cmp::Reverse;
@@ -213,6 +213,44 @@ where R: Send + Sync + Rng + SeedableRng,
             );
 
         // replica exchange
+        if self.walkers_per_interval().get() > 1 {
+            let exchange_m = self.replica_exchange_mode;
+        
+            self.walker
+            .par_chunks_mut(self.chunk_size.get())
+            .for_each(
+                |chunk|
+                {
+                    let mut shuf = Vec::with_capacity(chunk.len());
+                    if let Some((first, rest)) = chunk.split_first_mut(){
+                        shuf.extend(
+                            rest.iter_mut()
+                        );
+                        shuf.shuffle(&mut first.rng);
+                        shuf.push(first);
+                        let s = if exchange_m {
+                            &mut shuf
+                        } else {
+                            &mut shuf[1..]
+                        };
+                        
+                        s.chunks_exact_mut(2)
+                            .for_each(
+                                |c|
+                                {
+                                    let ptr = c.as_mut_ptr();
+                                    unsafe{
+                                        let a = &mut *ptr;
+                                        let b = &mut *ptr.offset(1);
+                                        replica_exchange(a, b);
+                                    }
+                                }
+                            );
+                    }
+                }
+            );
+        }
+
         let walker_slice = if self.replica_exchange_mode 
         {
             &mut self.walker

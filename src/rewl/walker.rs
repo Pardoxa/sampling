@@ -70,6 +70,8 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     pub(crate) log_density: Vec<f64>,
     log_f: f64,
     pub(crate) step_count: usize,
+    pub(crate) proposed_re: usize,
+    pub(crate) re: usize,
     mode: WangLandauMode,
     pub(crate) old_energy: Energy,
     pub(crate) bin: usize,
@@ -132,6 +134,30 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
         self.step_size = step_size;
     }
 
+    /// # How many entropic steps were performed until now?
+    pub fn step_count(&self) -> usize
+    {
+        self.step_count
+    }
+
+    /// # How many successful replica exchanges were performed until now?
+    pub fn replica_exchanges(&self) -> usize
+    {
+        self.re
+    }
+
+    /// # How many replica exchanges were proposed until now?
+    pub fn proposed_replica_exchanges(&self) -> usize
+    {
+        self.proposed_re
+    }
+
+    /// fraction of how many replica exchanges were accepted and how many were proposed
+    pub fn replica_exchange_frac(&self) -> f64
+    {
+        self.re as f64 / self.proposed_re as f64
+    }
+
     /// Current non normalized estimate of the natural logarithm of the probability density function
     pub fn log_density(&self) -> &[f64]
     {
@@ -169,6 +195,8 @@ where R: Rng + Send + Sync,
             sweep_size,
             log_f: 1.0,
             step_count: 0,
+            re: 0,
+            proposed_re: 0,
             mode: WangLandauMode::RefineOriginal,
             old_energy,
             bin,
@@ -348,6 +376,8 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
 ) where Hist: HistogramVal<Energy>,
     R: Rng
 {
+    walker_a.proposed_re += 1;
+    walker_b.proposed_re += 1;
     // check if exchange is even possible
     let new_bin_a = match walker_a.hist.get_bin_index(&walker_b.old_energy)
     {
@@ -379,5 +409,7 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         swap(&mut walker_b.old_energy, &mut walker_a.old_energy);
         walker_b.bin = new_bin_b;
         walker_a.bin = new_bin_a;
+        walker_b.re +=1;
+        walker_a.re +=1;
     }
 }
