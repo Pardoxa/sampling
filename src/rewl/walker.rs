@@ -3,7 +3,7 @@ use std::{marker::PhantomData, mem::*, num::*, sync::*, usize};
 use crate::*;
 use crate::wang_landau::WangLandauMode;
 
-#[cfg(feature = "rewl_sweep_time_optimization")]
+#[cfg(feature = "sweep_time_optimization")]
 use std::time::*;
 
 #[cfg(feature = "serde_support")]
@@ -78,8 +78,10 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     pub(crate) markov_steps: Vec<S>,
     marker_res: PhantomData<Res>,
     pub(crate) step_size: usize,
-    #[cfg(feature = "rewl_sweep_time_optimization")]
-    pub(crate) duration: Duration
+    #[cfg(feature = "sweep_time_optimization")]
+    pub(crate) duration: Duration,
+    #[cfg(feature = "sweep_stats")]
+    pub(crate) sweep_stats: SweepStats,
 }
 
 impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
@@ -91,10 +93,28 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     }
 
     /// # Returns duration of last sweep that was performed
-    #[cfg(feature = "rewl_sweep_time_optimization")]
+    #[cfg(feature = "sweep_time_optimization")]
     pub fn duration(&self) -> Duration
     {
         self.duration
+    }
+
+    #[cfg(feature = "sweep_stats")]
+    pub fn average_sweep_duration(&self) -> Duration
+    {
+        self.sweep_stats.averag_duration()
+    }
+
+    #[cfg(feature = "sweep_stats")]
+    pub fn high_low_10_percent(&self) -> (Duration, Duration)
+    {
+        self.sweep_stats.percent_high_low()
+    }
+
+    #[cfg(feature = "sweep_stats")]
+    pub fn last_durations(&self) -> &[Duration]
+    {
+        self.sweep_stats.buf()
     }
 
     /// # Reference to internal histogram
@@ -203,8 +223,10 @@ where R: Rng + Send + Sync,
             marker_res: PhantomData::<Res>,
             markov_steps,
             step_size,
-            #[cfg(feature = "rewl_sweep_time_optimization")]
-            duration: Duration::from_millis(0)
+            #[cfg(feature = "sweep_time_optimization")]
+            duration: Duration::from_millis(0),
+            #[cfg(feature = "sweep_stats")]
+            sweep_stats: SweepStats::new(),
         }
     }
 
@@ -251,7 +273,7 @@ where R: Rng + Send + Sync,
     where F: Fn(&mut Ensemble) -> Option<Energy>,
         Ensemble: MarkovChain<S, Res>
     {
-        #[cfg(feature = "rewl_sweep_time_optimization")]
+        #[cfg(feature = "sweep_time_optimization")]
         let start = Instant::now();
 
         let mut e = ensemble_vec[self.id]
@@ -303,12 +325,13 @@ where R: Rng + Send + Sync,
             
             self.log_density[self.bin] += self.log_f;
 
-            #[cfg(feature = "rewl_sweep_time_optimization")]
+        }
+        #[cfg(feature = "sweep_time_optimization")]
             {
                 self.duration = start.elapsed();
+                #[cfg(feature = "sweep_stats")]
+                self.sweep_stats.push(self.duration);
             }
-
-        }
     }
 }
 

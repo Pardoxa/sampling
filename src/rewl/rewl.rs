@@ -5,7 +5,7 @@ use rand::{Rng, SeedableRng, prelude::SliceRandom};
 use std::{num::NonZeroUsize, sync::*, cmp::*};
 use rayon::{iter::ParallelIterator, prelude::*};
 
-#[cfg(feature = "rewl_sweep_time_optimization")]
+#[cfg(feature = "sweep_time_optimization")]
 use std::cmp::Reverse;
 
 #[cfg(feature = "serde_support")]
@@ -175,10 +175,10 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         let slice = self.ensembles.as_slice();
 
-        #[cfg(not(feature = "rewl_sweep_time_optimization"))]
+        #[cfg(not(feature = "sweep_time_optimization"))]
         let walker = &mut self.walker;
 
-        #[cfg(feature = "rewl_sweep_time_optimization")]
+        #[cfg(feature = "sweep_time_optimization")]
         let mut walker = 
         {
             let mut walker = Vec::with_capacity(self.walker.len());

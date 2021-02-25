@@ -21,8 +21,9 @@ statrs = "0.13.0"
 [features]
 serde_support = ["serde"]
 bootstrap = ["average"]
-rewl_sweep_time_optimization = []
-default = ["serde_support", "bootstrap"]
+sweep_time_optimization = []
+sweep_stats = ["sweep_time_optimization"]
+default = ["serde_support", "bootstrap", "sweep_stats"]
 
 [[bench]]
 name = "bench"

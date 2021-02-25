@@ -2,7 +2,7 @@ use rand::Rng;
 use std::{marker::PhantomData, mem::*, num::*, sync::*, usize};
 use crate::{*, rewl::log_density_to_log10_density};
 
-#[cfg(feature = "rewl_sweep_time_optimization")]
+#[cfg(feature = "sweep_time_optimization")]
 use std::time::*;
 
 #[cfg(feature = "serde_support")]
@@ -28,7 +28,7 @@ pub struct ReesWalker<R, Hist, Energy, S, Res>
     marker_res: PhantomData<Res>,
     step_size: usize,
     step_threshold: usize,
-    #[cfg(feature = "rewl_sweep_time_optimization")]
+    #[cfg(feature = "sweep_time_optimization")]
     duration: Duration
 }
 
@@ -53,7 +53,7 @@ where Hist: Histogram
             step_threshold: rewl_walker.step_count,
             re: 0,
             proposed_re: 0,
-            #[cfg(feature = "rewl_sweep_time_optimization")]
+            #[cfg(feature = "sweep_time_optimization")]
             duration: rewl_walker.duration,
         }    
     }
@@ -69,7 +69,7 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     }
 
     /// # Returns duration of last sweep that was performed
-    #[cfg(feature = "rewl_sweep_time_optimization")]
+    #[cfg(feature = "sweep_time_optimization")]
     pub fn duration(&self) -> Duration
     {
         self.duration
@@ -212,7 +212,7 @@ where Hist: HistogramVal<Energy>,
         P: Fn(&Self, &mut Ensemble, &mut Extra) -> (),
         Ensemble: MarkovChain<S, Res>,
     {
-        #[cfg(feature = "rewl_sweep_time_optimization")]
+        #[cfg(feature = "sweep_time_optimization")]
         let start = Instant::now();
 
         let mut e = ensemble_vec[self.id]
@@ -259,14 +259,12 @@ where Hist: HistogramVal<Energy>,
                 .expect("Histogram index Error, ERRORCODE 0x2");
 
             extra_fn(&self, &mut e, extra);
-            
 
-            #[cfg(feature = "rewl_sweep_time_optimization")]
+        }
+        #[cfg(feature = "sweep_time_optimization")]
             {
                 self.duration = start.elapsed();
             }
-
-        }
     }
 }
 

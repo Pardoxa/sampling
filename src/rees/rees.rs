@@ -5,7 +5,7 @@ use std::{num::NonZeroUsize, sync::*, cmp::*};
 use rayon::{prelude::*};
 use glue_helper::subtract_max;
 
-#[cfg(feature = "rewl_sweep_time_optimization")]
+#[cfg(feature = "sweep_time_optimization")]
 use std::cmp::Reverse;
 
 #[cfg(feature = "serde_support")]
@@ -238,10 +238,10 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     {
         let slice = self.ensembles.as_slice();
 
-        #[cfg(not(feature = "rewl_sweep_time_optimization"))]
+        #[cfg(not(feature = "sweep_time_optimization"))]
         let walker = &mut self.walker;
 
-        #[cfg(feature = "rewl_sweep_time_optimization")]
+        #[cfg(feature = "sweep_time_optimization")]
         let mut walker = 
         {
             let mut walker = Vec::with_capacity(self.walker.len());
