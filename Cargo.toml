@@ -23,7 +23,7 @@ serde_support = ["serde"]
 bootstrap = ["average"]
 sweep_time_optimization = []
 sweep_stats = ["sweep_time_optimization"]
-default = ["serde_support", "bootstrap", "sweep_stats"]
+default = ["serde_support", "bootstrap"]
 
 [[bench]]
 name = "bench"

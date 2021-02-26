@@ -9,7 +9,7 @@ pub struct SweepStats{
     counter: usize
 }
 
-const BUFFER_SIZE: usize = 255;
+const BUFFER_SIZE: usize = 511;
 
 impl SweepStats{
     pub fn new() -> Self
