@@ -380,7 +380,11 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         
         log_prob
             .par_iter_mut()
-            .for_each(|v| subtract_max(v));
+            .for_each(|v| 
+                {
+                    subtract_max(v);
+                }
+            );
 
 
         // get the derivative, for merging later

@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
 {
-    subtract_max(ln_prob);
+    let max = subtract_max(ln_prob);
     // calculate actual sum in non log space
     let sum = ln_prob.iter()
         .fold(0.0, |acc, &val| {
@@ -21,7 +21,7 @@ pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
     ln_prob.iter_mut()
         .for_each(|val| *val -= shift);
 
-    shift
+    shift - max
 
 }
 

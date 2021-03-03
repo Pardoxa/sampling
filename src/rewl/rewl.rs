@@ -398,7 +398,7 @@ where R: Send + Sync + Rng + SeedableRng,
     where Hist: HistogramCombine 
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
-        
+
         let shift = norm_ln_prob(&mut log_prob);
         
         aligned.par_iter_mut()
@@ -421,7 +421,9 @@ where R: Send + Sync + Rng + SeedableRng,
     fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
-        let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (merge_points, alignment, log_prob, e_hist) = 
+            self.merged_log_probability_helper2(log_probs, hists)?;
         Ok(
             only_merged(
                 merge_points,
@@ -435,7 +437,9 @@ where R: Send + Sync + Rng + SeedableRng,
     fn merged_log_probability_and_align(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
     where Hist: HistogramCombine
     {
-        let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (merge_points, alignment, log_prob, e_hist) = 
+            self.merged_log_probability_helper2(log_probs, hists)?;
         merged_and_aligned(
             self.walker.iter()
                     .step_by(self.walkers_per_interval().get())
@@ -447,28 +451,42 @@ where R: Send + Sync + Rng + SeedableRng,
         )
     }
 
-    fn merged_log_probability_helper(&self) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
-    where Hist: HistogramCombine
+    fn get_log_prob_and_hists(&self) -> (Vec<&Hist>, Vec<Vec<f64>>)
     {
         // get the log_probabilities - the walkers over the same intervals are merged
-        let mut log_prob: Vec<_> = self.walker
+        let log_prob: Vec<_> = self.walker
             .par_chunks(self.chunk_size.get())
             .map(get_merged_walker_prob)
             .collect();
         
+        let hists: Vec<_> = self.walker.iter()
+            .step_by(self.chunk_size.get())
+            .map(|w| w.hist())
+            .collect();
+        (hists, log_prob)
+    }        
+
+    fn merged_log_probability_helper2(
+        &self,
+        mut log_prob: Vec<Vec<f64>>,
+        hists: Vec<&Hist>
+    ) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+    where Hist: HistogramCombine
+    {
+        // get the log_probabilities - the walkers over the same intervals are merged
         log_prob
             .par_iter_mut()
-            .for_each(|v| subtract_max(v));
+            .for_each(
+                |v| 
+                {
+                    subtract_max(v);
+                }
+            );
 
 
         // get the derivative, for merging later
         let derivatives: Vec<_> = log_prob.par_iter()
             .map(|v| derivative_merged(v))
-            .collect();
-
-        let hists: Vec<_> = self.walker.iter()
-            .step_by(self.chunk_size.get())
-            .map(|w| w.hist())
             .collect();
 
         let e_hist = Hist::encapsulating_hist(&hists)?;
@@ -571,7 +589,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
     let merged_prob = merged_probs(rewls);
-    let container = combine_container(rewls, &merged_prob);
+    let container = combine_container(rewls, &merged_prob, true);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
     Ok(
         only_merged(
@@ -594,12 +612,23 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Ok(res)
 }
 
+pub fn log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = log_probability_and_align(rewls)?;
+    ln_to_log10(&mut res.1);
+    res.2.par_iter_mut()
+        .for_each(|slice| ln_to_log10(slice));
+    Ok(res)
+}
+
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     let merged_prob = merged_probs(rewls);
-    let container = combine_container(rewls, &merged_prob);
+    let container = combine_container(rewls, &merged_prob, true);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
     merged_and_aligned(
         container.iter()
@@ -611,7 +640,27 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     )
 }
 
-fn merged_probs<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Vec<Vec<f64>>
+pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let probs = probs(rewls);
+    let container = combine_container(rewls, &probs, false);
+    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
+    merged_and_aligned(
+        container.iter()
+            .map(|c| c.1),
+        merge_points,
+        alignment,
+        log_prob,
+        e_hist
+    )
+}
+
+fn merged_probs<Ensemble, R, Hist, Energy, S, Res>
+(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> Vec<Vec<f64>>
 {
     let merged_probs: Vec<_> = rewls.iter()
         .flat_map(
@@ -625,24 +674,53 @@ fn merged_probs<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hi
     merged_probs
 }
 
-fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res>(rewls: &'a [Rewl<Ensemble, R, Hist, Energy, S, Res>], merged_probs: &'a [Vec<f64>]) ->  Vec<(&'a [f64], &'a Hist)>
+fn probs<Ensemble, R, Hist, Energy, S, Res>
+(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> Vec<Vec<f64>>
+{
+    rewls.iter()
+        .flat_map(
+            |rewl| 
+            {
+                rewl.walkers()
+                    .iter()
+                    .map(
+                        |w|
+                            w.log_density().into()
+                    )
+           }
+        ).collect()
+}
+
+fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res>
+(
+    rewls: &'a [Rewl<Ensemble, R, Hist, Energy, S, Res>],
+    log_probabilities: &'a [Vec<f64>],
+    merged: bool
+) ->  Vec<(&'a [f64], &'a Hist)>
 where Hist: HistogramVal<Energy> + HistogramCombine,
     Energy: PartialOrd
 {
+    let mut step_by = NonZeroUsize::new(1).unwrap();
     let hists: Vec<_> = rewls.iter()
         .flat_map(
             |rewl|
             {
+                if merged {
+                    step_by = rewl.walkers_per_interval();
+                }
                 rewl.walkers()
                     .iter()
-                    .step_by(rewl.walkers_per_interval().get())
+                    .step_by(step_by.get())
                     .map(|w| w.hist())
             }
         ).collect();
 
-    assert_eq!(hists.len(), merged_probs.len());
+    assert_eq!(hists.len(), log_probabilities.len());
 
-    let mut container: Vec<_> = merged_probs.iter()
+    let mut container: Vec<_> = log_probabilities
+        .iter()
         .zip(hists.into_iter())
         .map(|(prob, hist)| (prob.as_slice(), hist))
         .collect();

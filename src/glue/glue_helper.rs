@@ -175,12 +175,16 @@ pub(crate) fn inner_subtract_max(log10_vec: &mut Vec<Vec<f64>>)
 {
     log10_vec.iter_mut()
         .for_each(
-        |v| subtract_max(v)
+        |v| 
+        {
+            subtract_max(v);
+        }
     );
 }
 
 /// subtracts maximum, if it is finite
-pub(crate) fn subtract_max(list: &mut[f64]){
+pub(crate) fn subtract_max(list: &mut[f64]) -> f64
+{
     let max = list
         .iter()
         .copied()
@@ -190,4 +194,5 @@ pub(crate) fn subtract_max(list: &mut[f64]){
         list.iter_mut()
             .for_each(|val| *val -= max);
     }
+    max
 }

@@ -63,6 +63,7 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
 {
     /// # Returns id of walker
     /// * important for mapping the ensemble to the walker
+    #[inline(always)]
     pub fn id(&self) -> usize
     {
         self.id
@@ -75,13 +76,30 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
         self.duration
     }
 
+    /// Returns reference of current energy
+    #[inline(always)]
+    pub fn energy(&self) -> &Energy
+    {
+        &self.old_energy
+    }
+
+    /// Returns current energy
+    #[inline(always)]
+    pub fn energy_copy(&self) -> Energy
+    where Energy: Copy
+    {
+        self.old_energy
+    }
+
     /// # Reference to internal histogram
+    #[inline(always)]
     pub fn hist(&self) -> &Hist
     {
         &self.hist
     }
 
     /// # how many steps per sweep
+    #[inline(always)]
     pub fn sweep_size(&self) -> NonZeroUsize
     {
         self.sweep_size
@@ -94,6 +112,7 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     }
 
     /// # step size for markov steps
+    #[inline(always)]
     pub fn step_size(&self) -> usize 
     {
         self.step_size
@@ -106,24 +125,28 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     }
 
     /// # How many entropic steps were performed until now?
+    #[inline(always)]
     pub fn step_count(&self) -> usize
     {
         self.step_count
     }
 
     /// # How many successful replica exchanges were performed until now?
+    #[inline(always)]
     pub fn replica_exchanges(&self) -> usize
     {
         self.re
     }
 
     /// # How many replica exchanges were proposed until now?
+    #[inline(always)]
     pub fn proposed_replica_exchanges(&self) -> usize
     {
         self.proposed_re
     }
 
     /// fraction of how many replica exchanges were accepted and how many were proposed
+    #[inline(always)]
     pub fn replica_exchange_frac(&self) -> f64
     {
         self.re as f64 / self.proposed_re as f64
@@ -131,6 +154,7 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
 
     /// * Old non normalized estimate of the natural logarithm of the probability density function
     /// * for refined density use `self.log_density_refined()`
+    #[inline(always)]
     pub fn log_density(&self) -> &[f64]
     {
         &self.log_density
@@ -224,7 +248,7 @@ where Hist: HistogramVal<Energy>,
         
         for _ in 0..self.sweep_size.get()
         {   
-            self.step_count = self.step_count.saturating_add(1);
+            self.step_count = self.step_count.wrapping_add(1);
             e.m_steps(self.step_size, &mut self.markov_steps);
 
             let energy = match energy_fn(&mut e){
@@ -308,6 +332,8 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         swap(&mut walker_b.old_energy, &mut walker_a.old_energy);
         walker_b.bin = new_bin_b;
         walker_a.bin = new_bin_a;
+        walker_a.hist.count_index(new_bin_a).unwrap();
+        walker_b.hist.count_index(new_bin_b).unwrap();
         walker_a.re += 1;
         walker_b.re += 1;
     }

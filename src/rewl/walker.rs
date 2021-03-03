@@ -92,6 +92,11 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
         self.id
     }
 
+    pub fn wang_landau_mode(&self) -> WangLandauMode
+    {
+        self.mode
+    }
+
     /// # Returns duration of last sweep that was performed
     #[cfg(feature = "sweep_time_optimization")]
     pub fn duration(&self) -> Duration
@@ -115,6 +120,26 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     pub fn last_durations(&self) -> &[Duration]
     {
         self.sweep_stats.buf()
+    }
+
+    /// Returns reference of current energy
+    pub fn energy(&self) -> &Energy
+    {
+        &self.old_energy
+    }
+
+    /// Returns current energy
+    pub fn energy_copy(&self) -> Energy
+    where Energy: Copy
+    {
+        self.old_energy
+    }
+
+    /// Returns current energy
+    pub fn energy_clone(&self) -> Energy
+    where Energy: Clone
+    {
+        self.old_energy.clone()
     }
 
     /// # Reference to internal histogram
@@ -154,7 +179,7 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
         self.step_size = step_size;
     }
 
-    /// # How many entropic steps were performed until now?
+    /// # How many steps were performed until now?
     pub fn step_count(&self) -> usize
     {
         self.step_count
