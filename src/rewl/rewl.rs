@@ -534,6 +534,16 @@ where R: Send + Sync + Rng + SeedableRng,
             .collect()
     }
 
+    /// # read access to your ensembles
+    /// * None if index out of range
+    /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
+    {
+        self.ensembles
+            .get(index)
+            .map(|e| e.read().unwrap())
+    }
     /// # read access to the internal histograms used by the walkers
     pub fn hists(&self) -> Vec<&Hist>
     {
