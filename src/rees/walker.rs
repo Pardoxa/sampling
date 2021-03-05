@@ -220,10 +220,36 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     }
 }
 
+
 impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
 where Hist: HistogramVal<Energy>,
     R: Rng
 {
+
+    pub(crate) fn check_energy_fn<F, Ensemble>(
+        &self,
+        ensemble_vec: &[RwLock<Ensemble>],
+        energy_fn: F
+    )   -> bool
+    where Energy: PartialEq,
+        F: Fn(&mut Ensemble) -> Option<Energy>,
+    {
+        let mut e = ensemble_vec[self.id]
+            .write()
+            .expect("Fatal Error encountered; ERRORCODE 0x1 - this should be \
+                impossible to reach. If you are using the latest version of the \
+                'sampling' library, please contact the library author via github by opening an \
+                issue! https://github.com/Pardoxa/sampling/issues");
+        
+        let energy = match energy_fn(&mut e){
+            Some(energy) => energy,
+            None => {
+                return false;
+            }
+        };
+        energy == self.old_energy
+    }
+    
     pub(crate) fn sweep<Ensemble, F, Extra, P>
     (
         &mut self,

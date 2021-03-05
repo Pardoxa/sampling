@@ -368,6 +368,22 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         }
     }
 
+    /// # Sanity check
+    /// * checks if the stored (i.e., last) energy(s) of the system
+    /// match with the result of energy_fn
+    pub fn check_energy_fn<F>(
+        &mut self,
+        energy_fn: F
+    )   -> bool
+    where Energy: PartialEq,
+    F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
+    {
+        let ensembles = self.ensembles.as_slice();
+        self.walker
+            .par_iter()
+            .all(|w| w.check_energy_fn(ensembles, energy_fn))
+    }
+
 
     fn merged_log_probability_helper(&self) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
     where Hist: HistogramCombine
