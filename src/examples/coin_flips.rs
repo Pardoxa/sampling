@@ -155,6 +155,7 @@ impl<R> HasRng<R> for CoinFlipSequence<R>
 }
 
 #[cfg(test)]
+#[cfg(features="replica_exchange")]
 mod tests{
     use super::*;
     use rand::SeedableRng;

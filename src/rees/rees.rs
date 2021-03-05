@@ -25,6 +25,47 @@ pub struct ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, 
 
 pub type Rees<Extra, Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>;
 
+impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, Energy, S, Res>
+{
+    /// # read access to your ensembles
+    /// * If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn ensembles<'a>(&'a self) -> Vec<RwLockReadGuard<'a, Ensemble>>
+    {
+        self.ensembles.iter()
+            .map(|e| e.read().unwrap())
+            .collect()
+    }
+
+    /// # read access to your ensembles
+    /// * None if index out of range
+    /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
+    {
+        self.ensembles
+            .get(index)
+            .map(|e| e.read().unwrap())
+    }
+
+    /// # read access to the internal histograms used by the walkers
+    pub fn hists(&self) -> Vec<&Hist>
+    {
+        self.walker.iter()
+            .map(|w| w.hist())
+            .collect()
+    }
+
+    /// # read access to internal histogram
+    /// * None if index out of range
+    pub fn get_hist(&self, index: usize) -> Option<&Hist>
+    {
+        self.walker
+            .get(index)
+            .map(|w| w.hist())
+    }
+}
+
 impl<Ensemble, R, Hist, Energy, S, Res> From<Rewl<Ensemble, R, Hist, Energy, S, Res>> for Rees<(), Ensemble, R, Hist, Energy, S, Res>
 where Hist: Histogram
 {

@@ -231,8 +231,8 @@ where Hist: HistogramVal<Energy>,
         ensemble_vec: &[RwLock<Ensemble>],
         energy_fn: F
     )   -> bool
-    where Energy: PartialEq,
-        F: Fn(&mut Ensemble) -> Option<Energy>,
+    where Energy: PartialEq,F: Fn(&mut Ensemble) -> Option<Energy>,
+        
     {
         let mut e = ensemble_vec[self.id]
             .write()
@@ -249,7 +249,7 @@ where Hist: HistogramVal<Energy>,
         };
         energy == self.old_energy
     }
-    
+
     pub(crate) fn sweep<Ensemble, F, Extra, P>
     (
         &mut self,

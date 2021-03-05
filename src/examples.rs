@@ -449,6 +449,9 @@
 /// * The same example as above, but with replica exchange wang landau
 /// * [see explanaition of the model](#example-coin-flips)
 /// ```
+/// // feature is activated by default
+/// #[cfg(features="replica_exchange")]
+/// {
 /// use rand::SeedableRng;
 /// use rand_pcg::Pcg64;
 /// use sampling::{*, examples::coin_flips::*};
@@ -590,6 +593,7 @@
 /// 
 /// 
 /// println!("Total time: {}", begin.elapsed().as_secs());
+/// }
 /// ```
 /// 
 /// To plot it, use gnuplot with

@@ -27,10 +27,14 @@ pub use metropolis::*;
 pub use wang_landau::*;
 pub use entropic_sampling::*;
 
+#[cfg(feature="replica_exchange")]
 pub mod rewl;
+#[cfg(feature="replica_exchange")]
 pub use rewl::*;
 
+#[cfg(feature="replica_exchange")]
 pub mod rees;
+#[cfg(feature="replica_exchange")]
 pub use rees::*;
 
 

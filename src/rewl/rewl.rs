@@ -164,6 +164,23 @@ where R: Send + Sync + Rng + SeedableRng,
         }
     }
 
+    /// # Sanity check
+    /// * checks if the stored (i.e., last) energy(s) of the system
+    /// match with the result of energy_fn
+    pub fn check_energy_fn<F>(
+        &mut self,
+        energy_fn: F
+    )   -> bool
+    where Energy: PartialEq,
+    F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
+    Ensemble: Sync + Send
+    {
+        let ensembles = self.ensembles.as_slice();
+        self.walker
+            .par_iter()
+            .all(|w| w.check_energy_fn(ensembles, energy_fn))
+    }
+
     /// # Sweep
     /// * Performs one sweep of the Replica exchange wang landau simulation
     /// * You can make a complete simulation, by repeatatly calling this method
@@ -544,12 +561,22 @@ where R: Send + Sync + Rng + SeedableRng,
             .get(index)
             .map(|e| e.read().unwrap())
     }
+
     /// # read access to the internal histograms used by the walkers
     pub fn hists(&self) -> Vec<&Hist>
     {
         self.walker.iter()
             .map(|w| w.hist())
             .collect()
+    }
+
+    /// # read access to internal histogram
+    /// * None if index out of range
+    pub fn get_hist(&self, index: usize) -> Option<&Hist>
+    {
+        self.walker
+            .get(index)
+            .map(|w| w.hist())
     }
 
     pub fn into_rees(self) -> Rees<(), Ensemble, R, Hist, Energy, S, Res>
