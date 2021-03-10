@@ -203,11 +203,18 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     }
 
     /// # is the simulation finished?
-    /// * true, if more steps than the step threshold are performed
+    /// * true, if more (or equal) steps than the step threshold are performed
     #[inline(always)]
     pub fn is_finished(&self) -> bool
     {
         self.step_count >= self.step_threshold
+    }
+
+    /// # Return step threshold
+    #[inline(always)]
+    pub fn step_threshold(&self) -> usize
+    {
+        self.step_threshold
     }
 
     pub fn refine(&mut self)
