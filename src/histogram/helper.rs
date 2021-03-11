@@ -15,186 +15,42 @@ pub trait HasUnsignedVersion {
     /// from little endian. See implementation for integers in the standard library
     fn from_le_bytes(bytes: Self::LeBytes) -> Self;
 }
+ 
+macro_rules! HasUnsignedVersion {
+    ($t:ty) => {
+        HasUnsignedVersion!($t, $t);
+    };
+    ($t:ty, $u:ty) => {
+        impl HasUnsignedVersion for $t {
+            type Unsigned = $u;
+            type LeBytes = [u8; mem::size_of::<Self>()];
 
-impl HasUnsignedVersion for u8 {
-    type Unsigned = u8;
-    type LeBytes = [u8; 1];
+            #[inline(always)]
+            fn to_le_bytes(self) -> Self::LeBytes {
+                self.to_le_bytes()
+            }
 
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for u16 {
-    type Unsigned = u16;
-    type LeBytes = [u8; 2];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
+            #[inline(always)]
+            fn from_le_bytes(bytes: Self::LeBytes) -> Self {
+                Self::from_le_bytes(bytes)
+            }
+        }   
     }
 }
 
-impl HasUnsignedVersion for u32 {
-    type Unsigned = u32;
-    type LeBytes = [u8; 4];
+HasUnsignedVersion!(u8);
+HasUnsignedVersion!(u16);
+HasUnsignedVersion!(u32);
+HasUnsignedVersion!(u64);
+HasUnsignedVersion!(u128);
+HasUnsignedVersion!(usize);
 
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for u64 {
-    type Unsigned = u64;
-    type LeBytes = [u8; 8];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for u128 {
-    type Unsigned = u128;
-    type LeBytes = [u8; 16];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for usize {
-    type Unsigned = usize;
-    type LeBytes = [u8; mem::size_of::<Self>()];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for i8 {
-    type Unsigned = u8;
-    type LeBytes = [u8; 1];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for i16 {
-    type Unsigned = u16;
-    type LeBytes = [u8; 2];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for i32 {
-    type Unsigned = u32;
-    type LeBytes = [u8; 4];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for i64 {
-    type Unsigned = u64;
-    type LeBytes = [u8; 8];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for i128 {
-    type Unsigned = u128;
-    type LeBytes = [u8; 16];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
-
-impl HasUnsignedVersion for isize {
-    type Unsigned = usize;
-    type LeBytes = [u8; mem::size_of::<Self>()];
-
-    #[inline(always)]
-    fn to_le_bytes(self) -> Self::LeBytes {
-        self.to_le_bytes()
-    }
-    
-    #[inline(always)]
-    fn from_le_bytes(bytes: Self::LeBytes) -> Self {
-        Self::from_le_bytes(bytes)
-    }
-}
+HasUnsignedVersion!(i8, u8);
+HasUnsignedVersion!(i16, u16);
+HasUnsignedVersion!(i32, u32);
+HasUnsignedVersion!(i64, u64);
+HasUnsignedVersion!(i128, u128);
+HasUnsignedVersion!(isize, usize);
 
 #[inline(always)]
 pub(crate) fn to_u<T>(v: T) -> T::Unsigned
