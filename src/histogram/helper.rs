@@ -15,12 +15,13 @@ pub trait HasUnsignedVersion {
     /// from little endian. See implementation for integers in the standard library
     fn from_le_bytes(bytes: Self::LeBytes) -> Self;
 }
- 
+
+// see link for other, somewhat more general solution
+// https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=579199c02611a20cdbfc9928c00befe7
 macro_rules! has_unsigned_version {
-    ($t:ty) => {
-        has_unsigned_version!($t, $t);
-    };
-    ($t:ty, $u:ty) => {
+    (
+        $u:ty, $t:ty $(,)?
+    ) => (
         impl HasUnsignedVersion for $t {
             type Unsigned = $u;
             type LeBytes = [u8; mem::size_of::<Self>()];
@@ -35,22 +36,27 @@ macro_rules! has_unsigned_version {
                 Self::from_le_bytes(bytes)
             }
         }   
-    };
-    ($($t:ty) +) => {
-        
-        $(has_unsigned_version!($t);)*
-        
-    }
-        
+    );
+    (
+        $(
+            ($u:ty, $i:ty)
+        ),* $(,)?
+    ) => (
+        $(
+            has_unsigned_version!($u, $u);
+            has_unsigned_version!($u, $i);
+        )*
+    );
 }
-has_unsigned_version!(u8 u16 u32 u64 u128 usize);
 
-has_unsigned_version!(i8, u8);
-has_unsigned_version!(i16, u16);
-has_unsigned_version!(i32, u32);
-has_unsigned_version!(i64, u64);
-has_unsigned_version!(i128, u128);
-has_unsigned_version!(isize, usize);
+has_unsigned_version! {
+    (u8, i8),
+    (u16, i16),
+    (u32, i32),
+    (u64, i64),
+    (u128, i128),
+    (usize, isize),
+}
 
 #[inline(always)]
 pub(crate) fn to_u<T>(v: T) -> T::Unsigned
