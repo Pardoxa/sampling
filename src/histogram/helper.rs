@@ -16,9 +16,9 @@ pub trait HasUnsignedVersion {
     fn from_le_bytes(bytes: Self::LeBytes) -> Self;
 }
  
-macro_rules! HasUnsignedVersion {
+macro_rules! has_unsigned_version {
     ($t:ty) => {
-        HasUnsignedVersion!($t, $t);
+        has_unsigned_version!($t, $t);
     };
     ($t:ty, $u:ty) => {
         impl HasUnsignedVersion for $t {
@@ -35,22 +35,22 @@ macro_rules! HasUnsignedVersion {
                 Self::from_le_bytes(bytes)
             }
         }   
+    };
+    ($($t:ty) +) => {
+        
+        $(has_unsigned_version!($t);)*
+        
     }
+        
 }
+has_unsigned_version!(u8 u16 u32 u64 u128 usize);
 
-HasUnsignedVersion!(u8);
-HasUnsignedVersion!(u16);
-HasUnsignedVersion!(u32);
-HasUnsignedVersion!(u64);
-HasUnsignedVersion!(u128);
-HasUnsignedVersion!(usize);
-
-HasUnsignedVersion!(i8, u8);
-HasUnsignedVersion!(i16, u16);
-HasUnsignedVersion!(i32, u32);
-HasUnsignedVersion!(i64, u64);
-HasUnsignedVersion!(i128, u128);
-HasUnsignedVersion!(isize, usize);
+has_unsigned_version!(i8, u8);
+has_unsigned_version!(i16, u16);
+has_unsigned_version!(i32, u32);
+has_unsigned_version!(i64, u64);
+has_unsigned_version!(i128, u128);
+has_unsigned_version!(isize, usize);
 
 #[inline(always)]
 pub(crate) fn to_u<T>(v: T) -> T::Unsigned
