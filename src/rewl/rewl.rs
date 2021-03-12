@@ -612,6 +612,13 @@ where R: Send + Sync + Rng + SeedableRng,
     }
 }
 
+/// # Merge probability density of multiple rewl simulations
+/// * Will calculate the merged log (base 10) probability density. Also returns the corresponding histogram.
+/// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
+/// * `rewls` does not need to be sorted in any way
+/// ## Errors
+/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
+/// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log10_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
@@ -621,10 +628,20 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Ok(res)
 }
 
+// # Merge probability density of multiple rewl simulations
+/// * Will calculate the merged log (base e) probability density. Also returns the corresponding histogram.
+/// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
+/// * `rewls` does not need to be sorted in any way
+/// ## Errors
+/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
+/// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
+    if rewls.is_empty() {
+        return Err(HistErrors::EmptySlice);
+    }
     let merged_prob = merged_probs(rewls);
     let container = combine_container(rewls, &merged_prob, true);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
@@ -664,6 +681,9 @@ pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
+    if rewls.is_empty(){
+        return Err(HistErrors::EmptySlice);
+    }
     let merged_prob = merged_probs(rewls);
     let container = combine_container(rewls, &merged_prob, true);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
@@ -681,6 +701,9 @@ pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rew
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
+    if rewls.is_empty(){
+        return Err(HistErrors::EmptySlice);
+    }
     let probs = probs(rewls);
     let container = combine_container(rewls, &probs, false);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;

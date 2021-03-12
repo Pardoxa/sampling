@@ -34,6 +34,13 @@ pub(crate) fn only_merged<Hist>(
 where Hist: Histogram
 {
     let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+
+    if merge_points.is_empty() {
+        // Nothing to merge - only one interval present
+        merged_log_prob = log_prob.into_iter().next().unwrap();
+        norm_ln_prob(&mut merged_log_prob);
+        return (merged_log_prob, e_hist);
+    }
     
     merged_log_prob[..=merge_points[0]]
         .copy_from_slice(&log_prob[0][..=merge_points[0]]);
@@ -76,6 +83,10 @@ pub(crate) fn merged_and_aligned<'a, Hist: 'a, I>(
 where Hist: HistogramCombine + Histogram,
     I: Iterator<Item = &'a Hist>
 {
+    // Not even one Interval - this has to be an error
+    if log_prob.len() == 0 {
+        return Err(HistErrors::EmptySlice);
+    }
     let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
 
     let mut aligned_intervals = vec![merged_log_prob.clone(); alignment.len() + 1];
@@ -83,6 +94,15 @@ where Hist: HistogramCombine + Histogram,
     aligned_intervals[0][..log_prob[0].len()]
         .copy_from_slice(&log_prob[0]);
     
+    // Nothing to allign, only one interval here
+    if merge_points.is_empty() {
+        norm_ln_prob(&mut aligned_intervals[0]);
+        merged_log_prob.copy_from_slice(&aligned_intervals[0]);
+        return Ok(
+            (e_hist, merged_log_prob, aligned_intervals)
+        );
+    }
+
     merged_log_prob[..=merge_points[0]]
         .copy_from_slice(&log_prob[0][..=merge_points[0]]);
 

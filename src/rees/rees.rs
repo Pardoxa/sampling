@@ -560,10 +560,19 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     }
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * Will calculate the merged log (base e) probability density. Also returns the corresponding histogram.
+/// * `rees` does not need to be sorted in any way
+/// ## Errors
+/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
+/// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
+    if rees.is_empty() {
+        return Err(HistErrors::EmptySlice);
+    }
     let merged_prob = merged_probs(rees);
     let container = combine_container(rees, &merged_prob);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
@@ -577,6 +586,13 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     )
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * Will calculate the merged log (base 10) probability density. Also returns the corresponding histogram.
+/// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
+/// * `rees` does not need to be sorted in any way
+/// ## Errors
+/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
+/// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log10_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
@@ -586,10 +602,22 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Ok(res)
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * Will calculate the merged log (base e) probability density (second return parameter). 
+/// * also returns the corresponding histogram (first return parameter)
+/// * also returns aligned probability densities of intervals (base e) (third return parameter). They will be NaN for all entries, which the corresponding interval did not cover
+/// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
+/// * `rees` does not need to be sorted in any way
+/// ## Errors
+/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
+/// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
+    if rees.is_empty() {
+        return Err(HistErrors::EmptySlice);
+    }
     let merged_prob = merged_probs(rees);
     let container = combine_container(rees, &merged_prob);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
@@ -603,6 +631,9 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     )
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * same as [merged_log_probability_and_align](`crate::rees::merged_log_probability_and_align`)
+/// but all logarithms are now base 10
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
