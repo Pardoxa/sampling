@@ -139,6 +139,35 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
         }
     }
 
+    /// # Get step size for markov chain of walkers
+    /// * returns `None` if index out of bounds, i.e., the requested interval does not exist
+    /// * interval counting starts at 0, i.e., n=0 is the first interval
+    pub fn get_step_size_of_interval(&self, n: usize) -> Option<usize>
+    {
+        let start = n * self.chunk_size.get();
+        let end = start + self.chunk_size.get();
+
+        if self.walker.len() < end {
+            None
+        } else {
+            let slice = &self.walker[start..start+self.chunk_size.get()];
+            let step_size = slice[0].step_size();
+            slice[1..]
+                .iter()
+                .for_each(|w| 
+                    assert_eq!(
+                        step_size, w.step_size(), 
+                        "Fatal Error encountered; ERRORCODE 0x8 - \
+                        Sweep sizes of intervals do not match! \
+                        This should be impossible! if you are using the latest version of the \
+                        'sampling' library, please contact the library author via github by opening an \
+                        issue! https://github.com/Pardoxa/sampling/issues"
+                    )
+                );
+            Some(step_size)
+        }
+    }
+
     /// # Change sweep size for markov chain of walkers
     /// * changes the sweep size used in the sweep
     /// * changes sweep size of all walkers in the nth interval
@@ -155,6 +184,35 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
             slice.iter_mut()
                 .for_each(|entry| entry.sweep_size_change(sweep_size));
             Ok(())
+        }
+    }
+
+    /// # Get sweep size for markov chain of walkers
+    /// * returns `None` if index out of bounds, i.e., the requested interval does not exist
+    /// * interval counting starts at 0, i.e., n=0 is the first interval
+    pub fn get_sweep_size_of_interval(&self, n: usize) -> Option<NonZeroUsize>
+    {
+        let start = n * self.chunk_size.get();
+        let end = start + self.chunk_size.get();
+
+        if self.walker.len() < end {
+            None
+        } else {
+            let slice = &self.walker[start..start+self.chunk_size.get()];
+            let sweep_size = slice[0].sweep_size();
+            slice[1..]
+                .iter()
+                .for_each(|w| 
+                    assert_eq!(
+                        sweep_size, w.sweep_size(), 
+                        "Fatal Error encountered; ERRORCODE 0x2 - \
+                        Sweep sizes of intervals do not match! \
+                        This should be impossible! if you are using the latest version of the \
+                        'sampling' library, please contact the library author via github by opening an \
+                        issue! https://github.com/Pardoxa/sampling/issues"
+                    )
+                );
+            Some(sweep_size)
         }
     }
 

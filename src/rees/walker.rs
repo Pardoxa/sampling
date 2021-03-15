@@ -274,7 +274,7 @@ where Hist: HistogramVal<Energy>,
 
         let mut e = ensemble_vec[self.id]
             .write()
-            .expect("Fatal Error encountered; ERRORCODE 0x1 - this should be \
+            .expect("Fatal Error encountered; ERRORCODE 0x3 - this should be \
                 impossible to reach. If you are using the latest version of the \
                 'sampling' library, please contact the library author via github by opening an \
                 issue! https://github.com/Pardoxa/sampling/issues");
@@ -313,7 +313,7 @@ where Hist: HistogramVal<Energy>,
             }
 
             self.hist.count_index(self.bin)
-                .expect("Histogram index Error, ERRORCODE 0x2");
+                .expect("Histogram index Error, ERRORCODE 0x4");
 
             extra_fn(&self, &mut e, extra);
 

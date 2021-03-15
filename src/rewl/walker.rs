@@ -299,7 +299,7 @@ where R: Rng + Send + Sync,
     {
         let mut e = ensemble_vec[self.id]
             .write()
-            .expect("Fatal Error encountered; ERRORCODE 0x1 - this should be \
+            .expect("Fatal Error encountered; ERRORCODE 0x5 - this should be \
                 impossible to reach. If you are using the latest version of the \
                 'sampling' library, please contact the library author via github by opening an \
                 issue! https://github.com/Pardoxa/sampling/issues");
@@ -327,7 +327,7 @@ where R: Rng + Send + Sync,
 
         let mut e = ensemble_vec[self.id]
             .write()
-            .expect("Fatal Error encountered; ERRORCODE 0x1 - this should be \
+            .expect("Fatal Error encountered; ERRORCODE 0x6 - this should be \
                 impossible to reach. If you are using the latest version of the \
                 'sampling' library, please contact the library author via github by opening an \
                 issue! https://github.com/Pardoxa/sampling/issues");
@@ -370,7 +370,7 @@ where R: Rng + Send + Sync,
             }
 
             self.hist.count_index(self.bin)
-                .expect("Histogram index Error, ERRORCODE 0x2");
+                .expect("Histogram index Error, ERRORCODE 0x7");
             
             self.log_density[self.bin] += self.log_f;
 
