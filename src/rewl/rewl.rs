@@ -73,19 +73,6 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     {
         self.chunk_size
     }
-}
-
-
-impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
-where R: Send + Sync + Rng + SeedableRng,
-    Hist: Send + Sync + Histogram + HistogramVal<Energy>,
-    Energy: Send + Sync + Clone,
-    Ensemble: MarkovChain<S, Res>,
-    Res: Send + Sync,
-    S: Send + Sync
-{
-
-
 
     /// # Change step size for markov chain of walkers
     /// * changes the step size used in the sweep
@@ -182,6 +169,21 @@ where R: Send + Sync + Rng + SeedableRng,
             Some(sweep_size)
         }
     }
+}
+
+
+impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res> 
+where R: Send + Sync + Rng + SeedableRng,
+    Hist: Send + Sync + Histogram + HistogramVal<Energy>,
+    Energy: Send + Sync + Clone,
+    Ensemble: MarkovChain<S, Res>,
+    Res: Send + Sync,
+    S: Send + Sync
+{
+
+
+
+
 
     /// # Perform the Replica exchange wang landau simulation
     /// * will simulate until **all** walkers have factors `log_f`
