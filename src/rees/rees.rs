@@ -4,6 +4,7 @@ use rand::{Rng, prelude::SliceRandom};
 use std::{num::NonZeroUsize, sync::*, cmp::*};
 use rayon::{prelude::*};
 use glue_helper::subtract_max;
+use crate::rewl::ignore_fn;
 
 #[cfg(feature = "sweep_time_optimization")]
 use std::cmp::Reverse;
@@ -624,7 +625,19 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
 /// ## Errors
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
-pub fn merged_log_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
+pub fn merged_log_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
+) -> Result<(Vec<f64>, Hist), HistErrors>
+where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+    Energy: PartialOrd
+{
+    merged_log_prob_ignore(rees, &[])
+}
+
+pub fn merged_log_prob_ignore<Extra, Ensemble, R, Hist, Energy, S, Res>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
@@ -632,7 +645,8 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
         return Err(HistErrors::EmptySlice);
     }
     let merged_prob = merged_probs(rees);
-    let container = combine_container(rees, &merged_prob);
+    let mut container = combine_container(rees, &merged_prob);
+    ignore_fn(&mut container, ignore);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
     Ok(
         only_merged(
@@ -689,14 +703,51 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     )
 }
 
-/// # Merge probability density of multiple rees simulations
-/// * same as [merged_log_probability_and_align](`crate::rees::merged_log_probability_and_align`)
-/// but all logarithms are now base 10
-pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
-    let mut res = merged_log_probability_and_align(rees)?;
+    if rees.is_empty() {
+        return Err(HistErrors::EmptySlice);
+    }
+    let merged_prob = merged_probs(rees);
+    let mut container = combine_container(rees, &merged_prob);
+    ignore_fn(&mut container, ignore);
+
+    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
+    merged_and_aligned(
+        container.iter()
+            .map(|c| c.1),
+        merge_points,
+        alignment,
+        log_prob,
+        e_hist
+    )
+}
+
+/// # Merge probability density of multiple rees simulations
+/// * same as [merged_log_probability_and_align](`crate::rees::merged_log_probability_and_align`)
+/// but all logarithms are now base 10
+pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    merged_log10_probability_and_align_ignore(rees, &[])
+}
+
+pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_probability_and_align_ignore(rees, ignore)?;
     ln_to_log10(&mut res.1);
     res.2.par_iter_mut()
         .for_each(|slice| ln_to_log10(slice));

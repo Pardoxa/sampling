@@ -715,11 +715,23 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     )
 }
 
-pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
-    let mut res = merged_log_probability_and_align(rewls)?;
+    merged_log10_probability_and_align_ignore(rewls, &[])
+}
+
+pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_probability_and_align_ignore(rewls, ignore)?;
     ln_to_log10(&mut res.1);
     res.2.par_iter_mut()
         .for_each(|slice| ln_to_log10(slice));
@@ -730,14 +742,34 @@ pub fn log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[R
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
-    let mut res = log_probability_and_align(rewls)?;
+    log10_probability_and_align_ignore(rewls, &[])
+}
+
+pub fn log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = log_probability_and_align_ignore(rewls, ignore)?;
     ln_to_log10(&mut res.1);
     res.2.par_iter_mut()
         .for_each(|slice| ln_to_log10(slice));
     Ok(res)
 }
 
-pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>
+(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    merged_log_probability_and_align_ignore(rewls, &[])
+}
+
+pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -745,7 +777,8 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
         return Err(HistErrors::EmptySlice);
     }
     let merged_prob = merged_probs(rewls);
-    let container = combine_container(rewls, &merged_prob, true);
+    let mut container = combine_container(rewls, &merged_prob, true);
+    ignore_fn(&mut container, ignore);
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
     merged_and_aligned(
         container.iter()
@@ -761,11 +794,20 @@ pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rew
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
+    log_probability_and_align_ignore(rewls, &[])
+}
+
+pub fn log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
     if rewls.is_empty(){
         return Err(HistErrors::EmptySlice);
     }
     let probs = probs(rewls);
-    let container = combine_container(rewls, &probs, false);
+    let mut container = combine_container(rewls, &probs, false);
+    ignore_fn(&mut container, ignore);
+
     let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
     merged_and_aligned(
         container.iter()
@@ -776,6 +818,27 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
         e_hist
     )
 }
+
+/// Helper to ignore specific intervals/walkers
+pub(crate) fn ignore_fn<T>(container: &mut Vec<T>, ignore: &[usize])
+{
+    let mut ignore = ignore.to_vec();
+    // sorting in reverse, to remove correct indices later on
+    ignore.sort_unstable_by_key(|&e| Reverse(e));
+    // remove duplicates
+    ignore.dedup();
+    // remove indices
+    ignore.into_iter()
+        .for_each(
+            |i|
+            {
+                if i < container.len(){
+                    let _ = container.remove(i);
+                }
+            }
+        );
+}
+
 
 fn merged_probs<Ensemble, R, Hist, Energy, S, Res>
 (
