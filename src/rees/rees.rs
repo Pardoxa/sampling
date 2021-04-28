@@ -38,6 +38,16 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
             .collect()
     }
 
+    /// # Iterator over ensembles
+    /// If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn ensemble_iter<'a>(&'a self) -> impl Iterator<Item=RwLockReadGuard<'a, Ensemble>>
+    {
+        self.ensembles
+            .iter()
+            .map(|e| e.read().unwrap())
+    }
+
     /// # read access to your ensembles
     /// * None if index out of range
     /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
@@ -47,6 +57,33 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
         self.ensembles
             .get(index)
             .map(|e| e.read().unwrap())
+    }
+
+    /// # mut access to your ensembles
+    /// * if possible, prefer [`get_ensemble`](Self::get_ensemble)
+    /// * *unsafe** only use this if you know what you are doing
+    /// * it is assumed, that whatever you change has no effect on the 
+    /// Markov Chain, the result of the energy function etc. 
+    /// * `None` if `index` out of range
+    /// * might **panic** if a thread is poisened
+    pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<&mut Ensemble>
+    {
+        self.ensembles
+            .get_mut(index)
+            .map(|e| e.get_mut().unwrap())
+    }
+
+    /// # Mutable iterator over ensembles
+    /// * if possible, prefer [`ensemble_iter`](Self::ensemble_iter)
+    /// * **unsafe** only use this if you know what you are doing
+    /// * it is assumed, that whatever you change has no effect on the 
+    /// Markov Chain, the result of the energy function etc. 
+    /// * might **panic** if a thread is poisened
+    pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=&mut Ensemble>
+    {
+        self.ensembles
+            .iter_mut()
+            .map(|item| item.get_mut().unwrap())
     }
 
     /// # read access to the internal histograms used by the walkers

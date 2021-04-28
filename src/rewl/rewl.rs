@@ -98,13 +98,12 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * **unsafe** only use this if you know what you are doing
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
-    /// * the Ok variant of the Iterator Item can be used as `&mut Ensemble`
-    /// * if no thread paniced before, the Iterator is guaranteed to return only OK variants
-    pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=LockResult<&mut Ensemble>>
+    /// * might **panic** if a thread is poisened
+    pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=&mut Ensemble>
     {
         self.ensembles
             .iter_mut()
-            .map(|item| item.get_mut())
+            .map(|item| item.get_mut().unwrap())
     }
 
     /// # mut access to your ensembles
@@ -113,13 +112,12 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
     /// * None if `index` out of range
-    /// * the Ok variant of the Result can be used as `&mut Ensemble`
-    /// * if no thread paniced before, it is guaranteed to return the OK variant
-    pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<LockResult<&mut Ensemble>>
+    /// * might **panic** if a thread is poisened
+    pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<&mut Ensemble>
     {
         self.ensembles
             .get_mut(index)
-            .map(|e| e.get_mut())
+            .map(|e| e.get_mut().unwrap())
     }
 
     /// # Get the number of intervals present
