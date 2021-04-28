@@ -52,6 +52,7 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
 /// Short for [`ReplicaExchangeWangLandau`](crate::rewl::ReplicaExchangeWangLandau)
 pub type Rewl<Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>;
 
+
 impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
 {
     /// # Read access to internal rewl walkers
@@ -60,6 +61,63 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     pub fn walkers(&self) -> &Vec<RewlWalker<R, Hist, Energy, S, Res>>
     {
         &self.walker
+    }
+
+    /// # read access to your ensembles
+    /// * If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn ensembles<'a>(&'a self) -> Vec<RwLockReadGuard<'a, Ensemble>>
+    {
+        self.ensemble_iter()
+            .collect()
+    }
+
+    /// # Iterator over ensembles
+    /// If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn ensemble_iter<'a>(&'a self) -> impl Iterator<Item=RwLockReadGuard<'a, Ensemble>>
+    {
+        self.ensembles
+            .iter()
+            .map(|e| e.read().unwrap())
+    }
+
+    /// # read access to your ensembles
+    /// * `None` if `index` out of range
+    /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
+    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
+    {
+        self.ensembles
+            .get(index)
+            .map(|e| e.read().unwrap())
+    }
+
+    /// # Mutable iterator over ensembles
+    /// * if possible, prefer [`ensemble_iter`](Self::ensemble_iter)
+    /// * **unsafe** only use this if you know what you are doing
+    /// * it is assumed, that whatever you change has no effect on the 
+    /// Markov Chain, the result of the energy function etc. 
+    pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=LockResult<&mut Ensemble>>
+    {
+        self.ensembles
+            .iter_mut()
+            .map(|item| item.get_mut())
+    }
+
+    /// # mut access to your ensembles
+    /// * if possible, prefer [`get_ensemble`](Self::get_ensemble)
+    /// * *unsafe** only use this if you know what you are doing
+    /// * it is assumed, that whatever you change has no effect on the 
+    /// Markov Chain, the result of the energy function etc. 
+    /// * None if `index` out of range
+    /// * If you do not know what `LockResult<&mut Ensemble>` is - do not worry.
+    /// you can just pretend it is `&mut Ensemble` and everything will work out fine
+    pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<LockResult<&mut Ensemble>>
+    {
+        self.ensembles
+            .get_mut(index)
+            .map(|e| e.get_mut())
     }
 
     /// # Get the number of intervals present
@@ -588,9 +646,9 @@ where R: Send + Sync + Rng + SeedableRng,
 
     /// # Get Ids
     /// This is an indicator that the replica exchange works.
-    /// In the beginning, this will be a sorted vector, e.g. [0,1,2,3,4].
+    /// In the beginning, this will be a sorted vector, e.g. \[0,1,2,3,4\].
     /// Then it will show, where the ensemble, which the corresponding walkers currently work with,
-    /// originated from. E.g. If the vector is [3,1,0,2,4], Then walker 0 has a
+    /// originated from. E.g. If the vector is \[3,1,0,2,4\], Then walker 0 has a
     /// ensemble originating from walker 3, the walker 1 is back to its original 
     /// ensemble, walker 2 has an ensemble originating form walker 0 and so on.
     pub fn get_id_vec(&self) -> Vec<usize>
@@ -599,27 +657,6 @@ where R: Send + Sync + Rng + SeedableRng,
             .iter()
             .map(|w| w.id())
             .collect()
-    }
-
-    /// # read access to your ensembles
-    /// * If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
-    pub fn ensembles<'a>(&'a self) -> Vec<RwLockReadGuard<'a, Ensemble>>
-    {
-        self.ensembles.iter()
-            .map(|e| e.read().unwrap())
-            .collect()
-    }
-
-    /// # read access to your ensembles
-    /// * None if index out of range
-    /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
-    pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
-    {
-        self.ensembles
-            .get(index)
-            .map(|e| e.read().unwrap())
     }
 
     /// # read access to the internal histograms used by the walkers
