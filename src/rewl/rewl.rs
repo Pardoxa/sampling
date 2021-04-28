@@ -63,14 +63,6 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
         &self.walker
     }
 
-    /// # read access to your ensembles
-    /// * If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
-    pub fn ensembles<'a>(&'a self) -> Vec<RwLockReadGuard<'a, Ensemble>>
-    {
-        self.ensemble_iter()
-            .collect()
-    }
 
     /// # Iterator over ensembles
     /// If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.

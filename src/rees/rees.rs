@@ -28,15 +28,6 @@ pub type Rees<Extra, Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeEntropi
 
 impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, Energy, S, Res>
 {
-    /// # read access to your ensembles
-    /// * If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
-    pub fn ensembles<'a>(&'a self) -> Vec<RwLockReadGuard<'a, Ensemble>>
-    {
-        self.ensembles.iter()
-            .map(|e| e.read().unwrap())
-            .collect()
-    }
 
     /// # Iterator over ensembles
     /// If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
