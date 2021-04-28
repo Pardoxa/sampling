@@ -35,6 +35,13 @@ pub struct HeatmapUsize<HistWidth, HistHeight>{
 /// Shorthand for HeatmapUsize
 pub type HeatmapU<HistWidth, HistHeight> = HeatmapUsize<HistWidth, HistHeight>;
 
+impl<HistWidth, HistHeight> From<HeatmapUsizeMean<HistWidth, HistHeight>> for HeatmapU<HistWidth, HistHeight>
+{
+    fn from(heatmap_mean: HeatmapUsizeMean<HistWidth, HistHeight>) -> Self {
+        heatmap_mean.heatmap
+    }
+}
+
 impl <HistWidth, HistHeight> HeatmapUsize<HistWidth, HistHeight>
 where 
     HistWidth: Clone,
