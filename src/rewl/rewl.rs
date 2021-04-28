@@ -98,6 +98,8 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * **unsafe** only use this if you know what you are doing
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
+    /// * the Ok variant of the Iterator Item can be used as `&mut Ensemble`
+    /// * if no thread paniced before, the Iterator is guaranteed to return only OK variants
     pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=LockResult<&mut Ensemble>>
     {
         self.ensembles
@@ -111,8 +113,8 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
     /// * None if `index` out of range
-    /// * If you do not know what `LockResult<&mut Ensemble>` is - do not worry.
-    /// you can just pretend it is `&mut Ensemble` and everything will work out fine
+    /// * the Ok variant of the Result can be used as `&mut Ensemble`
+    /// * if no thread paniced before, it is guaranteed to return the OK variant
     pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<LockResult<&mut Ensemble>>
     {
         self.ensembles
