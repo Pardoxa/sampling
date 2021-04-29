@@ -19,15 +19,16 @@ pub struct ReesWalker<R, Hist, Energy, S, Res>
     pub(crate) rng: R,
     hist: Hist,
     log_density: Vec<f64>,
-    step_count: usize,
-    re: usize,
-    proposed_re: usize,
+    step_count: u64,
+    re: u64,
+    proposed_re: u64,
+    rejected_markov_steps: u64,
     old_energy: Energy,
     bin: usize,
     markov_steps: Vec<S>,
     marker_res: PhantomData<Res>,
     step_size: usize,
-    step_threshold: usize,
+    step_threshold: u64,
     #[cfg(feature = "sweep_time_optimization")]
     duration: Duration
 }
@@ -53,6 +54,7 @@ where Hist: Histogram
             step_threshold: rewl_walker.step_count,
             re: 0,
             proposed_re: 0,
+            rejected_markov_steps: 0,
             #[cfg(feature = "sweep_time_optimization")]
             duration: rewl_walker.duration,
         }    
@@ -126,21 +128,21 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
 
     /// # How many entropic steps were performed until now?
     #[inline(always)]
-    pub fn step_count(&self) -> usize
+    pub fn step_count(&self) -> u64
     {
         self.step_count
     }
 
     /// # How many successful replica exchanges were performed until now?
     #[inline(always)]
-    pub fn replica_exchanges(&self) -> usize
+    pub fn replica_exchanges(&self) -> u64
     {
         self.re
     }
 
     /// # How many replica exchanges were proposed until now?
     #[inline(always)]
-    pub fn proposed_replica_exchanges(&self) -> usize
+    pub fn proposed_replica_exchanges(&self) -> u64
     {
         self.proposed_re
     }
@@ -150,6 +152,20 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     pub fn replica_exchange_frac(&self) -> f64
     {
         self.re as f64 / self.proposed_re as f64
+    }
+
+    /// # How many markov steps were rejected until now
+    #[inline(always)]
+    pub fn rejected_markov_steps(&self) -> u64
+    {
+        self.rejected_markov_steps
+    }
+
+    /// # rate/fraction of acceptance
+    pub fn acceptance_rate_markov(&self) -> f64
+    {
+        let rej = self.rejected_markov_steps() as f64 / self.step_count() as f64;
+        1.0 - rej
     }
 
     /// * Old non normalized estimate of the natural logarithm of the probability density function
@@ -212,7 +228,7 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
 
     /// # Return step threshold
     #[inline(always)]
-    pub fn step_threshold(&self) -> usize
+    pub fn step_threshold(&self) -> u64
     {
         self.step_threshold
     }
@@ -224,6 +240,12 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
         self.log_density = refined;
         self.hist.reset();
         self.step_count = 0;
+    }
+
+    #[inline(always)]
+    fn count_rejected(&mut self)
+    {
+        self.rejected_markov_steps += 1;
     }
 }
 
@@ -281,12 +303,13 @@ where Hist: HistogramVal<Energy>,
         
         for _ in 0..self.sweep_size.get()
         {   
-            self.step_count = self.step_count.wrapping_add(1);
+            self.step_count += 1;
             e.m_steps(self.step_size, &mut self.markov_steps);
 
             let energy = match energy_fn(&mut e){
                 Some(energy) => energy,
                 None => {
+                    self.count_rejected();
                     e.undo_steps_quiet(&self.markov_steps);
                     continue;
                 }
@@ -301,6 +324,7 @@ where Hist: HistogramVal<Energy>,
                         .exp();
                     if self.rng.gen::<f64>() > acception_prob 
                     {
+                        self.count_rejected();
                         e.undo_steps_quiet(&self.markov_steps);
                     } else {
                         self.old_energy = energy;
@@ -308,6 +332,7 @@ where Hist: HistogramVal<Energy>,
                     }
                 },
                 _ => {
+                    self.count_rejected();
                     e.undo_steps_quiet(&self.markov_steps);
                 }
             }

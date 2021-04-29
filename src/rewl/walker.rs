@@ -69,9 +69,10 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     pub(crate) hist: Hist,
     pub(crate) log_density: Vec<f64>,
     log_f: f64,
-    pub(crate) step_count: usize,
-    pub(crate) proposed_re: usize,
+    pub(crate) step_count: u64,
+    pub(crate) proposed_re: u64,
     pub(crate) re: usize,
+    pub(crate) rejected_markov_steps: u64,
     mode: WangLandauMode,
     pub(crate) old_energy: Energy,
     pub(crate) bin: usize,
@@ -180,7 +181,8 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     }
 
     /// # How many steps were performed until now?
-    pub fn step_count(&self) -> usize
+    #[inline(always)]
+    pub fn step_count(&self) -> u64
     {
         self.step_count
     }
@@ -192,7 +194,7 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     }
 
     /// # How many replica exchanges were proposed until now?
-    pub fn proposed_replica_exchanges(&self) -> usize
+    pub fn proposed_replica_exchanges(&self) -> u64
     {
         self.proposed_re
     }
@@ -203,10 +205,29 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
         self.re as f64 / self.proposed_re as f64
     }
 
+    /// # How many markov steps were rejected until now
+    #[inline(always)]
+    pub fn rejected_markov_steps(&self) -> u64
+    {
+        self.rejected_markov_steps
+    }
+
+    /// # rate/fraction of acceptance
+    pub fn acceptance_rate_markov(&self) -> f64
+    {
+        let rej = self.rejected_markov_steps() as f64 / self.step_count() as f64;
+        1.0 - rej
+    }
+
     /// Current non normalized estimate of the natural logarithm of the probability density function
     pub fn log_density(&self) -> &[f64]
     {
         &self.log_density
+    }
+
+    fn count_rejected(&mut self)
+    {
+        self.rejected_markov_steps += 1;
     }
 }
 
@@ -248,6 +269,7 @@ where R: Rng + Send + Sync,
             marker_res: PhantomData::<Res>,
             markov_steps,
             step_size,
+            rejected_markov_steps: 0,
             #[cfg(feature = "sweep_time_optimization")]
             duration: Duration::from_millis(0),
             #[cfg(feature = "sweep_stats")]
@@ -337,9 +359,11 @@ where R: Rng + Send + Sync,
             self.step_count = self.step_count.saturating_add(1);
             e.m_steps(self.step_size, &mut self.markov_steps);
 
+
             let energy = match energy_fn(&mut e){
                 Some(energy) => energy,
                 None => {
+                    self.count_rejected();
                     e.undo_steps_quiet(&self.markov_steps);
                     continue;
                 }
@@ -358,6 +382,7 @@ where R: Rng + Send + Sync,
                         .exp();
                     if self.rng.gen::<f64>() > acception_prob 
                     {
+                        self.count_rejected();
                         e.undo_steps_quiet(&self.markov_steps);
                     } else {
                         self.old_energy = energy;
@@ -365,6 +390,7 @@ where R: Rng + Send + Sync,
                     }
                 },
                 _ => {
+                    self.count_rejected();
                     e.undo_steps_quiet(&self.markov_steps);
                 }
             }
