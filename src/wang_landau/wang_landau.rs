@@ -167,12 +167,17 @@ impl <Hist, R, E, S, Res, Energy> WangLandauHist<Hist>
 impl<Hist, R, E, S, Res, Energy> 
     WangLandau1T<Hist, R, E, S, Res, Energy>
 {
+    /// # Acceptance rate
+    /// Fraction of performed wang landau steps, that were accepted
     fn fraction_accepted_total(&self) -> f64
     {
         let sum = self.accepted_steps_total + self.recected_steps_total;
         self.accepted_steps_total as f64 / sum as f64
     }
-    
+
+    /// # Acceptance rate since last Refinement
+    /// Fraction of performed wang landau steps since 
+    /// the last time, the factor f was refined, that were accepted
     fn fraction_accepted_current(&self) -> f64
     {
         let total = self.accepted_steps_current + self.recected_steps_current;
@@ -524,17 +529,13 @@ where
 
 
     fn count_accepted(&mut self){
-        self.accepted_steps_current = 
-            self.accepted_steps_current.saturating_add(1);
-        self.accepted_steps_total = 
-            self.accepted_steps_total.saturating_add(1);
+        self.accepted_steps_current += 1;
+        self.accepted_steps_total += 1;
     }
 
     fn count_rejected(&mut self){
-        self.recected_steps_current = 
-            self.recected_steps_current.saturating_add(1);
-        self.recected_steps_total = 
-            self.recected_steps_total.saturating_add(1);
+        self.recected_steps_current += 1;
+        self.recected_steps_total += 1;
     }
 
 
