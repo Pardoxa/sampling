@@ -339,7 +339,7 @@ impl CubeHelixParameter {
     /// Gray value should be in the interval [0.0,1.0].
     /// 
     /// Will return [red, green, blue], where red, green and blue are in [0.0, 1.0],
-    /// will return [0,0,0] for NAN gray value.
+    /// will return \[0,0,0\] for NAN gray value.
     pub fn rgb_from_gray(&self, gray: f32) -> [f32; 3]
     {
         if gray.is_nan() {
@@ -387,6 +387,14 @@ pub enum GnuplotPallet{
     PresetHSV,
     /// Use preset RGB pallet
     PresetRGB,
+    /// Use a CubeHelix pallet
+    /// 
+    /// What makes this pallet special is,
+    /// that, if it is converted to black and white,
+    /// it will be monotonically increasing in brightness,
+    /// which is nice for heatmaps
+    ///
+    /// For more info see [CubeHelixParameter]
     CubeHelix(CubeHelixParameter)
 }
 

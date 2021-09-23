@@ -178,6 +178,27 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
 
     /// * Current non normalized estimate of the natural logarithm of the probability density function
     /// * calculated by refining old density with current histogram
+    /// 
+    /// # How does the refining work?
+    /// * Let P(i) be the current probability density function (non normalized) at some index i
+    /// * Let H(i) be the histogram at some index i
+    /// We will now calculate the refined density P', which is calculated as follows:
+    /// 
+    /// P'(i) = P(i) * H(i) (if H(i) != 0)
+    ///
+    /// P'(i) = P(i) (if H(i) == 0)
+    ///
+    /// Or in log space, which is what is actually calculated here:
+    ///
+    /// ln(P'(i)) = ln(P(i)) + ln(H(i)) (if H(i) != 0)
+    ///
+    /// ln(P'(i)) = ln(P(i)) (if H(i)=0)
+    ///
+    /// # for more information see
+    /// > J. Lee,
+    /// > “New Monte Carlo algorithm: Entropic sampling,”
+    /// > Phys. Rev. Lett. 71, 211–214 (1993),
+    /// > DOI: [10.1103/PhysRevLett.71.211](https://doi.org/10.1103/PhysRevLett.71.211)
     pub fn log_density_refined(&self) -> Vec<f64>
     where Hist: Histogram
     {
@@ -233,6 +254,8 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
         self.step_threshold
     }
 
+    /// # Refine current probability density estimate
+    /// * refines the current probability estimate by setting it to [self.log_density_refined](`Self::log_density_refined`)
     pub fn refine(&mut self)
     where Hist: Histogram
     {

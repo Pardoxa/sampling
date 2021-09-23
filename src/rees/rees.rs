@@ -23,7 +23,7 @@ pub struct ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, 
     pub(crate) extra: Vec<Extra>
 }
 
-
+/// # Short for [ReplicaExchangeEntropicSampling]
 pub type Rees<Extra, Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>;
 
 impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, Energy, S, Res>
