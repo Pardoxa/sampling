@@ -666,13 +666,12 @@ where
         writeln!(gnuplot_writer, "\"")?;
         settings.write_label(&mut gnuplot_writer)?;
 
-
         writeln!(gnuplot_writer, "set xrange[-0.5:{}]", self.width as f64 - 0.5)?;
         writeln!(gnuplot_writer, "set yrange[-0.5:{}]", self.height as f64 - 0.5)?;
         if !settings.title.is_empty(){
             writeln!(gnuplot_writer, "set title '{}'", settings.title)?;
         }
-
+        
         settings.write_axis(
             &mut gnuplot_writer,
             self.hist_width.bin_count(),
