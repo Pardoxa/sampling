@@ -668,11 +668,24 @@ where R: Send + Sync + Rng + SeedableRng,
             .map(|w| w.hist())
     }
 
+    /// # Convert into Rees
+    /// This creates a Replica exchange entropic sampling simulation 
+    /// from this Replica exchange wang landau simulation
     pub fn into_rees(self) -> Rees<(), Ensemble, R, Hist, Energy, S, Res>
     {
         self.into()
     }
 
+    /// # Convert into Rees
+    /// * similar to [into_rees](`crate::rewl::Rewl::into_rees`), though now we can store extra information.
+    /// The extra information can be anything, e.g., files in which 
+    /// each walker should later write information every nth step or something 
+    /// else entirely.
+    /// 
+    /// # important
+    /// * The vector `extra` must be exactly as long as the walker slice and 
+    /// each walker is assigned the corresponding entry from the vector `extra`
+    /// * You can look at the walker slice with the [walkers](`crate::rewl::Rewl::walkers`) method
     pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
     {
         if extra.len() != self.walker.len()
@@ -717,7 +730,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Ok(res)
 }
 
-// # Merge probability density of multiple rewl simulations
+/// # Merge probability density of multiple rewl simulations
 /// * Will calculate the merged log (base e) probability density. Also returns the corresponding histogram.
 /// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
 /// * `rewls` does not need to be sorted in any way
@@ -744,6 +757,11 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     )
 }
 
+/// # Results of the simulation
+/// This is what we do the simulation for!
+/// 
+/// * similar to [merged_log10_prob_and_aligned](`crate::rewl::Rewl::merged_log10_prob_and_aligned`)
+/// * the difference is, that the logarithms are now calculated to base 10
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
 ) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
@@ -753,6 +771,14 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     merged_log10_probability_and_align_ignore(rewls, &[])
 }
 
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * similar to [merged_log10_probability_and_align](`crate::rewl::merged_log10_probability_and_align`)
+/// * Now, however, we have a slice called `ignore`. It should contain the indices 
+/// of all walkers, that should be ignored for the alignment and merging into the 
+/// final probability density function. The indices do not need to be sorted, though
+/// duplicates will be ignored and indices, which are out of bounds will also be ignored
 pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
@@ -767,6 +793,11 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Ok(res)
 }
 
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
+/// * Here, however, all logarithms are base 10
 pub fn log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
@@ -774,6 +805,14 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     log10_probability_and_align_ignore(rewls, &[])
 }
 
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * similar to [log10_probability_and_align](`crate::rewl::log10_probability_and_align`)
+/// * Now, however, we have a slice called `ignore`. It should contain the indices 
+/// of all walkers, that should be ignored for the alignment and merging into the 
+/// final probability density function. The indices do not need to be sorted, though
+/// duplicates will be ignored and indices, which are out of bounds will also be ignored
 pub fn log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
@@ -785,6 +824,35 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Ok(res)
 }
 
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * `rewls` a slice of all replica exchange simulations you which to merge 
+/// to create a final probability density estimate for whatever you sampled. 
+/// Note, that while the slice `rewls` does not need to be ordered,
+/// there should not be no gaps between the intervals that were sampled.
+/// Also, the overlap of adjacent intervals should be large enough. 
+/// 
+/// # Result::Ok
+/// * The Hist is only useful for the interval, i.e., it tells you which bins 
+/// correspond to the entries of the probability density function - it does not count how often the bins were hit.
+/// It is still the encapsulating interval, for which the probability density function was calculated
+/// * The `Vec<f64>` is the logarithm (base e) of the probability density function, 
+/// which you wanted to get!
+///  * `Vec<Vec<f64>> these are the aligned probability estimates (also logarithm base e)
+/// of the different intervals. 
+/// This can be used to see, how good the simulation worked, e.g., by plotting them to see, if they match
+/// 
+/// # Failures
+/// Failes if the internal histograms (intervals) do not align. 
+/// Might fail if there is no overlap between neighboring intervals
+/// 
+/// # Notes
+/// The difference between this function and 
+/// [log_probability_and_align](`crate::rewl::log_probability_and_align`) is,
+/// that, if there are multiple walkers in the same interval, they **will** be merged by 
+/// averaging their probability estimates in this function, while they are **not** averaged in 
+/// [log_probability_and_align](`crate::rewl::log_probability_and_align`)
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>
 (
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
@@ -795,6 +863,14 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     merged_log_probability_and_align_ignore(rewls, &[])
 }
 
+/// # Result of the simulation
+/// This is what you were looking for!
+/// 
+/// * similar to [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`)
+/// * Now, however, we have a slice called `ignore`. It should contain the indices 
+/// of all walkers, that should be ignored for the alignment and merging into the 
+/// final probability density function. The indices do not need to be sorted, though
+/// duplicates will be ignored and indices, which are out of bounds will also be ignored
 pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
@@ -819,6 +895,35 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     )
 }
 
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * `rewls` a slice of all replica exchange simulations you which to merge 
+/// to create a final probability density estimate for whatever you sampled. 
+/// Note, that while the slice `rewls` does not need to be ordered,
+/// there should not be no gaps between the intervals that were sampled.
+/// Also, the overlap of adjacent intervals should be large enough. 
+/// 
+/// # Result::Ok
+/// * The Hist is only useful for the interval, i.e., it tells you which bins 
+/// correspond to the entries of the probability density function - it does not count how often the bins were hit.
+/// It is still the encapsulating interval, for which the probability density function was calculated
+/// * The `Vec<f64>` is the logarithm (base e) of the probability density function, 
+/// which you wanted to get!
+///  * `Vec<Vec<f64>> these are the aligned probability estimates (also logarithm base e)
+/// of the different intervals. 
+/// This can be used to see, how good the simulation worked, e.g., by plotting them to see, if they match
+/// 
+/// # Failures
+/// Failes if the internal histograms (intervals) do not align. 
+/// Might fail if there is no overlap between neighboring intervals
+/// 
+/// # Notes
+/// The difference between this function and 
+/// [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`) is,
+/// that, if there are multiple walkers in the same interval, they will **not** be merged by 
+/// averaging their probability estimates in this function, while they **are averaged** in 
+/// [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`)
 pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
@@ -826,6 +931,14 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     log_probability_and_align_ignore(rewls, &[])
 }
 
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
+/// * Now, however, we have a slice called `ignore`. It should contain the indices 
+/// of all walkers, that should be ignored for the alignment and merging into the 
+/// final probability density function. The indices do not need to be sorted, though
+/// duplicates will be ignored and indices, which are out of bounds will also be ignored
 pub fn log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd

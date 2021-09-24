@@ -93,6 +93,8 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
         self.id
     }
 
+    /// # Which mode is this walker currently in?
+    /// see [WangLandauMode]
     pub fn wang_landau_mode(&self) -> WangLandauMode
     {
         self.mode

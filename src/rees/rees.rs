@@ -12,6 +12,9 @@ use std::cmp::Reverse;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+/// # Struct used for entropic sampling with replica exchanges
+/// See [this](crate::rees), also for merge functions to create the 
+/// final probability density functions
 #[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>
@@ -119,6 +122,8 @@ where Hist: Histogram
 
 impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, Energy, S, Res>
 {
+    /// # Checks threshold
+    /// returns true, if all walkers are [finished](`crate::rees::ReesWalker::is_finished`)
     pub fn is_finished(&self) -> bool
     {
         self.walker
@@ -144,7 +149,13 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
         self.chunk_size
     }
 
-    pub fn walkers(&self) -> &Vec<ReesWalker<R, Hist, Energy, S, Res>>
+    /// # Returns internal walkers
+    /// * access to internal slice of walkers
+    /// * the walkers are sorted and neighboring walker are either 
+    /// sampling the same interval, or a neighboring 
+    /// (and if the replica exchange makes any sense overlapping)
+    /// interval
+    pub fn walkers(&self) -> &[ReesWalker<R, Hist, Energy, S, Res>]
     {
         &self.walker
     }
@@ -343,6 +354,9 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     Res: Send + Sync,
 {
 
+    /// # Refine the estimate of the probability density functions
+    /// * refines the estimate of all walkers
+    /// * does so by calling the walker method [refine](`crate::rees::ReesWalker::refine`)
     pub fn refine(&mut self)
     {
         self.walker
@@ -662,6 +676,13 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
     merged_log_prob_ignore(rees, &[])
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * very similar to [merged_log_prob](`crate::rees::Rees::merged_log_prob`)
+/// 
+/// The difference is, that this function will ignore the specified walkers,
+/// therefore `ignore` should be a slice of indices, which are to be ignored.
+/// The slice does not have to be sorted in any way, though duplicate indices 
+/// and indices which are out of bounds will be ignored for the ignore list
 pub fn merged_log_prob_ignore<Extra, Ensemble, R, Hist, Energy, S, Res>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
@@ -731,6 +752,13 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     )
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * similar to [merged_log_probability_and_align]
+/// 
+/// The difference is, that this function will ignore the specified walkers,
+/// therefore `ignore` should be a slice of indices, which are to be ignored.
+/// The slice does not have to be sorted in any way, though duplicate indices 
+/// and indices which are out of bounds will be ignored for the ignore list
 pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
@@ -768,6 +796,13 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     merged_log10_probability_and_align_ignore(rees, &[])
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * similar to [merged_log10_probability_and_align]
+/// 
+/// The difference is, that this function will ignore the specified walkers,
+/// therefore `ignore` should be a slice of indices, which are to be ignored.
+/// The slice does not have to be sorted in any way, though duplicate indices 
+/// and indices which are out of bounds will be ignored for the ignore list
 pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]

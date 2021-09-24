@@ -103,7 +103,7 @@ pub trait HistogramCombine: Sized
 {
     /// # Create a histogram, which encapsulates the histograms passed
     /// # possible errors
-    /// * bin size of histograms is uneqal
+    /// * bin size of histograms is unequal
     /// * bins do not align
     fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
     where S: Borrow<Self>;

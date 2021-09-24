@@ -1,13 +1,12 @@
 //! # For sampling ensembles
 //! * contains Simple sampling, WangLandau, entropic sampling, Metropolis, Histograms
 //! 
-//! * [Detailed example](examples/coin_flips/index.html) for Wang-landau with sucessive entropic sampling
+//! * [Detailed example](examples/coin_flips/index.html) for Wang-landau with successive entropic sampling
 //! and comparison with analytical results
 //! * [Detailed example](examples/coin_flips/index.html#example-replica-exchange-wang-landau) for 
 //! parallel Replica exchange Wang Landau
 
 //#![deny(missing_docs, warnings)]
-
 /// Contains traits useful for sampling an ensemble
 /// like MarkovChain or Metropolis etc.
 pub mod traits;
