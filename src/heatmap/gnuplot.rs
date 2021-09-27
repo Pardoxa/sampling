@@ -380,7 +380,8 @@ impl Default for CubeHelixParameter {
 }
 
 /// # RGB value
-/// Stores a color in RGB space
+/// * stores a color in RGB space
+/// * default color is black `[0,0,0]`
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ColorRGB{
@@ -390,6 +391,13 @@ pub struct ColorRGB{
     pub green: u8,
     /// The blue part
     pub blue: u8
+}
+
+impl Default for ColorRGB{
+    fn default() -> Self 
+    {
+        Self::new(0,0,0)
+    }
 }
 
 impl ColorRGB{

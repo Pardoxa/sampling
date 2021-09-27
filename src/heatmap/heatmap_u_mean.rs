@@ -1,5 +1,5 @@
 use std::{borrow::Borrow, convert::From};
-
+use crate::heatmap::{gnuplot_write_helper_plot, gnuplot_write_output};
 use num_traits::AsPrimitive;
 use crate::*;
 use average::{MeanWithError, Estimate, WeightedMean};
@@ -153,6 +153,60 @@ where HistX: Histogram,
             heatmap,
             mean
         }
+    }
+
+    /// # Create a gnuplot script to plot your heatmap
+    /// This function writes a file, that can be plotted via the terminal via [gnuplot](http://www.gnuplot.info/)
+    /// ```bash
+    /// gnuplot gnuplot_file
+    /// ```
+    /// ## Parameter:
+    /// * `writer`: writer gnuplot script will be written to
+    /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, be called? Ending of file will be set automatically
+    /// * `settings`: Here you can set the axis, choose between terminals and more. 
+    /// I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    /// * `point_color`: the mean (in y-direction) will be plotted as points in the heatmap.
+    /// Here you can choose the point color
+    pub fn gnuplot<W, S, GS>(
+        &self,
+        mut writer: W,
+        gnuplot_output_name: S,
+        settings: GS,
+        point_color: ColorRGB
+    ) -> std::io::Result<()>
+    where 
+    W: std::io::Write,
+    S: AsRef<str>,
+    GS: Borrow<GnuplotSettings>
+    {
+        let settings = settings.borrow();
+        self.heatmap.gnuplot_write_helper_setup(
+            &mut writer,
+            gnuplot_output_name.as_ref(),
+            settings
+        )?;
+
+        writeln!(writer, "$mean_data << EOD")?;
+        for (index, value) in self.mean_iter().enumerate()
+        {
+            writeln!(writer, "{} {:e}", index, value)?;
+        }
+        writeln!(writer, "EOD")?;
+        gnuplot_write_helper_plot(
+            &mut writer,
+            settings.get_title()
+        )?;
+        writeln!(writer, ",\\")?;
+        writeln!(writer, "$mean_data u 1:2:(1) pointtype 7 lc '0x000000' pointsize .57 notitle,\\")?;
+        write!(writer, "$mean_data u 1:2:(1) pt 7 lc \"")?;
+        point_color.write_hex(&mut writer)?;
+        writeln!(writer, "\" ps 0.5 notitle")?;
+
+        gnuplot_write_output(
+            writer,
+            gnuplot_output_name.as_ref(),
+            settings
+        )
     }
 }
 

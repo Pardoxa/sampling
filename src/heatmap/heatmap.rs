@@ -598,6 +598,8 @@ where
     /// ## Parameter:
     /// * `gnuplot_writer`: writer gnuplot script will be written to
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, be called? Ending of file will be set automatically
+    /// * `settings`: Here you can set the axis, choose between terminals and more. 
+    /// I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
     /// ## Example
     /// ```
     /// use rand_pcg::Pcg64;
@@ -643,7 +645,7 @@ where
     ///     settings
     /// ).unwrap();
     /// ```
-    /// Skript can now be plotted with
+    /// gnuplot script can now be plotted with
     /// ```bash
     /// gnuplot heatmap.gp
     /// ```
@@ -657,6 +659,36 @@ where
         W: Write,
         S: AsRef<str>,
         GS: Borrow<GnuplotSettings>
+    {
+        let settings = settings.borrow();
+        self.gnuplot_write_helper_setup(
+            &mut gnuplot_writer,
+            gnuplot_output_name.as_ref(),
+            settings
+        )?;
+        
+        gnuplot_write_helper_plot(
+            &mut gnuplot_writer,
+            settings.get_title()
+        )?;
+        writeln!(gnuplot_writer)?;
+        gnuplot_write_output(
+            gnuplot_writer,
+            gnuplot_output_name.as_ref(),
+            settings
+        )
+    }
+    
+
+    pub(crate) fn gnuplot_write_helper_setup<W, S>(
+        &self, 
+        mut gnuplot_writer: W,
+        gnuplot_output_name: S,
+        settings: &GnuplotSettings
+    ) -> std::io::Result<()>
+    where 
+    W: Write,
+    S: AsRef<str>,
     {
         let settings = settings.borrow();
         settings.terminal_str();
@@ -684,14 +716,28 @@ where
         writeln!(gnuplot_writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")?;
         writeln!(gnuplot_writer, "$data << EOD")?;
         self.write_to(&mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "EOD")?;
-        writeln!(gnuplot_writer, "splot $data matrix with image t \"{}\" ", settings.get_title())?;
-
-        writeln!(gnuplot_writer, "set output")?;
-
-        settings.terminal.finish(gnuplot_output_name.as_ref(), gnuplot_writer)
+        writeln!(gnuplot_writer, "EOD")
     }
 
+}
+
+pub(crate) fn gnuplot_write_output<W: Write>(
+    mut gnuplot_writer: W,
+    gnuplot_output_name: &str,
+    settings: &GnuplotSettings
+) -> std::io::Result<()>
+{
+    writeln!(gnuplot_writer, "set output")?;
+
+    settings.terminal.finish(gnuplot_output_name, gnuplot_writer)
+}
+
+pub(crate) fn gnuplot_write_helper_plot<W: Write>(
+    mut gnuplot_writer: W,
+    title: &str
+) -> std::io::Result<()>
+{
+    write!(gnuplot_writer, "splot $data matrix with image t \"{}\" ", title)
 }
 
 #[cfg(test)]
