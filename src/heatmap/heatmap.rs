@@ -591,7 +591,7 @@ where
     }
 
     /// # Create a gnuplot script to plot your heatmap
-    /// This function writes a file, that can be plottet via the terminal via [gnuplot](http://www.gnuplot.info/)
+    /// This function writes a file, that can be plotted via the terminal via [gnuplot](http://www.gnuplot.info/)
     /// ```bash
     /// gnuplot gnuplot_file
     /// ```
@@ -624,7 +624,7 @@ where
     ///     heatmap.count(x, y).unwrap();
     /// }
     /// 
-    /// // create File for gnuplot skript
+    /// // create File for gnuplot script
     /// let file = File::create("heatmap.gp").unwrap();
     /// let buf = BufWriter::new(file);
     ///
@@ -636,7 +636,7 @@ where
     ///     .x_label("number")
     ///     .title("Example");
     ///
-    /// // create skript
+    /// // create gnuplot script
     /// heatmap.gnuplot(
     ///     buf,
     ///     "heatmap.pdf",
@@ -678,7 +678,7 @@ where
             self.hist_height.bin_count()
         )?;
 
-        settings.pallet.write_pallet(&mut gnuplot_writer)?;
+        settings.palette.write_palette(&mut gnuplot_writer)?;
         writeln!(gnuplot_writer, "set view map")?;
 
         writeln!(gnuplot_writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")?;

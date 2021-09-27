@@ -11,7 +11,7 @@
 //! do not have to be numbers at all. Therefore the default axis 
 //! are the bin indices.
 //! ```
-//! use sampling::{HistUsizeFast, HeatmapUsize, GnuplotSettings, GnuplotAxis};
+//! use sampling::{HistUsizeFast, HeatmapU, GnuplotSettings, GnuplotAxis, GnuplotPalette};
 //! use rand_pcg::Pcg64;
 //! use rand::{SeedableRng, distributions::{Uniform, Distribution}};
 //! use std::{fs::File, io::BufWriter};
@@ -28,7 +28,7 @@
 //! let hist_y = HistUsizeFast::new_inclusive(10, 20)
 //!     .unwrap();
 //! // create the Heatmap
-//! let mut heat = HeatmapUsize::new(hist_x, hist_y);
+//! let mut heat = HeatmapU::new(hist_x, hist_y);
 //! 
 //! for _ in 0..10000 {
 //!     let x = dist_x.sample(&mut rng);
@@ -38,7 +38,7 @@
 //! }
 //! 
 //! // creating a file to store the gnuplot script in
-//! let heatmap_file = File::create("HeatmapUsizeFast01.gp")
+//! let heatmap_file = File::create("HeatmapU01.gp")
 //!     .expect("unable to create file");
 //! let heatmap_writer = BufWriter::new(heatmap_file);
 //! let mut settings = GnuplotSettings::default();
@@ -46,32 +46,35 @@
 //! // creating the gnuplot script
 //! heat.gnuplot(
 //!     heatmap_writer, 
-//!     "HeatmapUsizeFast01",
+//!     "HeatmapU01",
 //!     &settings
 //! ).unwrap();
 //! 
-//! // for correct axis, you have to set them yourself!
+//! // for correct axis, you have to set them yourself,
+//! // since the histograms do not even need to be numeric
 //! let x_axis = GnuplotAxis::new(0.0, 10.0, 6);
 //! let y_axis = GnuplotAxis::new(10.0, 20.0, 6);
 //! settings.x_axis(x_axis)
-//!     .y_axis(y_axis);
+//!     .y_axis(y_axis)
+//! // you can also change the color space, if you like
+//!     .palette(GnuplotPalette::PresetRGB);
 //! 
 //! // creating a file to store the gnuplot script in
-//! let heatmap_file = File::create("HeatmapUsizeFast02.gp")
+//! let heatmap_file = File::create("HeatmapU02.gp")
 //!     .expect("unable to create file");
 //! let heatmap_writer = BufWriter::new(heatmap_file);
 //!
 //! heat.gnuplot(
 //!     heatmap_writer, 
-//!     "HeatmapUsizeFast02",
+//!     "HeatmapU02",
 //!     settings
 //! ).unwrap();
 //! ```
 //! Now you can create the plots by calling
 //! ```bash
-//! gnuplot HeatmapUsizeFast01.gp HeatmapUsizeFast02.gp
+//! gnuplot HeatmapU01.gp HeatmapU02.gp
 //! ```
-//! which will create `HeatmapUsizeFast01.pdf` and  `HeatmapUsizeFast02.pdf`
+//! which will create `HeatmapU01.pdf` and  `HeatmapU02.pdf`
 mod heatmap;
 mod helper;
 mod gnuplot;

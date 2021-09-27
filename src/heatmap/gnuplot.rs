@@ -1,4 +1,4 @@
-use std::borrow::*;
+use std::{borrow::*, fmt};
 use std::io::Write;
 use std::default::Default;
 
@@ -105,21 +105,21 @@ impl GnuplotAxis{
 /// * implements default
 /// * implements builder pattern for itself
 pub struct GnuplotSettings{
-    /// x label for gnuplog
+    /// x label for gnuplot
     pub x_label: String,
-    /// how to format the lables of the x axis?
+    /// how to format the labels of the x axis?
     pub x_axis: Option<GnuplotAxis>,
     /// y label for gnuplot
     pub y_label: String,
-    /// how to format the lables of the y axis?
+    /// how to format the labels of the y axis?
     pub y_axis: Option<GnuplotAxis>,
     /// title for gnuplot
     pub title: String,
     /// which terminal to use for gnuplot
     pub terminal: GnuplotTerminal,
 
-    /// Color pallet for heatmap
-    pub pallet: GnuplotPallet,
+    /// Color palette for heatmap
+    pub palette: GnuplotPalette,
 }
 
 impl GnuplotSettings {
@@ -173,10 +173,10 @@ impl GnuplotSettings {
         self.terminal.terminal_str()
     }
 
-    /// # Builder pattern - set color pallet
-    pub fn pallet<'a>(&'a mut self, pallet: GnuplotPallet) -> &'a mut Self
+    /// # Builder pattern - set color palette
+    pub fn palette<'a>(&'a mut self, palette: GnuplotPalette) -> &'a mut Self
     {
-        self.pallet = pallet;
+        self.palette = palette;
         self
     }
 
@@ -219,7 +219,7 @@ impl Default for GnuplotSettings{
             y_label: "".to_owned(),
             title: "".to_owned(),
             terminal: GnuplotTerminal::PDF,
-            pallet: GnuplotPallet::PresetHSV,
+            palette: GnuplotPalette::PresetHSV,
             x_axis: None,
             y_axis: None,
         }
@@ -338,7 +338,7 @@ impl CubeHelixParameter {
     /// Calculate color from gray value.
     /// Gray value should be in the interval [0.0,1.0].
     /// 
-    /// Will return [red, green, blue], where red, green and blue are in [0.0, 1.0],
+    /// Will return `[red, green, blue]`, where red, green and blue are in [0.0, 1.0],
     /// will return \[0,0,0\] for NAN gray value.
     pub fn rgb_from_gray(&self, gray: f32) -> [f32; 3]
     {
@@ -379,27 +379,191 @@ impl Default for CubeHelixParameter {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+/// # RGB value
+/// Stores a color in RGB space
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-/// defines presets for different color pallets
-pub enum GnuplotPallet{
-    /// Use preset HSV pallet
-    PresetHSV,
-    /// Use preset RGB pallet
-    PresetRGB,
-    /// Use a CubeHelix pallet
+pub struct ColorRGB{
+    /// The red part
+    pub red: u8,
+    /// The green part
+    pub green: u8,
+    /// The blue part
+    pub blue: u8
+}
+
+impl ColorRGB{
+    /// # Create a new color
+    pub fn new(red: u8, green: u8, blue: u8) -> Self
+    {
+        Self{
+            red,
+            green, 
+            blue
+        }
+    }
+
+    /// # Create color from an array
+    /// * `color[0]` -> red
+    /// * `color[1]` -> green
+    /// * `color[2]` -> blue
+    pub fn new_from_array(color: &[u8;3]) -> Self
+    {
+        Self{
+            red: color[0],
+            green: color[1],
+            blue: color[2]
+        }
+    }
+
+    /// # convert color to array,
+    /// will return `[red, green, blue]`
+    pub fn to_array(&self) -> [u8;3]
+    {
+        [self.red, self.green, self.blue]
+    }
+
+    /// # Turn into hex representation
+    /// ```
+    /// use sampling::heatmap::ColorRGB;
     /// 
-    /// What makes this pallet special is,
+    /// let color = ColorRGB::new(0,0,0);
+    /// let hex = color.to_hex();
+    /// assert_eq!(&hex, "#000000");
+    /// 
+    /// let color = ColorRGB::new_from_array(&[255,255,255]);
+    /// let hex = color.to_hex();
+    /// assert_eq!(&hex, "#FFFFFF");
+    /// ```
+    pub fn to_hex(&self) -> String
+    {
+        let mut s = String::new();
+        self.fmt_hex(&mut s)
+            .unwrap();
+        s
+    }
+
+    /// # Write hex representation to a fmt writer
+    /// * similar to [`to_hex`](crate::heatmap::ColorRGB::to_hex), but writes to fmt writer instead
+    pub fn fmt_hex<W: fmt::Write>(&self, mut writer: W) -> Result<(), fmt::Error>
+    {
+        write!(
+            writer,
+            "#{:02X?}{:02X?}{:02X?}",
+            self.red,
+            self.green,
+            self.blue
+        )
+    }
+
+    /// # Write hex representation to a io writer
+    /// * similar to [`to_hex`](crate::heatmap::ColorRGB::to_hex), but writes to io writer instead
+    pub fn write_hex<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error>
+    {
+        write!(
+            writer,
+            "#{:02X?}{:02X?}{:02X?}",
+            self.red,
+            self.green,
+            self.blue
+        )
+    }
+}
+
+/// # A color palette in RGB space
+/// * used for [GnuplotPalette](crate::heatmap::GnuplotPalette)
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct PaletteRGB{
+    colors: Vec<ColorRGB>
+}
+
+impl PaletteRGB{
+    /// # Initialize Palette
+    /// Note: Palette needs at least two colors,
+    /// therefore `None` will be returned if the 
+    /// `colors` has a length less than 2
+    pub fn new(colors: Vec<ColorRGB>) -> Option<Self>
+    {
+        if colors.len() < 2 
+        {
+            return None;
+        }
+        Some(
+            Self{
+                colors
+            }
+        )
+    }
+
+    /// # add a color to the palette
+    pub fn add_color(&mut self, color: ColorRGB){
+        self.colors.push(color)
+    }
+
+    /// # write string to define this palette in gnuplot to fmt writer
+    pub fn fmt_palette<W: fmt::Write>(&self, mut writer: W) -> Result<(), fmt::Error>
+    {
+        write!(writer, "set palette defined ( 0 \"")?;
+        self.colors[0].fmt_hex(&mut writer)?;
+        write!(writer, "\"")?;
+
+        for (color, index) in self.colors.iter().skip(1).zip(1..)
+        {
+            write!(writer, ", {} \"", index)?;
+            color.fmt_hex(&mut writer)?;
+            write!(writer, "\"")?;
+
+        }
+        write!(writer, " )")  
+    }
+
+    /// # write string to define this palette in gnuplot to io writer
+    pub fn write_palette<W: std::io::Write>(&self, mut writer: W) -> Result<(), std::io::Error>
+    {
+        write!(writer, "set palette defined ( 0 \"")?;
+        self.colors[0].write_hex(&mut writer)?;
+        write!(writer, "\"")?;
+
+        for (color, index) in self.colors.iter().skip(1).zip(1..)
+        {
+            write!(writer, ", {} \"", index)?;
+            color.write_hex(&mut writer)?;
+            write!(writer, "\"")?;
+
+        }
+        write!(writer, " )")
+    }
+
+    pub fn into_gnuplot_palette(self) -> GnuplotPalette
+    {
+        GnuplotPalette::RGB(self)
+    }
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// defines presets for different color palettes
+pub enum GnuplotPalette{
+    /// Use preset HSV palette
+    PresetHSV,
+    /// Use preset RGB palette
+    PresetRGB,
+    /// Use a CubeHelix palette
+    /// 
+    /// What makes this palette special is,
     /// that, if it is converted to black and white,
     /// it will be monotonically increasing in brightness,
     /// which is nice for heatmaps
     ///
     /// For more info see [CubeHelixParameter]
-    CubeHelix(CubeHelixParameter)
+    CubeHelix(CubeHelixParameter),
+    /// Define a palette in RGB space
+    RGB(PaletteRGB),
 }
 
-impl GnuplotPallet{
-    pub(crate) fn write_pallet<W: Write>(&self, mut writer: W) -> std::io::Result<()>
+impl GnuplotPalette{
+    pub(crate) fn write_palette<W: Write>(&self, mut writer: W) -> std::io::Result<()>
     {
         match self {
             Self::PresetHSV => {
@@ -412,7 +576,7 @@ impl GnuplotPallet{
                 writeln!(writer, "hue={}     # hue intensity, valid values 0 <= hue <= 1", helix.hue)?;
                 writeln!(writer, "r={}       # rotation in color space. Typical values: -1.5 <= r <= 1.5", helix.r)?;
                 writeln!(writer, "s={}       # starting color, valid values 0 <= s <= 1", helix.s)?;
-                writeln!(writer, "gamma={}   # gamma < 1 emphasises low intensity values, gamma > 1 high intensity ones", helix.gamma)?;
+                writeln!(writer, "gamma={}   # gamma < 1 emphasizes low intensity values, gamma > 1 high intensity ones", helix.gamma)?;
                 writeln!(writer, "low={}     # lowest value for grayscale. 0 <= low < 1 and low < high", helix.low)?;
                 writeln!(writer, "high={}    # highest value for grayscale. 0< high <= 1 and low < high", helix.high)?;
                 let s = if helix.reverse {
@@ -434,11 +598,19 @@ rev(x)=reverse?1-x:x    # reverse grayscale
 map(x)=low+(high-low)*rev(x)
 
 set palette functions red(map(gray)), green(map(gray)), blue(map(gray))\n")
+            },
+            Self::RGB(palette) => {
+                {
+                    palette.write_palette(&mut writer)?;
+                    writeln!(writer)
+                }
             }
         }
         
     }
 }
+
+
 
 
 #[derive(Debug, Copy, Clone)]

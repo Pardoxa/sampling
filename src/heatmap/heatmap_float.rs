@@ -528,7 +528,7 @@ where
             self.hist_height.bin_count()
         )?;
 
-        settings.pallet.write_pallet(&mut gnuplot_writer)?;
+        settings.palette.write_palette(&mut gnuplot_writer)?;
         writeln!(gnuplot_writer, "set view map")?;
 
         writeln!(gnuplot_writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")?;
