@@ -1,9 +1,21 @@
-use std::{borrow::Borrow, convert::From};
+use std::borrow::Borrow;
 use crate::heatmap::{gnuplot_write_helper_plot, gnuplot_write_output};
 use num_traits::AsPrimitive;
 use crate::*;
 use average::{MeanWithError, Estimate, WeightedMean};
 
+/// # Heatmap with mean of y-axis
+/// * stores heatmap in row-major order: the rows of the heatmap are contiguous,
+/// and the columns are strided
+/// * enables you to quickly create a heatmap
+/// * you can create gnuplot scripts to plot the heatmap
+/// * for each x-axis bin, the y-axis mean is calculated
+/// * …
+/// 
+/// # Difference to `HeatmapU`
+/// * [`HeatmapU`](crate::heatmap::HeatmapU) does not contain the averages for th y-axis,
+/// but can be transposed and also used for Y-Histograms which take types which do not 
+/// implement AsPrimitive<f64>
 pub struct HeatmapUsizeMean<HistX, HistY>
 {
     pub(crate) heatmap: HeatmapUsize<HistX, HistY>,
@@ -12,26 +24,10 @@ pub struct HeatmapUsizeMean<HistX, HistY>
 
 impl<HistX, HistY> HeatmapUsizeMean<HistX, HistY>
 {
+    /// Internal [`HeatmapU`](crate::heatmap::HeatmapU)
     pub fn heatmap(&self) -> &HeatmapU<HistX, HistY>
     {
         &self.heatmap
-    }
-}
-
-impl<HistX, HistY> From<HeatmapUsize<HistX, HistY>> for HeatmapUsizeMean<HistX, HistY>
-where HistX: Histogram,
-    HistY: Histogram
-{
-    fn from(heatmap: HeatmapUsize<HistX, HistY>) -> Self {
-        let x_bins = heatmap.hist_width.bin_count();
-        let mean_with_errors = (0..x_bins)
-            .map(|_| MeanWithError::new())
-            .collect();
-
-        Self{
-            heatmap,
-            mean_with_errors
-        }
     }
 }
 
@@ -42,9 +38,23 @@ where HistX: Histogram,
     pub fn new(hist_x: HistX, hist_y: HistY) -> Self
     {
         let heatmap = HeatmapUsize::new(hist_x, hist_y);
-        heatmap.into()
+        let x_bins = heatmap.hist_width.bin_count();
+        let mean_with_errors = (0..x_bins)
+            .map(|_| MeanWithError::new())
+            .collect();
+
+        Self{
+            heatmap,
+            mean_with_errors
+        }
     }
 
+    /// # Update Heatmap
+    /// * similar to [count](crate::heatmap::HeatmapUsizeMean::count)
+    /// 
+    /// This time, however, any value that is out of bounds will be ignored for
+    /// the calculation of the mean of the y-axis, meaning also values which correspond 
+    /// to a valid x-bin will be ignored, if their y-value is not inside the Y Histogram
     pub fn count_inside_heatmap<X, Y, A, B>(&mut self, x_val: A, y_val: B) -> Result<(usize, usize), HeatmapError>
     where HistX: HistogramVal<X>,
         HistY: HistogramVal<Y>,
@@ -66,6 +76,12 @@ where HistX: Histogram,
         res
     }
 
+    /// # Update heatmap
+    /// * Corresponds to [`count` of `HeatmapU`](crate::heatmap::HeatmapU::count)
+    /// 
+    /// The difference is, that the mean of the y-axis is updated as long as `y_val` is finite
+    /// and `x_val` is in bounds (because the mean is calculated for each bin in the x direction
+    /// separately)
     pub fn count<X, Y, A, B>(&mut self, x_val: A, y_val: B) -> Result<(usize, usize), HeatmapError>
     where HistX: HistogramVal<X>,
         HistY: HistogramVal<Y>,
