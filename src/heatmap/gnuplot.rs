@@ -120,9 +120,24 @@ pub struct GnuplotSettings{
 
     /// Color palette for heatmap
     pub palette: GnuplotPalette,
+    /// # Size of the terminal
+    /// * Anything gnuplot accepts (e.g. "2cm, 2.9cm") is acceptable
+    /// # Note
+    /// the code does not check, if your input for `size` makes any sense
+    pub size: String,
 }
 
 impl GnuplotSettings {
+    /// # Builder pattern - set size of terminal
+    /// * Anything gnuplot accepts (e.g. "2cm, 2.9cm") is acceptable
+    /// # Note
+    /// the code does not check, if your input for `size` makes any sense
+    pub fn size<'a, S: Into<String>>(&'a mut self, size: S) -> &'a mut Self
+    {
+        self.size = size.into();
+        self
+    }
+
     /// # Builder pattern - set x_label
     pub fn x_label<'a, S: Into<String>>(&'a mut self, x_label: S) -> &'a mut Self
     {
@@ -169,8 +184,11 @@ impl GnuplotSettings {
         self
     }
 
-    pub(crate) fn terminal_str(&self) -> &'static str {
-        self.terminal.terminal_str()
+    pub(crate) fn write_terminal<W: Write>(
+        &self,
+        writer: W
+    ) -> std::io::Result<()> {
+        self.terminal.write_terminal(writer, &self.size)
     }
 
     /// # Builder pattern - set color palette
@@ -222,6 +240,7 @@ impl Default for GnuplotSettings{
             palette: GnuplotPalette::PresetHSV,
             x_axis: None,
             y_axis: None,
+            size: "7.4cm, 5cm".into()
         }
     }
 }
@@ -584,22 +603,145 @@ impl PaletteRGB{
     }
 }
 
+/// # Defines gnuplot point
+/// * Note that most of the fields are public and
+/// can be accessed directly
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct GnuplotPoint
+{
+    /// Color of the point
+    pub color: ColorRGB,
+    size: f32,
+    /// should the point have a frame?
+    pub frame: bool,
+    /// Which color should the frame be?
+    pub frame_color: ColorRGB,
+    /// Entry for legend
+    legend: String
+}
+
+impl GnuplotPoint{
+    /// Create a new instance of GnuplotPoint
+    /// - same as GnuplotPoint::default()
+    pub fn new() -> Self
+    {
+        Self::default()
+    }
+
+    /// # Choose the color for the point
+    /// * default color is blue
+    pub fn color(&mut self, color: ColorRGB) -> &mut Self
+    {
+        self.color = color;
+        self
+    }
+
+    /// # Choose the size of the point
+    /// * size has to be finite
+    /// * size has to be >= 0.0
+    /// 
+    /// Otherwise the old size will be silently kept
+    pub fn size(&mut self, size: f32) -> &mut Self
+    {
+        if size.is_finite() && size >= 0.0
+        {
+            self.size = size;
+        }
+        self
+    }
+
+    /// # Get the point size
+    /// Note: allmost all other fields are public!
+    pub fn get_size(&self) -> f32
+    {
+        self.size
+    }
+
+    /// Should there be a frame around the point ?
+    /// This is good for better visibility if you do not know the color
+    /// of the background, or the background color changes
+    pub fn frame(&mut self, active: bool) -> &mut Self
+    {
+        self.frame = active;
+        self
+    }
+
+    /// # Which color should the frame have?
+    /// *default color is black
+    pub fn frame_color(&mut self, color: ColorRGB) -> &mut Self
+    {
+        self.frame_color = color;
+        self
+    }
+
+    /// # Change the legend entry
+    /// * This will be the title of the legend for this point(s)
+    /// * will be set to "Invalid character encountered" if it contains a " or newline character
+    pub fn legend<S: Into<String>>(&mut self, legend: S) -> &mut Self
+    {
+        let s = legend.into();
+        if s.contains('\"') || s.contains("\n")
+        {
+            self.legend = "Invalid character encountered".to_owned();
+            self
+        } else
+        {
+            self.legend = s;
+            self
+        }
+    }
+
+    /// # Get entry for legend
+    /// This will be the title of the legend for this point(s)
+    pub fn get_legend(&self) -> &str
+    {
+        &self.legend
+    }
+
+    pub(crate) fn frame_size(&self) -> f32
+    {
+        let size = self.size * 1.14;
+        if size < 0.01 {
+            0.01
+        } else {
+            size
+        }
+    }
+}
+
+impl Default for GnuplotPoint
+{
+    fn default() -> Self 
+    {
+        Self{
+            color: ColorRGB::new(0,0,255),
+            size: 0.5,
+            frame: true,
+            frame_color: ColorRGB::default(),
+            legend: "".into()
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// defines presets for different color palettes
 pub enum GnuplotPalette{
     /// Use preset HSV palette
     PresetHSV,
-    /// Use preset RGB palette
+    /// Use preset RGB palette, i.e., the 
+    /// default palette of gnuplot
     PresetRGB,
     /// Use a CubeHelix palette
     /// 
     /// What makes this palette special is,
     /// that, if it is converted to black and white,
-    /// it will be monotonically increasing in brightness,
+    /// it will be monotonically increasing in perceived brightness
+    /// (or monotonically decreasing, if you reverse the palette),
     /// which is nice for heatmaps
     ///
-    /// For more info see [CubeHelixParameter]
+    /// For more info see [`CubeHelixParameter`](crate::heatmap::CubeHelixParameter)
     CubeHelix(CubeHelixParameter),
     /// Define a palette in RGB space
     RGB(PaletteRGB),
@@ -678,8 +820,8 @@ pub enum GnuplotTerminal{
     /// # Use EpsLatex as terminal in gnuplot
     /// * the created gnuplotscript assumes, you have `latexmk` installed
     /// * if you do not have latexmk, you can still use this, but you have to manually edit the 
-    /// gnuplotskrip later on
-    /// * gnuplot skript will create `.tex` file and `.pdf` file created from the tex file
+    /// gnuplotscrip later on
+    /// * gnuplot script will create `.tex` file and `.pdf` file created from the tex file
     EpsLatex,
     /// # Use pdf as gnuplot terminal
     /// * gnuplot skript will create a `.pdf` file
@@ -687,14 +829,18 @@ pub enum GnuplotTerminal{
 }
 
 impl GnuplotTerminal{
-    pub(crate) fn terminal_str(&self) -> &'static str
+    pub(crate) fn write_terminal<W: Write>(
+        &self,
+        mut writer: W,
+        size: &str
+    ) -> std::io::Result<()>
     {
         match self{
             Self::EpsLatex => {
-                "set t epslatex 9 standalone color size 7.4cm, 5cm header \"\\\\usepackage{amsmath}\\n\"\nset font \",9\""
+                write!(writer, "set t epslatex 9 standalone color size {} header \"\\\\usepackage{{amsmath}}\\n\"\nset font \",9\"", size)
             },
             Self::PDF => {
-                "set t pdf"
+                write!(writer, "set t pdf size {}", size)
             }
         }
     }
@@ -725,7 +871,7 @@ impl GnuplotTerminal{
             Self::EpsLatex => {
                 write!(w, "system('latexmk ")?;
                 self.output(output_name, &mut w)?;
-                writeln!(w, "-pdf -f')")
+                writeln!(w, " -pdf -f')")
             },
             _ => Ok(())
         }

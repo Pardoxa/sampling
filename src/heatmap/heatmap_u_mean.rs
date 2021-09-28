@@ -204,6 +204,30 @@ where HistX: Histogram,
     }
 
     /// # Create a gnuplot script to plot your heatmap
+    /// * `writer`: The gnuplot script will be written to this
+    /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
+    /// be called? Ending of file will be set automatically
+    /// # Note
+    /// This is the same as calling [`gnuplot`](Self::gnuplot) with default
+    /// `GnuplotSettings` and default `GnuplotPoint`
+    pub fn gnuplot_quick<W, S>(
+        &self,
+        writer: W,
+        gnuplot_output_name: S
+    ) -> std::io::Result<()>
+    where 
+        W: std::io::Write,
+        S: AsRef<str>
+    {
+        self.gnuplot(
+            writer,
+            gnuplot_output_name,
+            GnuplotSettings::default(),
+            GnuplotPoint::default()
+        )
+    }
+
+    /// # Create a gnuplot script to plot your heatmap
     /// This function writes a file, that can be plotted via the terminal via [gnuplot](http://www.gnuplot.info/)
     /// ```bash
     /// gnuplot gnuplot_file
@@ -220,7 +244,7 @@ where HistX: Histogram,
         mut writer: W,
         gnuplot_output_name: S,
         settings: GS,
-        point_color: ColorRGB
+        point: GnuplotPoint
     ) -> std::io::Result<()>
     where 
     W: std::io::Write,
@@ -245,10 +269,17 @@ where HistX: Histogram,
             settings.get_title()
         )?;
         writeln!(writer, ",\\")?;
-        writeln!(writer, "$mean_data u 1:2:(1) pointtype 7 lc '0x000000' pointsize .57 notitle,\\")?;
+        if point.frame
+        {
+            write!(writer, "$mean_data u 1:2:(1) pointtype 7 lc \"")?;
+            point.frame_color.write_hex(&mut writer)?;
+            writeln!(writer, "\" pointsize {} notitle,\\", point.frame_size())?;
+        }
+
         write!(writer, "$mean_data u 1:2:(1) pt 7 lc \"")?;
-        point_color.write_hex(&mut writer)?;
-        writeln!(writer, "\" ps 0.5 notitle")?;
+        point.color.write_hex(&mut writer)?;
+        writeln!(writer, "\" ps {} t \"{}\"", point.get_size(), point.get_legend())?;
+        
 
         gnuplot_write_output(
             writer,

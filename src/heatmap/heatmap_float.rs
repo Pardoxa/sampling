@@ -438,6 +438,29 @@ where
     }
 
     /// # Create a gnuplot script to plot your heatmap
+    /// * `writer`: The gnuplot script will be written to this
+    /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
+    /// be called? Ending of file will be set automatically
+    /// # Note
+    /// This is the same as calling [`gnuplot`](Self::gnuplot) with default
+    /// `GnuplotSettings`
+    pub fn gnuplot_quick<W, S>(
+        &self,
+        writer: W,
+        gnuplot_output_name: S
+    ) -> std::io::Result<()>
+    where 
+        W: std::io::Write,
+        S: AsRef<str>
+    {
+        self.gnuplot(
+            writer,
+            gnuplot_output_name,
+            GnuplotSettings::default()
+        )
+    }
+
+    /// # Create a gnuplot script to plot your heatmap
     /// This function writes a file, that can be plottet via the terminal via [gnuplot](http://www.gnuplot.info/)
     /// ```bash
     /// gnuplot gnuplot_file
@@ -533,9 +556,8 @@ where
         settings: &GnuplotSettings
     ) -> std::io::Result<()>
     {
-        settings.terminal_str();
-        writeln!(gnuplot_writer, "{}", settings.terminal_str())?;
-        write!(gnuplot_writer, "set output \"")?;
+        settings.write_terminal(&mut gnuplot_writer)?;
+        write!(gnuplot_writer, "\nset output \"")?;
         settings.terminal.output(gnuplot_output_name.as_ref(), &mut gnuplot_writer)?;
         writeln!(gnuplot_writer, "\"")?;
         settings.write_label(&mut gnuplot_writer)?;
