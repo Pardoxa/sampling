@@ -35,6 +35,10 @@ impl<HistX, HistY> HeatmapUsizeMean<HistX, HistY>
 where HistX: Histogram,
     HistY: Histogram,
 {
+    /// # Create a heatmap
+    /// * creates new instance
+    /// * `hist_x` defines the bins along the x-axis
+    /// * `hist_y` defines the bins along the y-axis
     pub fn new(hist_x: HistX, hist_y: HistY) -> Self
     {
         let heatmap = HeatmapUsize::new(hist_x, hist_y);
@@ -50,7 +54,7 @@ where HistX: Histogram,
     }
 
     /// # Update Heatmap
-    /// * similar to [count](crate::heatmap::HeatmapUsizeMean::count)
+    /// * similar to [`count` of `HeatmapU`](crate::heatmap::HeatmapUsizeMean::count)
     /// 
     /// This time, however, any value that is out of bounds will be ignored for
     /// the calculation of the mean of the y-axis, meaning also values which correspond 
@@ -114,11 +118,20 @@ where HistX: Histogram,
         res
     }
 
-    pub fn mean_vec(&self) -> &[MeanWithError]
+    /// # Internal slice for mean
+    /// * The mean is calculated from this slice
+    /// * The mean corresponds to the bins of the x-axis
+    /// * you can also access the estimated error of the mean here
+    pub fn mean_slice(&self) -> &[MeanWithError]
     {
         &self.mean_with_errors
     }
 
+    /// # Iterate over the calculated mean
+    /// * iterates over the means
+    /// * The mean corresponds to the bins of the x-axis
+    /// * if a bin on the x-axis has no entries, the corresponding
+    /// mean will be `f64::NAN`
     pub fn mean_iter<'a>(&'a self) -> impl Iterator<Item=f64> + 'a
     {
         self.mean_with_errors
@@ -136,6 +149,15 @@ where HistX: Histogram,
             )
     }
 
+    /// # Get a mean vector
+    /// * The entries are the means corresponds to the bins of the x-axis
+    /// * if a bin on the x-axis has no entries, the corresponding
+    /// mean will be `f64::NAN`
+    /// 
+    /// # Note
+    /// * If you want to iterate over the mean values, use 
+    /// [`mean_iter`](Self::mean_iter) instead
+    /// * If you require error information, take a look at [`mean_slice`](Self::mean_slice)
     pub fn mean(&self) -> Vec<f64>
     {
         let mut mean = Vec::with_capacity(self.mean_with_errors.len());
@@ -144,6 +166,16 @@ where HistX: Histogram,
         mean
     }
 
+    /// # returns (column wise) normalized heatmap
+    /// * returns normalized heatmap as [`HeatmapF64Mean`](crate::heatmap::HeatmapF64Mean) 
+    /// 
+    /// 
+    /// * Heatmap vector `self.heatmap_normalized().heatmap()` contains only 0.0, if nothing was in the heatmap
+    /// * otherwise the sum of each column (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
+    ///  If it did not, the column will only consist of 0.0
+    /// * otherwise the sum of this Vector is 1.0 
+    /// 
+    /// For the calculation of the mean, each `count` will have a weight of 1
     pub fn into_heatmap_normalized_columns(self) -> HeatmapF64Mean<HistX, HistY>
     {
         let heatmap = self.heatmap.into_heatmap_normalized_columns();

@@ -1,4 +1,4 @@
-use std::{borrow::*, fmt};
+use std::{borrow::*, fmt, convert::From};
 use std::io::Write;
 use std::default::Default;
 
@@ -295,7 +295,15 @@ impl CubeHelixParameter {
     /// default: low = 0.0, high = 1.0
     ///
     /// Maps grayscale range from [0.0, 1.0] -> [low, high].
-    /// These are the brightness values used for calculating the palett later on.
+    /// These are the brightness values used for calculating the palette later on.
+    /// 
+    /// # Safety
+    /// will panic if
+    /// * `low` >= `high`
+    /// * `low` < 0
+    /// * `low` >= 1
+    /// * `high` <= 0
+    /// * `high` > 1
     pub fn low_high(&mut self, low: f32, high: f32) -> &mut Self
     {
         if low < high && valid(low) && valid(high) {
@@ -362,6 +370,31 @@ impl CubeHelixParameter {
             lg +  a * c_phi * 1.97294                       // blue
         ]
     }
+
+    /// * Calculate color from gray value.
+    /// * Gray value should be in the interval [0.0,1.0].
+    /// * will return `ColorRgb::new(0,0,0)` for NAN gray value
+    /// 
+    /// will return corresponding (approximate) [`ColorRgb`](crate::heatmap::ColorRGB)
+    pub fn approximate_color_rgb(&self, gray: f32) -> ColorRGB
+    {
+        let color = self.rgb_from_gray(gray);
+        let color = color
+            .map(
+                |val| 
+                (val * 255.0)
+                    .clamp(0.0,255.0)
+                    .floor() as u8
+            );
+        
+        ColorRGB::new_from_array(&color)
+    }
+
+    /// Converts `self` into the corresponding enum of [`GnuplotPallet`](crate::heatmap::GnuplotPalette)
+    pub fn into_gnuplot_palette(self) -> GnuplotPalette
+    {
+        self.into()
+    }
 }
 
 impl Default for CubeHelixParameter {
@@ -378,6 +411,7 @@ impl Default for CubeHelixParameter {
         }    
     }
 }
+
 
 /// # RGB value
 /// * stores a color in RGB space
@@ -543,9 +577,10 @@ impl PaletteRGB{
         write!(writer, " )")
     }
 
+    /// Converts `self` into the corresponding enum of [`GnuplotPallet`](crate::heatmap::GnuplotPalette)
     pub fn into_gnuplot_palette(self) -> GnuplotPalette
     {
-        GnuplotPalette::RGB(self)
+        self.into()
     }
 }
 
@@ -568,6 +603,21 @@ pub enum GnuplotPalette{
     CubeHelix(CubeHelixParameter),
     /// Define a palette in RGB space
     RGB(PaletteRGB),
+}
+
+impl From<PaletteRGB> for GnuplotPalette{
+    fn from(palette: PaletteRGB) -> Self 
+    {
+        GnuplotPalette::RGB(palette)  
+    }
+}
+
+impl From<CubeHelixParameter> for GnuplotPalette
+{
+    fn from(parameter: CubeHelixParameter) -> Self
+    {
+        GnuplotPalette::CubeHelix(parameter)
+    }
 }
 
 impl GnuplotPalette{

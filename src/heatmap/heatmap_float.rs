@@ -3,6 +3,7 @@ use std::io::Write;
 use std::borrow::*;
 use transpose::*;
 use std::convert::*;
+use crate::heatmap::{gnuplot_write_helper_plot, gnuplot_write_output};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -509,6 +510,29 @@ where
         GS: Borrow<GnuplotSettings>
     {
         let settings = settings.borrow();
+        self.gnuplot_write_helper_setup(
+            &mut gnuplot_writer,
+            gnuplot_output_name.as_ref(),
+            settings
+        )?;
+
+        gnuplot_write_helper_plot(&mut gnuplot_writer, settings.get_title())?;
+        writeln!(gnuplot_writer)?;
+
+        gnuplot_write_output(
+            gnuplot_writer,
+            gnuplot_output_name.as_ref(),
+            settings
+        )
+    }
+
+    pub(crate) fn gnuplot_write_helper_setup<W: Write>(
+        &self,
+        mut gnuplot_writer: W,
+        gnuplot_output_name: &str,
+        settings: &GnuplotSettings
+    ) -> std::io::Result<()>
+    {
         settings.terminal_str();
         writeln!(gnuplot_writer, "{}", settings.terminal_str())?;
         write!(gnuplot_writer, "set output \"")?;
@@ -534,12 +558,9 @@ where
         writeln!(gnuplot_writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")?;
         writeln!(gnuplot_writer, "$data << EOD")?;
         self.write_to(&mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "EOD")?;
-        writeln!(gnuplot_writer, "splot $data matrix with image t \"{}\" ", settings.get_title())?;
 
-        writeln!(gnuplot_writer, "set output")?;
-
-        settings.terminal.finish(gnuplot_output_name.as_ref(), gnuplot_writer)
+        writeln!(gnuplot_writer, "EOD")
     }
 
 }
+

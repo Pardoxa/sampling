@@ -680,21 +680,19 @@ where
     }
     
 
-    pub(crate) fn gnuplot_write_helper_setup<W, S>(
+    pub(crate) fn gnuplot_write_helper_setup<W>(
         &self, 
         mut gnuplot_writer: W,
-        gnuplot_output_name: S,
+        gnuplot_output_name: &str,
         settings: &GnuplotSettings
     ) -> std::io::Result<()>
     where 
     W: Write,
-    S: AsRef<str>,
     {
-        let settings = settings.borrow();
         settings.terminal_str();
         writeln!(gnuplot_writer, "{}", settings.terminal_str())?;
         write!(gnuplot_writer, "set output \"")?;
-        settings.terminal.output(gnuplot_output_name.as_ref(), &mut gnuplot_writer)?;
+        settings.terminal.output(gnuplot_output_name, &mut gnuplot_writer)?;
         writeln!(gnuplot_writer, "\"")?;
         settings.write_label(&mut gnuplot_writer)?;
 

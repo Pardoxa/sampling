@@ -6,7 +6,7 @@
 //! * [Detailed example](examples/coin_flips/index.html#example-replica-exchange-wang-landau) for 
 //! parallel Replica exchange Wang Landau
 
-//#![deny(missing_docs, warnings)]
+#![deny(missing_docs, warnings)]
 /// Contains traits useful for sampling an ensemble
 /// like MarkovChain or Metropolis etc.
 pub mod traits;
