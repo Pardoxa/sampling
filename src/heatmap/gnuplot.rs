@@ -699,6 +699,7 @@ impl GnuplotPoint{
         &self.legend
     }
 
+    #[allow(dead_code)]
     pub(crate) fn frame_size(&self) -> f32
     {
         let size = self.size * 1.14;
