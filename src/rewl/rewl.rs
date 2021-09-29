@@ -14,7 +14,7 @@ use serde::{Serialize, Deserialize};
 /// # Efficient replica exchange Wang landau
 /// * use this to quickly build your own parallel replica exchange wang landau simulation
 /// ## Tipp
-/// Use the short hand `Rewl`  
+/// Use the short hand [`Rewl`](crate::Rewl)  
 /// ## Citations
 /// * the following paper were used to progamm this - you should cite them, if you use 
 /// this library for a publication!
@@ -49,7 +49,8 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
 }
 
 
-/// Short for [`ReplicaExchangeWangLandau`](crate::rewl::ReplicaExchangeWangLandau)
+/// Short for [`ReplicaExchangeWangLandau`](crate::rewl::ReplicaExchangeWangLandau), 
+/// which you can look at for citations
 pub type Rewl<Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>;
 
 
@@ -66,7 +67,9 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
 
     /// # Iterator over ensembles
     /// If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    /// you can just pretend it is `&Ensemble` and everything should work out fine,
+    /// since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+    /// Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
     pub fn ensemble_iter<'a>(&'a self) -> impl Iterator<Item=RwLockReadGuard<'a, Ensemble>>
     {
         self.ensembles
@@ -77,7 +80,9 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// # read access to your ensembles
     /// * `None` if `index` out of range
     /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    /// you can just pretend it is `&Ensemble` and everything will work out fine,
+    /// since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+    /// Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
     pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
     {
         self.ensembles
@@ -100,7 +105,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
 
     /// # mut access to your ensembles
     /// * if possible, prefer [`get_ensemble`](Self::get_ensemble)
-    /// * *unsafe** only use this if you know what you are doing
+    /// * **unsafe** only use this if you know what you are doing
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
     /// * None if `index` out of range

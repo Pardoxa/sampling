@@ -24,3 +24,5 @@ jobs:
       run: cargo test --verbose --no-default-features
     - name: Run tests with sweep_time_optimization feature
       run: cargo test --verbose --features sweep_time_optimization
+    - name: Run tests with sweep_stats feature
+      run: cargo test --verbose --features sweep_stats

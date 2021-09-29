@@ -3,7 +3,9 @@ use rand::{Rng, seq::*};
 use average::Variance;
 
 
-/// returns reduced value + estimated error (as sqrt of variance)
+/// returns reduced value + estimated error (as sqrt of variance).
+/// Note, that you can use [bootstrap_copyable](crate::bootstrap_copyable) 
+/// if your `N1` implements Copy
 pub fn bootstrap<F, R, N1>(mut rng: R, samples: usize, data: &[N1], reduction: F) -> (f64, f64)
 where F: Fn (&[&N1]) -> f64,
     R: Rng,
@@ -31,7 +33,7 @@ where F: Fn (&[&N1]) -> f64,
     (mean, variance)
 }
 
-/// Similar to ```bootstrap``` but for stuff that implements `Copy`. Likely more effient in these cases
+/// Similar to [bootstrap](crate::bootstrap::bootstrap) but for stuff that implements `Copy`. Likely more effient in these cases
 /// returns reduced value + estimated error (as sqrt of variance)
 pub fn bootstrap_copyable<F, R, N1>(mut rng: R, samples: usize, data: &[N1], reduction: F) -> (f64, f64)
 where F: Fn (&mut [N1]) -> f64,

@@ -595,8 +595,10 @@ where
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
     /// be called? Ending of file will be set automatically
     /// # Note
-    /// This is the same as calling [`gnuplot`](Self::gnuplot) with default
+    /// * This is the same as calling [`gnuplot`](Self::gnuplot) with default
     /// `GnuplotSettings`
+    /// * The default axis are the bin indices, which, e.g, means they always 
+    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot_quick<W, S>(
         &self,
         writer: W,
@@ -623,6 +625,9 @@ where
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, be called? Ending of file will be set automatically
     /// * `settings`: Here you can set the axis, choose between terminals and more. 
     /// I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    /// ## Note
+    /// The default axis are the bin indices, which, e.g, means they always 
+    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     /// ## Example
     /// ```
     /// use rand_pcg::Pcg64;

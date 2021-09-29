@@ -34,7 +34,9 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
 
     /// # Iterator over ensembles
     /// If you do not know what `RwLockReadGuard<'a, Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    /// you can just pretend it is `&Ensemble` and everything should work out fine,
+    /// since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+    /// Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
     pub fn ensemble_iter<'a>(&'a self) -> impl Iterator<Item=RwLockReadGuard<'a, Ensemble>>
     {
         self.ensembles
@@ -45,7 +47,9 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     /// # read access to your ensembles
     /// * None if index out of range
     /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
-    /// you can just pretend it is `&Ensemble` and everything will work out fine
+    /// you can just pretend it is `&Ensemble` and everything will work out fine,
+    /// since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+    /// Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
     pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
     {
         self.ensembles
@@ -55,7 +59,7 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
 
     /// # mut access to your ensembles
     /// * if possible, prefer [`get_ensemble`](Self::get_ensemble)
-    /// * *unsafe** only use this if you know what you are doing
+    /// * **unsafe** only use this if you know what you are doing
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
     /// * `None` if `index` out of range

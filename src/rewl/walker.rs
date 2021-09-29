@@ -107,18 +107,27 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
         self.duration
     }
 
+    /// # Returns average sweep duration
+    /// * Averages over all sweep durations that are stored in the buffer
+    /// * There are up to 512 durations in the buffer
     #[cfg(feature = "sweep_stats")]
     pub fn average_sweep_duration(&self) -> Duration
     {
         self.sweep_stats.averag_duration()
     }
 
+    /// # Returns hightest and lowest 10 percent
+    /// * returns Duration, where only 10 percent of the durations in 
+    /// the buffer took longer
+    /// * returns Duration, where only 10 percent of the durations in the
+    /// buffer finished quicker
     #[cfg(feature = "sweep_stats")]
     pub fn high_low_10_percent(&self) -> (Duration, Duration)
     {
         self.sweep_stats.percent_high_low()
     }
 
+    /// Durations stored in the Buffer
     #[cfg(feature = "sweep_stats")]
     pub fn last_durations(&self) -> &[Duration]
     {

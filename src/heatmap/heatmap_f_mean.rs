@@ -175,8 +175,11 @@ where HistX: Histogram,
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
     /// be called? Ending of file will be set automatically
     /// # Note
-    /// This is the same as calling [`gnuplot`](Self::gnuplot) with default
-    /// `GnuplotSettings` and default `GnuplotPoint`
+    /// * This is the same as calling [`gnuplot`](Self::gnuplot) with default
+    /// [`GnuplotSettings`](crate::heatmap::GnuplotSettings) and default 
+    /// [`GnuplotPointSettings`](crate::heatmap::GnuplotPointSettings)
+    /// * The default axis are the bin indices, which, e.g, means they always 
+    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot_quick<W, S>(
         &self,
         writer: W,
@@ -190,7 +193,7 @@ where HistX: Histogram,
             writer,
             gnuplot_output_name,
             GnuplotSettings::default(),
-            GnuplotPoint::default()
+            GnuplotPointSettings::default()
         )
     }
 
@@ -206,12 +209,15 @@ where HistX: Histogram,
     /// I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
     /// * `point_color`: the mean (in y-direction) will be plotted as points in the heatmap.
     /// Here you can choose the point color
+    /// ## Notes
+    /// The default axis are the bin indices, which, e.g, means they always 
+    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot<W, S, GS>(
         &self,
         mut writer: W,
         gnuplot_output_name: S,
         settings: GS,
-        point: GnuplotPoint
+        point: GnuplotPointSettings
     ) -> std::io::Result<()> 
     where 
         W: std::io::Write,

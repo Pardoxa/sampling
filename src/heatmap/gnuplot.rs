@@ -608,7 +608,7 @@ impl PaletteRGB{
 /// can be accessed directly
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct GnuplotPoint
+pub struct GnuplotPointSettings
 {
     /// Color of the point
     pub color: ColorRGB,
@@ -621,9 +621,9 @@ pub struct GnuplotPoint
     legend: String
 }
 
-impl GnuplotPoint{
-    /// Create a new instance of GnuplotPoint
-    /// - same as GnuplotPoint::default()
+impl GnuplotPointSettings{
+    /// Create a new instance of GnuplotPointSettings
+    /// - same as GnuplotPointSettings::default()
     pub fn new() -> Self
     {
         Self::default()
@@ -711,7 +711,7 @@ impl GnuplotPoint{
     }
 }
 
-impl Default for GnuplotPoint
+impl Default for GnuplotPointSettings
 {
     fn default() -> Self 
     {
