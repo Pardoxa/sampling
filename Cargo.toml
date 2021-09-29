@@ -51,7 +51,3 @@ sweep_time_optimization = []
 sweep_stats = ["sweep_time_optimization"]
 replica_exchange = ["rayon"]
 default = ["serde_support", "bootstrap", "replica_exchange"]
-
-[[bench]]
-name = "bench"
-harness = false
