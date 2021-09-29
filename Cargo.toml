@@ -8,12 +8,9 @@ repository = "https://github.com/Pardoxa/sampling"
 keywords = [
     "large-deviation",
     "Wang-Landau",
-    "entropic sampling",
-    "Markov Chain",
-    "Replica exchange",
     "Histogram",
-    "Heat map",
-    "bootstrap"
+    "Heatmap",
+    "Replica-Exchange"
 ]
 license = "MIT OR Apache-2.0"
 categories = ["science", "mathematics"]
@@ -25,8 +22,10 @@ exclude = [
     "*.dat",
     "*.html",
     "*.pdf",
-    "*.gp",
-    "benches/*"
+    "benches/*",
+    "target/*",
+    ".gitignore",
+    "src/examples/ising_spins.rs"
 ]
 description = "Large-deviation Algorithms like Wang-Landau, Entropic sampling, Replica-Exchange Wang-Landau, Heatmaps, Histograms and bootstrap resampling. This is intended for scientific simulations"
 

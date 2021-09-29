@@ -630,5 +630,3 @@
 ///20 21 -13.864878912176867 NaN NaN -12.131088145577678
 /// ```
 pub mod coin_flips;
-
-//pub mod ising_spins;

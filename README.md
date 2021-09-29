@@ -6,7 +6,9 @@ Minimal Rust version: 1.55.0
 
 ## About
 
-Large-deviation sampling methods (Wang-Landau, Replica-exchange Wang-Landau, entropic sampling), bootstrap resampling, histograms, heat maps and more.
+Large-deviation sampling methods (Wang-Landau, Replica-exchange Wang-Landau, 
+entropic sampling, Markov-chains), bootstrap resampling, histograms, heat maps and more.
+It also allows you to create gnuplot scripts for your heatmaps.
 
 The Documentation of the working branch can be found [here](https://pardoxa.github.io/sampling/sampling/).
 
