@@ -1,6 +1,6 @@
 [package]
 name = "sampling"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Yannick Feld <yannick.feld@uol.de>"]
 edition = "2018"
 readme = "README.md"
@@ -14,7 +14,7 @@ keywords = [
 ]
 license = "MIT OR Apache-2.0"
 categories = ["science", "mathematics"]
-documentation = "https://docs.rs/sampling/0.1.0"
+documentation = "https://docs.rs/sampling/0.1.1"
 homepage = "https://www.yfeld.de"
 exclude = [
     ".github/*",
@@ -25,7 +25,8 @@ exclude = [
     "benches/*",
     "target/*",
     ".gitignore",
-    "src/examples/ising_spins.rs"
+    "src/examples/ising_spins.rs",
+    "CHANGELOG.md"
 ]
 description = "Large-deviation Algorithms like Wang-Landau, Entropic sampling, Replica-Exchange Wang-Landau, Heatmaps, Histograms and bootstrap resampling. This is intended for scientific simulations"
 

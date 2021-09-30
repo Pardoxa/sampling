@@ -1,6 +1,6 @@
 
 
-use num_traits::{int::*, ops::{checked::*, saturating::*, wrapping::*}, cast::*, identities::*, Bounded};
+use num_traits::{int::*, ops::{checked::*, saturating::Saturating, wrapping::*}, cast::*, identities::*, Bounded};
 use crate::histogram::*;
 use std::{borrow::*, ops::*, num::*};
 #[cfg(feature = "serde_support")]
