@@ -64,8 +64,97 @@ impl<T> HistogramFast<T>
             )
         }
     }
+
+    /// # Iterator over all the bins
+    /// In HistogramFast is hit only when a value matches the corresponding bin exactly,
+    /// which means there exists a map between bins and corresponding values that would hit them.
+    /// 
+    /// This iterates over these values
+    /// # Example
+    /// ```
+    /// use sampling::histogram::HistogramFast;
+    /// 
+    /// let hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
+    /// let vec: Vec<u8> =  hist.bin_iter().collect();
+    /// assert_eq!(&vec, &[2, 3, 4, 5]);
+    /// ```
+    pub fn bin_iter(&self) -> impl Iterator<Item=T>
+    {
+        HistFastIterHelper{
+            current: self.left,
+            right: self.right,
+            invalid: false
+        }
+
+    }
+
+    /// # Iterator over all the bins
+    /// In HistogramFast is hit only when a value matches the corresponding bin exactly,
+    /// which means there exists a map between bins and corresponding values that would hit them.
+    /// 
+    /// This iterates over these values as well as the corresponding hit count (i.e., how often the corresponding bin was hit)
+    /// # Item of Iterator
+    /// `(value_corresponding_to_bin, number_of_hits)`
+    /// # Example
+    /// ```
+    /// use sampling::histogram::HistogramFast;
+    /// use sampling::histogram::HistogramVal;
+    /// 
+    /// let mut hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
+    /// hist.count_val(4).unwrap();
+    /// hist.count_val(5).unwrap();
+    /// hist.count_val(5).unwrap();
+    /// let vec: Vec<(u8, usize)> =  hist.bin_hits_iter().collect();
+    /// assert_eq!(&vec, &[(2, 0), (3, 0), (4, 1), (5, 2)]);
+    /// ```
+    pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item=(T, usize)> + 'a
+    {
+        self.bin_iter()
+            .zip(
+                self.hist
+                    .iter()
+                    .copied()
+            )
+    }
 }
 
+struct HistFastIterHelper<T>
+{
+    current: T,
+    right: T,
+    invalid: bool,
+}
+
+impl<T> Iterator for HistFastIterHelper<T>
+where 
+    T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
+        + HasUnsignedVersion,
+    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
+        + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+{
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<T>
+    {
+        if self.invalid {
+            return None;
+        }
+
+        let is_iterating = self.current < self.right;
+        Some(
+            if is_iterating
+            {
+                let next = self.current + T::one();
+                std::mem::replace(&mut self.current, next)
+            } else {
+                self.invalid = true;
+                self.current
+            }
+        )
+
+    }
+}
 
 impl<T> HistogramPartition for HistogramFast<T> 
 where T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
