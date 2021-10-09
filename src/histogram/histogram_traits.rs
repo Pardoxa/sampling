@@ -40,7 +40,7 @@ pub trait Histogram {
 pub trait HistogramVal<T>: Histogram{
     /// convert val to the respective histogram index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
-    /// count val. Some(index), if inside of hist, None if val is invalid
+    /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
     {
         let id = self.get_bin_index(val)?;
