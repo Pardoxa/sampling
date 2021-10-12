@@ -2,15 +2,11 @@
 
 ## v0.1.2
 
-HistogramFast:
+HistogramFast, HistogramInt and HistogramFloat:
 * adding `bin_iter`
 * adding `bin_hits_iter`
 * adding `increment`
-
-HistogramInt:
-* adding `bin_iter`
-* adding `bin_hits_iter`
-* adding `increment`
+* adding `increment_quiet`
 
 ## v0.1.1
 

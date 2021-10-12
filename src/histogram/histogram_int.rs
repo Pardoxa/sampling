@@ -105,14 +105,23 @@ impl<T> HistogramInt<T>
 where T: Sub<T, Output=T> + Add<T, Output=T> + Ord + One + Copy + NumCast
 {
     #[inline]
-    /// # count a value. 
-    /// If it is inside the histogram, the corresponding bin count will be increased
+    /// # Increment hit count 
+    /// If `val` is inside the histogram, the corresponding bin count will be increased
     /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
     /// Otherwise an Error is returned
     /// ## Note
     /// This is the same as [HistogramVal::count_val]
     pub fn increment<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
         self.count_val(val)
+    }
+
+    #[inline]
+    /// # Increment hit count
+    /// Increments the hit count of the bin corresponding to `val`.
+    /// If no bin corresponding to `val` exists, nothing happens
+    pub fn increment_quiet<V: Borrow<T>>(&mut self, val: V)
+    {
+        let _ = self.increment(val);
     }
 }
 
