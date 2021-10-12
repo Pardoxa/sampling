@@ -1,6 +1,6 @@
 
 
-use num_traits::{int::*, ops::{checked::*, saturating::Saturating, wrapping::*}, cast::*, identities::*, Bounded};
+use num_traits::{int::*, ops::{checked::*, wrapping::*}, cast::*, identities::*, Bounded};
 use crate::histogram::*;
 use std::{borrow::*, ops::*, num::*};
 #[cfg(feature = "serde_support")]
@@ -19,8 +19,7 @@ pub struct HistogramFast<T> {
 
 impl<T> HistogramFast<T> 
     where 
-    T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
-        + HasUnsignedVersion,
+    T: PrimInt + HasUnsignedVersion,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -99,12 +98,11 @@ impl<T> HistogramFast<T>
     /// # Example
     /// ```
     /// use sampling::histogram::HistogramFast;
-    /// use sampling::histogram::HistogramVal;
     /// 
     /// let mut hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
-    /// hist.count_val(4).unwrap();
-    /// hist.count_val(5).unwrap();
-    /// hist.count_val(5).unwrap();
+    /// hist.count(4).unwrap();
+    /// hist.count(5).unwrap();
+    /// hist.count(5).unwrap();
     /// let vec: Vec<(u8, usize)> =  hist.bin_hits_iter().collect();
     /// assert_eq!(&vec, &[(2, 0), (3, 0), (4, 1), (5, 2)]);
     /// ```
@@ -117,6 +115,17 @@ impl<T> HistogramFast<T>
                     .copied()
             )
     }
+
+    #[inline]
+    /// # count a value. 
+    /// If it is inside the histogram, the corresponding bin count will be incresed
+    /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
+    /// Otherwise an Error is returned
+    /// ## Note
+    /// This is the same as [HistogramVal::count_val]
+    pub fn count<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
+        self.count_val(val)
+    }
 }
 
 struct HistFastIterHelper<T>
@@ -128,10 +137,7 @@ struct HistFastIterHelper<T>
 
 impl<T> Iterator for HistFastIterHelper<T>
 where 
-    T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
-        + HasUnsignedVersion,
-    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-        + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+    T: PrimInt,
 {
     type Item = T;
 
@@ -259,8 +265,9 @@ impl<T> Histogram for HistogramFast<T>
 }
 
 impl<T> HistogramVal<T> for HistogramFast<T>
-where T: PartialOrd + CheckedSub + CheckedAdd + One + Saturating + NumCast + Copy,
-    std::ops::RangeInclusive<T>: Iterator<Item=T>
+where T: PrimInt + HasUnsignedVersion,
+    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
+        + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
     #[inline]
     fn first_border(&self) -> T {
@@ -311,7 +318,14 @@ where T: PartialOrd + CheckedSub + CheckedAdd + One + Saturating + NumCast + Cop
         }
     }
 
-    /// # Creates a vector containing borders (last border is exclusive)
+    /// # Creates a vector containing borders
+    /// How to understand the borders?
+    /// 
+    /// Lets say we have a Vector containing `[a,b,c]`,
+    /// then the first bin contains all values `T` for which 
+    /// `a <= T < b`, the second bin all values `T` for which 
+    /// `b <= T < c`. In this case, there are only two bins.
+    /// # Errors
     /// * returns `Err(Overflow)` if right border is `T::MAX`
     /// * creates and returns borders otherwise
     /// * Note: even if `Err(Overflow)` is returned, this does not 
@@ -320,7 +334,11 @@ where T: PartialOrd + CheckedSub + CheckedAdd + One + Saturating + NumCast + Cop
     fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
         let right = self.right.checked_add(&T::one())
             .ok_or(HistErrors::Overflow)?;
-        Ok((self.left..=right).collect())
+        Ok(
+            self.bin_iter()
+                .chain(std::iter::once(right))
+                .collect()
+        )
     }
 
     #[inline]
@@ -366,8 +384,7 @@ where Self: HistogramVal<T>,
 
 impl<T> HistogramCombine for HistogramFast<T>
     where   Self: HistogramVal<T>,
-    T: PartialOrd + Copy + PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
-+ HasUnsignedVersion,
+    T: PrimInt + HasUnsignedVersion,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -428,7 +445,7 @@ mod tests{
 
     fn hist_test_fast<T>(left: T, right: T)
     where T: PrimInt + num_traits::Bounded + PartialOrd + CheckedSub + One 
-        + Saturating + NumCast + Copy + FromPrimitive + HasUnsignedVersion,
+        + NumCast + Copy + FromPrimitive + HasUnsignedVersion,
     std::ops::RangeInclusive<T>: Iterator<Item=T>,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>

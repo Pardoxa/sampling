@@ -5,6 +5,7 @@
 HistogramFast:
 * adding `bin_iter`
 * adding `bin_hits_iter`
+* adding `count`
 
 ## v0.1.1
 
