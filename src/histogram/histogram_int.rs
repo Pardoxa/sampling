@@ -57,6 +57,37 @@ impl<T> HistogramInt<T>{
     /// the corresponding bin was hit)
     /// ## Item of Iterator
     /// `(&[left_border, right_border], number_of_hits)`
+    /// ## Example
+    /// ``` 
+    /// use sampling::histogram::*;
+    /// 
+    /// let mut hist = HistUsize::new(0, 6, 3).unwrap();
+    /// 
+    /// hist.increment(0).unwrap();
+    /// hist.increment(5).unwrap();
+    /// hist.increment(4).unwrap();
+    /// 
+    /// let mut iter = hist.bin_hits_iter();
+    /// assert_eq!(
+    ///     iter.next(),
+    ///     Some(
+    ///         (&[0, 2], 1)
+    ///     )
+    /// );
+    /// assert_eq!(
+    ///     iter.next(),
+    ///     Some(
+    ///         (&[2, 4], 0)
+    ///     )
+    /// );
+    /// assert_eq!(
+    ///     iter.next(),
+    ///     Some(
+    ///         (&[4, 6], 2)
+    ///     )
+    /// );
+    /// assert_eq!(iter.next(), None);
+    /// ```
     pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item = (&[T;2], usize)>
     {
         self.bin_iter()
@@ -68,6 +99,24 @@ impl<T> HistogramInt<T>{
     }
 
 }
+
+
+impl<T> HistogramInt<T>
+where T: Sub<T, Output=T> + Add<T, Output=T> + Ord + One + Copy + NumCast
+{
+    #[inline]
+    /// # count a value. 
+    /// If it is inside the histogram, the corresponding bin count will be increased
+    /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
+    /// Otherwise an Error is returned
+    /// ## Note
+    /// This is the same as [HistogramVal::count_val]
+    pub fn increment<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
+        self.count_val(val)
+    }
+}
+
+
 impl<T> HistogramInt<T>
 where T: Copy{
     fn get_right(&self) -> T

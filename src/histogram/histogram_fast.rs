@@ -100,9 +100,9 @@ impl<T> HistogramFast<T>
     /// use sampling::histogram::HistogramFast;
     /// 
     /// let mut hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
-    /// hist.count(4).unwrap();
-    /// hist.count(5).unwrap();
-    /// hist.count(5).unwrap();
+    /// hist.increment(4).unwrap();
+    /// hist.increment(5).unwrap();
+    /// hist.increment(5).unwrap();
     /// let vec: Vec<(u8, usize)> =  hist.bin_hits_iter().collect();
     /// assert_eq!(&vec, &[(2, 0), (3, 0), (4, 1), (5, 2)]);
     /// ```
@@ -118,12 +118,12 @@ impl<T> HistogramFast<T>
 
     #[inline]
     /// # count a value. 
-    /// If it is inside the histogram, the corresponding bin count will be incresed
+    /// If it is inside the histogram, the corresponding bin count will be increased
     /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
     /// Otherwise an Error is returned
     /// ## Note
     /// This is the same as [HistogramVal::count_val]
-    pub fn count<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
+    pub fn increment<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
         self.count_val(val)
     }
 }
