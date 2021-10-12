@@ -68,6 +68,7 @@ impl<T> HistogramFast<T>
     /// # Iterator over all the bins
     /// In HistogramFast is hit only when a value matches the corresponding bin exactly,
     /// which means there exists a map between bins and corresponding values that would hit them.
+    /// So a bin is perfectly defined by one value. That is what we are iterating over here
     /// 
     /// This iterates over these values
     /// # Example
