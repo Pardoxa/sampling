@@ -814,6 +814,7 @@ mod tests {
     use rand::SeedableRng;
     use crate::examples::coin_flips::*;
     #[test]
+    #[cfg_attr(miri,ignore)]
     fn wl_simulations_equal() {
         let mut rng = Pcg64Mcg::seed_from_u64(2239790);
         let ensemble = CoinFlipSequence::new(100, Pcg64Mcg::from_rng(&mut rng).unwrap());
