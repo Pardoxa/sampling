@@ -116,6 +116,34 @@ impl<T> HistogramFast<T>
             )
     }
 
+    /// checks if the range of two Histograms is equal, i.e.,
+    /// if they have the same bin borders
+    pub fn equal_range(&self, other: &Self) -> bool
+    where T: Eq
+    {
+        self.left.eq(&other.left) && self.right.eq(&other.right)
+    }
+
+    /// # Add other histogram to self
+    /// * will fail if the ranges are not equal, i.e., if [equal_range](Self::equal_range)
+    /// returns false
+    /// * Otherwise the hitcount of the bins of self will be increased 
+    /// by the corresponding hitcount of other. 
+    /// * other will be unchanged
+    pub fn try_add(&mut self, other: &Self) -> Result<(), ()>
+    where T: Eq
+    {
+        if self.equal_range(other) {
+            self.hist
+                .iter_mut()
+                .zip(other.hist().iter())
+                .for_each(|(s, o)| *s += o);
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
     #[inline]
     /// # Increment hit count 
     /// If `val` is inside the histogram, the corresponding bin count will be increased
@@ -609,6 +637,42 @@ mod tests{
         let en = HistI8Fast::encapsulating_hist(&[small, left]).unwrap();
 
         assert_eq!(en.bin_count(), 256);
+    }
+
+    #[test]
+    fn hist_try_add()
+    {
+        let mut first = HistU8Fast::new_inclusive(0, 23)
+            .unwrap();
+        let mut second = HistU8Fast::new_inclusive(0, 23)
+            .unwrap();
+        
+        for i in 0..=23{
+            first.increment(i)
+                .unwrap();
+        }
+        for i in 0..=11{
+            second.increment(i)
+                .unwrap();
+        }
+
+        first.try_add(&second)
+            .unwrap();
+
+        let hist = first.hist();
+
+        for i in 0..=11{
+            assert_eq!(hist[i], 2);
+        }
+        for i in 12..=23{
+            assert_eq!(hist[i], 1);
+        }
+
+        let third = HistU8Fast::new(0,23)
+            .unwrap();
+            
+        first.try_add(&third)
+            .expect_err("Needs to be Err because ranges do not match");
     }
 
 }
