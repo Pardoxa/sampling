@@ -2,7 +2,7 @@
 name = "sampling"
 version = "0.1.1"
 authors = ["Yannick Feld <yannick.feld@uol.de>"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 repository = "https://github.com/Pardoxa/sampling"
 keywords = [
