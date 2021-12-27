@@ -76,6 +76,7 @@
 //! gnuplot HeatmapU01.gp HeatmapU02.gp
 //! ```
 //! which will create `HeatmapU01.pdf` and  `HeatmapU02.pdf`
+#[allow(clippy::module_inception)]
 mod heatmap;
 mod helper;
 mod gnuplot;

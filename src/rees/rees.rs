@@ -37,7 +37,7 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     /// you can just pretend it is `&Ensemble` and everything should work out fine,
     /// since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
     /// Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
-    pub fn ensemble_iter<'a>(&'a self) -> impl Iterator<Item=RwLockReadGuard<'a, Ensemble>>
+    pub fn ensemble_iter(&'_ self) -> impl Iterator<Item=RwLockReadGuard<'_, Ensemble>>
     {
         self.ensembles
             .iter()
@@ -169,6 +169,7 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// * changes step size of all walkers in the nth interval
     /// * returns Err if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
+    #[allow(clippy::result_unit_err)]
     pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Result<(), ()>
     {
         let start = n * self.chunk_size.get();
@@ -217,6 +218,7 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// * changes sweep size of all walkers in the nth interval
     /// * returns Err if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
+    #[allow(clippy::result_unit_err)]
     pub fn change_sweep_size_of_interval(&mut self, n: usize, sweep_size: NonZeroUsize) -> Result<(), ()>
     {
         let start = n * self.chunk_size.get();
@@ -275,6 +277,7 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// # Remove extra vector
     /// * returns tuple of Self (without extra, i.e., `Rees<(), Ensemble, R, Hist, Energy, S, Res>`)
     /// and vector of Extra
+    #[allow(clippy::type_complexity)]
     pub fn unpack_extra(self) -> (Rees<(), Ensemble, R, Hist, Energy, S, Res>, Vec<Extra>)
     {
         let old_extra = self.extra;
@@ -295,7 +298,11 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// # Swap the extra vector
     /// * Note: len of extra has to be the same as `self.num_walkers()` (which is the same as `self.extra_slice().len()`)
     /// otherwise an Err is returned
-    pub fn swap_extra<Extra2>(self, new_extra: Vec<Extra2>) -> Result<(Rees<Extra2, Ensemble, R, Hist, Energy, S, Res>, Vec<Extra>), ()>
+    #[allow(clippy::result_unit_err, clippy::type_complexity)]
+    pub fn swap_extra<Extra2>(
+        self, 
+        new_extra: Vec<Extra2>
+    ) -> Result<(Rees<Extra2, Ensemble, R, Hist, Energy, S, Res>, Vec<Extra>), ()>
     {
         if self.extra.len() != new_extra.len(){
             Err(())
@@ -322,7 +329,11 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rees<(), Ensemble, R, Hist, Energy, S, R
 {
     /// # Add extra information to your Replica Exchange entropic sampling simulation
     /// * can be used to, e.g., print stuff during the simulation, or write it to a file and so on
-    pub fn add_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
+    #[allow(clippy::type_complexity)]
+    pub fn add_extra<Extra>(
+        self, 
+        extra: Vec<Extra>
+    ) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
     {
         if self.walker.len() != extra.len(){
             Err(
@@ -380,7 +391,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         extra_fn: P
     )
     where F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
-        P: Fn(&ReesWalker<R, Hist, Energy, S, Res>, &mut Ensemble, &mut Extra) -> () + Copy + Send + Sync,
+        P: Fn(&ReesWalker<R, Hist, Energy, S, Res>, &mut Ensemble, &mut Extra) + Copy + Send + Sync,
     {
         let slice = self.ensembles.as_slice();
 
@@ -484,7 +495,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         Ensemble: Send + Sync,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
-        P: Fn(&ReesWalker<R, Hist, Energy, S, Res>, &mut Ensemble, &mut Extra) -> () + Copy + Send + Sync,
+        P: Fn(&ReesWalker<R, Hist, Energy, S, Res>, &mut Ensemble, &mut Extra) + Copy + Send + Sync,
     {
         while !self.is_finished()
         {
@@ -506,9 +517,9 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         R: Send + Sync,
         F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
         C: FnMut(&Self) -> bool,
-        P: Fn(&ReesWalker<R, Hist, Energy, S, Res>, &mut Ensemble, &mut Extra) -> () + Copy + Send + Sync,
+        P: Fn(&ReesWalker<R, Hist, Energy, S, Res>, &mut Ensemble, &mut Extra) + Copy + Send + Sync,
     {
-        while !self.is_finished() && condition(&self)
+        while !self.is_finished() && condition(self)
         {
             self.sweep(energy_fn, extra_fn);
         }
@@ -530,7 +541,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
             .all(|w| w.check_energy_fn(ensembles, energy_fn))
     }
 
-
+    #[allow(clippy::type_complexity)]
     fn merged_log_probability_helper(&self) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
@@ -611,7 +622,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log_prob_and_aligned(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    pub fn merged_log_prob_and_aligned(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine 
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
@@ -649,7 +660,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
-    fn merged_log_probability_and_align(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    fn merged_log_probability_and_align(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine
     {
         let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
@@ -736,7 +747,9 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 /// ## Errors
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
-pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -766,7 +779,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -793,7 +806,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// but all logarithms are now base 10
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -810,7 +823,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {

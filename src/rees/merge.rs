@@ -79,12 +79,12 @@ pub(crate) fn merged_and_aligned<'a, Hist: 'a, I>(
     alignment: Vec<usize>,
     log_prob: Vec<Vec<f64>>,
     e_hist: Hist
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + Histogram,
     I: Iterator<Item = &'a Hist>
 {
     // Not even one Interval - this has to be an error
-    if log_prob.len() == 0 {
+    if log_prob.is_empty() {
         return Err(HistErrors::EmptySlice);
     }
     let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
@@ -155,7 +155,8 @@ where Hist: HistogramCombine + Histogram,
     )
 }
 
-pub(crate) fn align<Hist>(container: &Vec<(&[f64], &Hist)>) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+#[allow(clippy::type_complexity)]
+pub(crate) fn align<Hist>(container: &[(&[f64], &Hist)]) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
 where Hist: HistogramCombine + Send + Sync
 {
     let hists: Vec<_> = container.iter()
@@ -175,7 +176,7 @@ where Hist: HistogramCombine + Send + Sync
 
     let merge_points = calc_merge_points(&alignment, &derivatives);
 
-    let log_prob = container.into_iter()
+    let log_prob = container.iter()
         .map(|v| v.0.into())
         .collect();
 

@@ -11,6 +11,16 @@ use std::cmp::Reverse;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+/// Result of glueing
+/// * `Hist` is the histogram which shows the corresponding bins,
+/// * `Vec<f64>` is the result of the gluing and merging of the individual intervals
+/// * `Vec<Vec<f64>>` are the individual intervals, which are ready to be glued, i.e.,
+///    their logarithmic "hight" was allready corrected
+pub type Glued<Hist> = (Hist, Vec<f64>, Vec<Vec<f64>>);
+
+/// Result of glueing. See [Glued]
+pub type GluedResult<Hist> = Result<Glued<Hist>, HistErrors>;
+
 /// # Efficient replica exchange Wang landau
 /// * use this to quickly build your own parallel replica exchange wang landau simulation
 /// ## Tipp
@@ -70,7 +80,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// you can just pretend it is `&Ensemble` and everything should work out fine,
     /// since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
     /// Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
-    pub fn ensemble_iter<'a>(&'a self) -> impl Iterator<Item=RwLockReadGuard<'a, Ensemble>>
+    pub fn ensemble_iter(&'_ self) -> impl Iterator<Item=RwLockReadGuard<'_, Ensemble>>
     {
         self.ensembles
             .iter()
@@ -134,6 +144,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * changes step size of all walkers in the nth interval
     /// * returns Err if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
+    #[allow(clippy::result_unit_err)]
     pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Result<(), ()>
     {
         let start = n * self.chunk_size.get();
@@ -182,6 +193,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * changes sweep size of all walkers in the nth interval
     /// * returns Err if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
+    #[allow(clippy::result_unit_err)]
     pub fn change_sweep_size_of_interval(&mut self, n: usize, sweep_size: NonZeroUsize) -> Result<(), ()>
     {
         let start = n * self.chunk_size.get();
@@ -273,7 +285,7 @@ where R: Send + Sync + Rng + SeedableRng,
         F: Fn(&mut Ensemble) -> Option<Energy> + Copy + Send + Sync,
         C: FnMut(&Self) -> bool
     {
-        while !self.is_finished() && condition(&self)
+        while !self.is_finished() && condition(self)
         {
             self.sweep(energy_fn);
         }
@@ -475,7 +487,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log10_prob_and_aligned(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    pub fn merged_log10_prob_and_aligned(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_prob_and_aligned()?;
@@ -526,7 +538,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log_prob_and_aligned(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    pub fn merged_log_prob_and_aligned(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine 
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
@@ -566,7 +578,7 @@ where R: Send + Sync + Rng + SeedableRng,
         )
     }
 
-    fn merged_log_probability_and_align(&self) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+    fn merged_log_probability_and_align(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -598,6 +610,7 @@ where R: Send + Sync + Rng + SeedableRng,
         (hists, log_prob)
     }        
 
+    #[allow(clippy::type_complexity)]
     fn merged_log_probability_helper2(
         &self,
         mut log_prob: Vec<Vec<f64>>,
@@ -691,6 +704,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// * The vector `extra` must be exactly as long as the walker slice and 
     /// each walker is assigned the corresponding entry from the vector `extra`
     /// * You can look at the walker slice with the [walkers](`crate::rewl::Rewl::walkers`) method
+    #[allow(clippy::type_complexity)]
     pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
     {
         if extra.len() != self.walker.len()
@@ -769,7 +783,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 /// * the difference is, that the logarithms are now calculated to base 10
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -787,7 +801,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -803,7 +817,9 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// 
 /// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
 /// * Here, however, all logarithms are base 10
-pub fn log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -818,7 +834,9 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// of all walkers, that should be ignored for the alignment and merging into the 
 /// final probability density function. The indices do not need to be sorted, though
 /// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -861,7 +879,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>
 (
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -879,7 +897,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
-) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -929,7 +947,9 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// that, if there are multiple walkers in the same interval, they will **not** be merged by 
 /// averaging their probability estimates in this function, while they **are averaged** in 
 /// [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`)
-pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
@@ -944,7 +964,9 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// of all walkers, that should be ignored for the alignment and merging into the 
 /// final probability density function. The indices do not need to be sorted, though
 /// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]) -> Result<(Hist, Vec<f64>, Vec<Vec<f64>>), HistErrors>
+pub fn log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]
+) -> GluedResult<Hist>
 where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {

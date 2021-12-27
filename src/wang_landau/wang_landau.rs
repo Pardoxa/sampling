@@ -473,7 +473,7 @@ where
                 old_dist = self.hist.distance(current_energy);
             }else if counter == mid {
                 let current_energy = self.old_energy_ref();
-                old_dist_interval = dist_interval(&self.hist, &current_energy);
+                old_dist_interval = dist_interval(&self.hist, current_energy);
             }
             if counter < mid {
                 self.greedy_helper(
@@ -753,7 +753,7 @@ where
     ) where F: Fn(&E) -> Option<Energy>,
         W: FnMut(&Self) -> bool,
     {
-        while !self.is_finished() && condition(&self) {
+        while !self.is_finished() && condition(self) {
             self.wang_landau_step(&energy_fn);
         }
     }
@@ -769,7 +769,7 @@ where
     ) where F: FnMut(&E, &S, &mut Energy),
         W: FnMut(&Self) -> bool,
     {
-        while !self.is_finished() && condition(&self) {
+        while !self.is_finished() && condition(self) {
             self.wang_landau_step_acc(&mut energy_fn);
         }
     }
@@ -788,7 +788,7 @@ where
     ) where F: FnMut(&mut E) -> Option<Energy>,
         W: FnMut(&Self) -> bool,
     {
-        while !self.is_finished() && condition(&self) {
+        while !self.is_finished() && condition(self) {
             self.wang_landau_step_unsafe(&mut energy_fn);
         }
     }

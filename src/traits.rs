@@ -47,7 +47,7 @@ pub trait MarkovChain<S, Res> {
     where AccFn: FnMut(&Self, &S, &mut Acc)
     {
         let s = self.m_step();
-        acc_fn(&self, &s, acc);
+        acc_fn(self, &s, acc);
         s
     }
 
@@ -122,7 +122,7 @@ pub trait SimpleSample{
     /// 1) `f(self)`
     /// 2) `self.randomize()`
     fn simple_sample<F>(&mut self, times: usize, mut f: F)
-        where F: FnMut(&Self) -> ()
+        where F: FnMut(&Self)
     {
         for _ in 0..times {
             f(self);

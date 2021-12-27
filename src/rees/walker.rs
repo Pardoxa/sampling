@@ -311,7 +311,7 @@ where Hist: HistogramVal<Energy>,
         energy_fn: F,
     )
     where F: Fn(&mut Ensemble) -> Option<Energy>,
-        P: Fn(&Self, &mut Ensemble, &mut Extra) -> (),
+        P: Fn(&Self, &mut Ensemble, &mut Extra),
         Ensemble: MarkovChain<S, Res>,
     {
         #[cfg(feature = "sweep_time_optimization")]
@@ -363,7 +363,7 @@ where Hist: HistogramVal<Energy>,
             self.hist.count_index(self.bin)
                 .expect("Histogram index Error, ERRORCODE 0x4");
 
-            extra_fn(&self, &mut e, extra);
+            extra_fn(self, &mut e, extra);
 
         }
         #[cfg(feature = "sweep_time_optimization")]

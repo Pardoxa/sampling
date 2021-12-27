@@ -1,6 +1,7 @@
 //! # Wang Landau Implementation
 mod wang_landau_adaptive;
 mod helper;
+#[allow(clippy::module_inception)]
 mod wang_landau;
 mod traits;
 

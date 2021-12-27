@@ -7,6 +7,7 @@
 //! parallel Replica exchange Wang Landau
 
 #![deny(missing_docs, warnings)]
+#![allow(clippy::missing_safety_doc)]
 /// Contains traits useful for sampling an ensemble
 /// like MarkovChain or Metropolis etc.
 pub mod traits;

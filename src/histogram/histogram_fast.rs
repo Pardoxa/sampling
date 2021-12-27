@@ -105,7 +105,7 @@ impl<T> HistogramFast<T>
     /// let vec: Vec<(u8, usize)> =  hist.bin_hits_iter().collect();
     /// assert_eq!(&vec, &[(2, 0), (3, 0), (4, 1), (5, 2)]);
     /// ```
-    pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item=(T, usize)> + 'a
+    pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item=(T, usize)> + '_
     {
         self.bin_iter()
             .zip(
@@ -192,8 +192,10 @@ T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes, Unsigned=T::Unsign
             let right = from_u(right);
 
             result.push(Self::new_inclusive(left, right)?);
-            if result.last().unwrap()
-                .hist.len() == 0 
+            if result.last()
+                .unwrap()
+                .hist
+                .is_empty()
             {
                 return Err(HistErrors::IntervalWidthZero);
             }
@@ -302,7 +304,7 @@ where T: PrimInt + HasUnsignedVersion,
                     let val = val.to_isize()
                         .ok_or(HistErrors::CastError)?;
                     match val.checked_sub(left){
-                        None => return Err(HistErrors::OutsideHist),
+                        None => Err(HistErrors::OutsideHist),
                         Some(index) => {
                             index.to_usize()
                                 .ok_or(HistErrors::OutsideHist)
@@ -389,7 +391,7 @@ impl<T> HistogramCombine for HistogramFast<T>
 {
     fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
     where S: Borrow<Self> {
-        if hists.len() == 0 {
+        if hists.is_empty() {
             Err(HistErrors::EmptySlice)
         } else if hists.len() == 1 {
             let h = hists[0].borrow();

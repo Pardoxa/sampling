@@ -1,5 +1,6 @@
 //! For making a Metropolis simulation
 
+#[allow(clippy::module_inception)]
 mod metropolis;
 
 pub use metropolis::*;

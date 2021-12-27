@@ -153,8 +153,8 @@ where T: Float + Zero + NumCast {
     {
         let val = val.borrow();
         if !val.is_finite(){
-            return Err(HistErrors::InvalidVal);
-        }
+            Err(HistErrors::InvalidVal)
+        } 
         else if self.is_inside(val)
         {
             let search_res = self.bin_borders.binary_search_by(

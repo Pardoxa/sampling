@@ -290,7 +290,7 @@ where Hist: Histogram + HistogramVal<T>,
         mut print_fn: G,
         mut condition: W
     ) where F: FnMut(&E) -> Option<T>,
-        G: FnMut(&Self) -> (),
+        G: FnMut(&Self),
         W: FnMut(&Self) -> bool
     {
         while condition(self) {
@@ -321,7 +321,7 @@ where Hist: Histogram + HistogramVal<T>,
         mut print_fn: G,
         mut condition: W
     ) where F: FnMut(&E, &S, &mut T),
-        G: FnMut(&Self) -> (),
+        G: FnMut(&Self),
         W: FnMut(&Self) -> bool
     {
         while condition(self) {
@@ -360,7 +360,7 @@ where Hist: Histogram + HistogramVal<T>,
         mut print_fn: G,
         mut condition: W
     ) where F: FnMut(&mut E) -> Option<T>,
-        G: FnMut(&mut Self) -> (),
+        G: FnMut(&mut Self),
         W: FnMut(&mut Self) -> bool
     {
         while condition(self) {
@@ -394,7 +394,7 @@ where Hist: Histogram + HistogramVal<T>,
         mut energy_fn: F,
         mut print_fn: G,
     ) where F: FnMut(&E) -> Option<T>,
-        G: FnMut(&Self) -> ()
+        G: FnMut(&Self)
     {
         while self.step_count < self.step_goal {
             self.entropic_step(&mut energy_fn);
@@ -423,7 +423,7 @@ where Hist: Histogram + HistogramVal<T>,
         mut energy_fn: F,
         mut print_fn: G,
     ) where F: FnMut(&E, &S, &mut T),
-        G: FnMut(&Self) -> ()
+        G: FnMut(&Self)
     {
         while self.step_count < self.step_goal {
             self.entropic_step_acc(&mut energy_fn);
@@ -458,7 +458,7 @@ where Hist: Histogram + HistogramVal<T>,
         mut energy_fn: F,
         mut print_fn: G,
     ) where F: FnMut(&mut E) -> Option<T>,
-        G: FnMut(&mut Self) -> ()
+        G: FnMut(&mut Self)
     {
         while self.step_count < self.step_goal {
             self.entropic_step_unsafe(&mut energy_fn);

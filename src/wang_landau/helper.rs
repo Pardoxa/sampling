@@ -53,19 +53,13 @@ impl WangLandauMode{
     /// * true if self is `RefineOriginal` variant
     /// * false otherwise
     pub fn is_mode_original(&self) -> bool {
-        match self {
-            WangLandauMode::RefineOriginal => true,
-            _ => false
-        }
+        matches!(self, WangLandauMode::RefineOriginal)
     }
 
     /// * true if self is `Refine1T` variant
     /// * false otherwise
     pub fn is_mode_1_t(&self) -> bool {
-        match self {
-            WangLandauMode::Refine1T => true,
-            _ => false
-        }
+        matches!(self, WangLandauMode::Refine1T)
     }
 }
 

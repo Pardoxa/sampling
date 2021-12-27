@@ -132,7 +132,7 @@ where R: Rng
         }
     }
 
-    fn undo_step(&mut self, step: &CoinFlipMove) -> () {
+    fn undo_step(&mut self, step: &CoinFlipMove) {
         self.seq[step.index] = step.previouse;
     }
 

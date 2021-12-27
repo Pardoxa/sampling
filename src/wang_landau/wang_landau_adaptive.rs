@@ -458,6 +458,7 @@ where R: Rng,
     /// * **You need to call on of the  `self.init*` members before starting the Wang Landau simulation! - you can check with `self.is_initialized()`
     /// * **Err** if `trial_step_max < trial_step_min`
     /// * **Err** if `log_f_threshold <= 0.0`
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         log_f_threshold: f64,
         ensemble: E, 
@@ -825,7 +826,7 @@ where R: Rng,
     ) where F: Fn(&E) -> Option<Energy>,
         W: FnMut(&Self) -> bool,
     {
-        while !self.is_finished() && condition(&self) {
+        while !self.is_finished() && condition(self) {
             self.wang_landau_step(&energy_fn);
         }
     }
@@ -844,7 +845,7 @@ where R: Rng,
     ) where F: FnMut(&E, &S, &mut Energy),
         W: FnMut(&Self) -> bool,
     {
-        while !self.is_finished() && condition(&self) {
+        while !self.is_finished() && condition(self) {
             self.wang_landau_step_acc(&mut energy_fn);
         }
     }
@@ -866,7 +867,7 @@ where R: Rng,
     ) where F: FnMut(&mut E) -> Option<Energy>,
         W: FnMut(&Self) -> bool,
     {
-        while !self.is_finished() && condition(&self) {
+        while !self.is_finished() && condition(self) {
             self.wang_landau_step_unsafe(&mut energy_fn);
         }
     }

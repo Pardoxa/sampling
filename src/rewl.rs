@@ -2,6 +2,7 @@
 
 mod walker;
 pub use walker::*;
+#[allow(clippy::module_inception)]
 mod rewl;
 pub use rewl::*;
 mod derivative;

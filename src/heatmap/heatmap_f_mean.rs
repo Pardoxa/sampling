@@ -109,15 +109,13 @@ where HistX: Histogram,
             Err(_) => {
                 let y_f64 = y.as_();
                 if y_f64.is_finite() {
-                    match self.heatmap.hist_width
+                    if let Ok(x_bin) = self
+                        .heatmap
+                        .hist_width
                         .get_bin_index(x)
                     {
-                        Ok(x_bin) => {
-                            self.mean[x_bin].add(y_f64, weight);
-                        },
-                        _ => {}
-                    }
-                        
+                        self.mean[x_bin].add(y_f64, weight);
+                    }   
                 }
             }
         }
@@ -137,7 +135,7 @@ where HistX: Histogram,
     /// * The mean corresponds to the bins of the x-axis
     /// * if a bin on the x-axis has no entries, the corresponding
     /// mean will be `f64::NAN`
-    pub fn mean_iter<'a>(&'a self) -> impl Iterator<Item=f64> + 'a
+    pub fn mean_iter(&'_ self) -> impl Iterator<Item=f64> + '_
     {
         self.mean
             .iter()
@@ -146,8 +144,7 @@ where HistX: Histogram,
                 {
                     if v.is_empty(){
                         f64::NAN
-                    } else 
-                    {
+                    } else {
                         v.mean()
                     }
                 }

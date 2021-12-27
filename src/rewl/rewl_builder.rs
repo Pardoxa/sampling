@@ -164,7 +164,7 @@ where Hist: Histogram,
         if log_f_threshold < 0.0 {
             return Err(RewlBuilderErr::Negative);
         }
-        if hists.len() == 0 
+        if hists.is_empty()
         {
             return Err(RewlBuilderErr::Empty);
         }
@@ -236,7 +236,7 @@ where Hist: Histogram,
                     Ok(e)
                 })
                 .collect::<Result<Vec<_>,Error>>()
-                .map_err(|e| RewlBuilderErr::SeedError(e))?;
+                .map_err(RewlBuilderErr::SeedError)?;
         ensembles.push(ensemble);
         Ok(ensembles)
     }
@@ -273,7 +273,7 @@ where Hist: Histogram,
         for _ in 1..mid {
             let mut e = left.clone();
             let mut rng = R::from_rng(right.rng())
-               .map_err(|e| RewlBuilderErr::SeedError(e))?;
+               .map_err(RewlBuilderErr::SeedError)?;
             e.swap_rng(&mut rng);
             ensembles.push(e);
         }
@@ -282,7 +282,7 @@ where Hist: Histogram,
         {
             let mut e = right.clone();
             let mut rng = R::from_rng(right.rng())
-               .map_err(|e| RewlBuilderErr::SeedError(e))?;
+               .map_err(RewlBuilderErr::SeedError)?;
             e.swap_rng(&mut rng);
             ensembles.push(e);
         }
@@ -502,7 +502,7 @@ where Hist: Histogram,
                                 {
                                     energy
                                 } else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                     continue;
                                 };
     
@@ -514,7 +514,7 @@ where Hist: Histogram,
                                         break 'outer2;
                                     }
                                 }else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                 }
                             }
                             if !condition()
@@ -680,7 +680,7 @@ where Hist: Histogram,
                                 {
                                     energy
                                 } else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                     continue;
                                 };
     
@@ -692,7 +692,7 @@ where Hist: Histogram,
                                         break 'outer2;
                                     }
                                 }else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                 }
                             }
                             if !condition()
@@ -856,7 +856,7 @@ where Hist: Histogram,
                                 {
                                     energy
                                 } else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                     continue;
                                 };
     
@@ -868,7 +868,7 @@ where Hist: Histogram,
                                         break 'outer2;
                                     }
                                 }else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                 }
                             }
                             if !condition()
@@ -884,7 +884,7 @@ where Hist: Histogram,
                                 {
                                     energy
                                 } else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                     continue;
                                 };
     
@@ -896,7 +896,7 @@ where Hist: Histogram,
                                         break 'outer2;
                                     }
                                 }else {
-                                    e.undo_steps_quiet(&mut steps);
+                                    e.undo_steps_quiet(&steps);
                                 }
                             }
                             if !condition()

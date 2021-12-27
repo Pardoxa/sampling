@@ -685,8 +685,7 @@ impl GnuplotPointSettings{
         {
             self.legend = "Invalid character encountered".to_owned();
             self
-        } else
-        {
+        } else {
             self.legend = s;
             self
         }

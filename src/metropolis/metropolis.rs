@@ -79,6 +79,7 @@ where T: Copy + AsPrimitive<f64>
     /// * otherwise it will set the stored `energy` and return Ok(())
     /// # Important
     /// * It is very unlikely that you need this function - Only use it, if you know what you are doing
+    #[allow(clippy::result_unit_err)]
     pub unsafe fn set_energy(&mut self, energy: T) -> Result<(),()>{
         if (energy.as_()).is_nan() {
             Err(())
@@ -126,6 +127,7 @@ where T: Copy + AsPrimitive<f64>
 
     /// * change the `stepsize`
     /// * returns err if you try to set stepsize to `0`, because that would be invalid
+    #[allow(clippy::result_unit_err)]
     pub fn set_step_size(&mut self, step_size: usize) -> Result<(),()>
     {
         if step_size == 0 {

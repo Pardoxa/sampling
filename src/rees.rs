@@ -6,6 +6,7 @@
 //! neighboring intervals (and if you have multiple walker in an interval, they can exchange states as well)
 //!
 //! This is intended to improve the sampling of difficult "energy landscapes"
+#[allow(clippy::module_inception)]
 mod rees;
 mod walker;
 mod merge;

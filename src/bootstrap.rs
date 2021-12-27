@@ -23,8 +23,7 @@ where F: Fn (&[&N1]) -> f64,
                         }
                     )
             );
-            let reduced = reduction(&bootstrap_sample);
-            reduced
+            reduction(&bootstrap_sample)
         }
     ).collect();
     
@@ -53,8 +52,7 @@ where F: Fn (&mut [N1]) -> f64,
                         }
                     )
             );
-            let reduced = reduction(&mut bootstrap_sample);
-            reduced
+            reduction(&mut bootstrap_sample)
         }
     ).collect();
     
