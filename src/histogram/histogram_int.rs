@@ -1,6 +1,6 @@
 use num_traits::{ops::{checked::*, wrapping::*}, cast::*, identities::*, Bounded};
 use crate::histogram::*;
-use std::{borrow::*, ops::*, num::*};
+use std::{borrow::*, ops::*, num::*, marker::PhantomData};
 
 
 #[cfg(feature = "serde_support")]
@@ -22,7 +22,110 @@ impl<T> HistogramInt<T>{
     {
         &self.bin_borders
     }
+
+    /// # Iterator over all the bins
+    /// In HistogramInt a bin is defined by two values: The left border (inclusive)
+    /// and the right border (exclusive)
+    /// 
+    /// Here you get an iterator which iterates over said borders.
+    /// The Iterator returns a borrowed Array of length two, where the first value is 
+    /// the left (inclusive) border and the second value is the right (exclusive) border
+    /// 
+    /// ## Example
+    /// ```
+    /// use sampling::histogram::*;
+    /// 
+    /// let hist = HistI8::new(0, 8, 4).unwrap();
+    /// let mut bin_iter = hist.bin_iter();
+    ///
+    /// assert_eq!(bin_iter.next(), Some(&[0_i8, 2]));
+    /// assert_eq!(bin_iter.next(), Some(&[2, 4]));
+    /// assert_eq!(bin_iter.next(), Some(&[4, 6]));
+    /// assert_eq!(bin_iter.next(), Some(&[6, 8]));
+    /// assert_eq!(bin_iter.next(), None);
+    /// ```
+    pub fn bin_iter<'a>(&'a self) -> impl Iterator<Item = &'a [T;2]>
+    {
+        BorderWindow::new(self.bin_borders.as_slice())
+    }
+
+    /// # Iterate over all bins
+    /// In HistogramInt a bin is defined by two values: The left border (inclusive)
+    /// and the right border (exclusive)
+    /// 
+    /// This iterates over these values as well as the corresponding hit count (i.e. how often 
+    /// the corresponding bin was hit)
+    /// ## Item of Iterator
+    /// `(&[left_border, right_border], number_of_hits)`
+    /// ## Example
+    /// ``` 
+    /// use sampling::histogram::*;
+    /// 
+    /// let mut hist = HistUsize::new(0, 6, 3).unwrap();
+    /// 
+    /// hist.increment(0).unwrap();
+    /// hist.increment(5).unwrap();
+    /// hist.increment(4).unwrap();
+    /// 
+    /// let mut iter = hist.bin_hits_iter();
+    /// assert_eq!(
+    ///     iter.next(),
+    ///     Some(
+    ///         (&[0, 2], 1)
+    ///     )
+    /// );
+    /// assert_eq!(
+    ///     iter.next(),
+    ///     Some(
+    ///         (&[2, 4], 0)
+    ///     )
+    /// );
+    /// assert_eq!(
+    ///     iter.next(),
+    ///     Some(
+    ///         (&[4, 6], 2)
+    ///     )
+    /// );
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item = (&[T;2], usize)>
+    {
+        self.bin_iter()
+            .zip(
+                self.hist
+                    .iter()
+                    .copied()
+            )
+    }
+
 }
+
+
+impl<T> HistogramInt<T>
+where T: Sub<T, Output=T> + Add<T, Output=T> + Ord + One + Copy + NumCast
+{
+    #[inline]
+    /// # Increment hit count 
+    /// If `val` is inside the histogram, the corresponding bin count will be increased
+    /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
+    /// Otherwise an Error is returned
+    /// ## Note
+    /// This is the same as [HistogramVal::count_val]
+    pub fn increment<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
+        self.count_val(val)
+    }
+
+    #[inline]
+    /// # Increment hit count
+    /// Increments the hit count of the bin corresponding to `val`.
+    /// If no bin corresponding to `val` exists, nothing happens
+    pub fn increment_quiet<V: Borrow<T>>(&mut self, val: V)
+    {
+        let _ = self.increment(val);
+    }
+}
+
+
 impl<T> HistogramInt<T>
 where T: Copy{
     fn get_right(&self) -> T
@@ -30,6 +133,86 @@ where T: Copy{
         self.bin_borders[self.bin_borders.len() - 1]
     }
 }
+
+/// This is basically ArrayWindows from the standard library
+/// This will be replaced by a call to ArrayWindows as soon 
+/// as ArrayWindows is no longer behind a feature gate
+/// (see https://doc.rust-lang.org/std/slice/struct.ArrayWindows.html)
+pub(crate) struct BorderWindow<'a, T: 'a>{
+    slice_head: *const T,
+    num: usize,
+    marker: PhantomData<&'a [T;2]>
+}
+
+impl<'a, T: 'a> BorderWindow<'a, T>{
+    pub(crate) fn new(slice: &'a [T]) -> Self
+    {
+        let num_windows = slice.len().saturating_sub(1);
+        Self{
+            slice_head: slice.as_ptr(),
+            num: num_windows,
+            marker: PhantomData
+        }
+    }
+}
+
+impl<'a, T> Iterator for BorderWindow<'a, T>
+{
+    type Item = &'a [T;2];
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item>
+    {
+        if self.num == 0 {
+            return None;
+        }
+
+        let ret = unsafe {
+            &*self.slice_head.cast::<[T;2]>()
+        };
+
+        self.slice_head = unsafe{
+            self.slice_head.add(1)
+        };
+
+        self.num -= 1;
+        Some(ret)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>)
+    {
+        (self.num, Some(self.num))
+    }
+
+    #[inline]
+    fn count(self) -> usize
+    {
+        self.num
+    }
+
+    #[inline]
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if self.num <= n {
+            self.num = 0;
+            return None;
+        }
+        // SAFETY:
+        // This is safe because it's indexing into a slice guaranteed to be length > N.
+        let ret = unsafe { &*self.slice_head.add(n).cast::<[T; 2]>() };
+        // SAFETY: Guaranteed that there are at least n items remaining
+        self.slice_head = unsafe { self.slice_head.add(n + 1) };
+
+        self.num -= n + 1;
+        Some(ret)
+    }
+
+    #[inline]
+    fn last(mut self) -> Option<Self::Item> {
+        self.nth(self.num.checked_sub(1)?)
+    }
+}
+
 
 impl<T> HistogramInt<T> 
 where T: PartialOrd + ToPrimitive + FromPrimitive + CheckedAdd + One + HasUnsignedVersion + Bounded
@@ -538,5 +721,28 @@ mod tests{
         }
         
     }
-}
 
+    #[test]
+    fn bin_iter_test()
+    {
+        let hist = HistI16::new(0, 4, 4).unwrap();
+
+        let mut bin_iter = hist.bin_iter();
+
+        assert_eq!(bin_iter.next(), Some(&[0_i16, 1_i16]));
+        assert_eq!(bin_iter.next(), Some(&[1_i16, 2_i16]));
+        assert_eq!(bin_iter.next(), Some(&[2_i16, 3_i16]));
+        assert_eq!(bin_iter.next(), Some(&[3_i16, 4_i16]));
+        assert_eq!(bin_iter.next(), None);
+
+        let hist = HistU8::new(0,8, 4).unwrap();
+
+        let mut bin_iter = hist.bin_iter();
+
+        assert_eq!(bin_iter.next(), Some(&[0_u8, 2_u8]));
+        assert_eq!(bin_iter.next(), Some(&[2_u8, 4_u8]));
+        assert_eq!(bin_iter.next(), Some(&[4_u8, 6_u8]));
+        assert_eq!(bin_iter.next(), Some(&[6_u8, 8_u8]));
+        assert_eq!(bin_iter.next(), None);
+    }
+}

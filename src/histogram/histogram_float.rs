@@ -2,6 +2,7 @@ use num_traits::{float::*, cast::*, identities::*};
 use crate::histogram::*;
 use std::{borrow::*, num::*};
 
+
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
@@ -72,6 +73,78 @@ where T: Float + PartialOrd + FromPrimitive {
     pub fn interval_length(&self) -> T
     {
         self.get_right() - self.first_border()
+    }
+
+    /// # Iterator over all the bins
+    /// In HistogramFloat a bin is defined by two values: The left border (inclusive)
+    /// and the right border (exclusive)
+    /// 
+    /// Here you get an iterator which iterates over said borders.
+    /// The Iterator returns a borrowed Array of length two, where the first value is the left (inclusive) border 
+    /// and the second value is the right (exclusive) border
+    /// ## Example
+    /// ```
+    /// use sampling::histogram::*;
+    /// 
+    /// let hist = HistogramFloat::<f32>::new(0.0, 1.0, 2).unwrap();
+    /// let mut iter = hist.bin_iter();
+    /// assert_eq!(iter.next(), Some(&[0.0, 0.5]));
+    /// assert_eq!(iter.next(), Some(&[0.5, 1.0]));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn bin_iter<'a>(&'a self) -> impl Iterator<Item = &'a [T;2]>
+    {
+        BorderWindow::new(self.bin_borders.as_slice())
+    }
+
+    /// # Iterate over all bins
+    /// In HistogramFloat a bin is defined by two values: The left border (inclusive)
+    /// and the right border (exclusive)
+    /// 
+    /// This Iterator iterates over these values as well as the corresponding hit count (
+    /// i.e., how often a bin was hit)
+    /// ## Item of Iterator
+    /// (&[left_border, right_border], number_of_hits)
+    /// ## Example
+    /// ```
+    /// use sampling::histogram::*;
+    /// 
+    /// let mut hist = HistogramFloat::<f64>::new(0.0, 1.0, 2).unwrap();
+    /// 
+    /// hist.increment_quiet(0.5);
+    /// hist.increment_quiet(0.71253782387);
+    /// 
+    /// let mut iter = hist.bin_hits_iter();
+    /// assert_eq!(iter.next(), Some((&[0.0, 0.5], 0)));
+    /// assert_eq!(iter.next(), Some((&[0.5, 1.0], 2)));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item = (&'a [T;2], usize)>
+    {
+        self.bin_iter()
+            .zip(
+                self.hist
+                    .iter()
+                    .copied()
+            )
+    }
+
+    #[inline]
+    /// # Increment hit count of bin
+    /// This will increment the hit count of the bin corresponding to the value `val`.
+    /// If the bin was valid it will return the index of the corresponding bin
+    pub fn increment<B: Borrow<T>>(&mut self, val: B)-> Result<usize, HistErrors>
+    {
+        self.count_val(val)
+    }
+
+    #[inline]
+    /// # Increment hit count
+    /// Increments the hit count of the bin corresponding to `val`.
+    /// If no bin corresponding to `val` exists, nothing happens
+    pub fn increment_quiet<B: Borrow<T>>(&mut self, val: B)
+    {
+        let _ = self.increment(val);
     }
 }
 

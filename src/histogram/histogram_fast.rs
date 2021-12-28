@@ -67,6 +67,7 @@ impl<T> HistogramFast<T>
     /// # Iterator over all the bins
     /// In HistogramFast is hit only when a value matches the corresponding bin exactly,
     /// which means there exists a map between bins and corresponding values that would hit them.
+    /// So a bin is perfectly defined by one value. That is what we are iterating over here
     /// 
     /// This iterates over these values
     /// # Example
@@ -99,9 +100,9 @@ impl<T> HistogramFast<T>
     /// use sampling::histogram::HistogramFast;
     /// 
     /// let mut hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
-    /// hist.count(4).unwrap();
-    /// hist.count(5).unwrap();
-    /// hist.count(5).unwrap();
+    /// hist.increment(4).unwrap();
+    /// hist.increment(5).unwrap();
+    /// hist.increment(5).unwrap();
     /// let vec: Vec<(u8, usize)> =  hist.bin_hits_iter().collect();
     /// assert_eq!(&vec, &[(2, 0), (3, 0), (4, 1), (5, 2)]);
     /// ```
@@ -115,15 +116,52 @@ impl<T> HistogramFast<T>
             )
     }
 
+    /// checks if the range of two Histograms is equal, i.e.,
+    /// if they have the same bin borders
+    pub fn equal_range(&self, other: &Self) -> bool
+    where T: Eq
+    {
+        self.left.eq(&other.left) && self.right.eq(&other.right)
+    }
+
+    /// # Add other histogram to self
+    /// * will fail if the ranges are not equal, i.e., if [equal_range](Self::equal_range)
+    /// returns false
+    /// * Otherwise the hitcount of the bins of self will be increased 
+    /// by the corresponding hitcount of other. 
+    /// * other will be unchanged
+    pub fn try_add(&mut self, other: &Self) -> Result<(), ()>
+    where T: Eq
+    {
+        if self.equal_range(other) {
+            self.hist
+                .iter_mut()
+                .zip(other.hist().iter())
+                .for_each(|(s, o)| *s += o);
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
     #[inline]
-    /// # count a value. 
-    /// If it is inside the histogram, the corresponding bin count will be incresed
+    /// # Increment hit count 
+    /// If `val` is inside the histogram, the corresponding bin count will be increased
     /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
     /// Otherwise an Error is returned
     /// ## Note
     /// This is the same as [HistogramVal::count_val]
-    pub fn count<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
+    pub fn increment<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
         self.count_val(val)
+    }
+
+    #[inline]
+    /// # Increment hit count
+    /// Increments the hit count of the bin corresponding to `val`.
+    /// If no bin corresponding to `val` exists, nothing happens
+    pub fn increment_quiet<V: Borrow<T>>(&mut self, val: V)
+    {
+        let _ = self.increment(val);
     }
 }
 
@@ -601,6 +639,42 @@ mod tests{
         let en = HistI8Fast::encapsulating_hist(&[small, left]).unwrap();
 
         assert_eq!(en.bin_count(), 256);
+    }
+
+    #[test]
+    fn hist_try_add()
+    {
+        let mut first = HistU8Fast::new_inclusive(0, 23)
+            .unwrap();
+        let mut second = HistU8Fast::new_inclusive(0, 23)
+            .unwrap();
+        
+        for i in 0..=23{
+            first.increment(i)
+                .unwrap();
+        }
+        for i in 0..=11{
+            second.increment(i)
+                .unwrap();
+        }
+
+        first.try_add(&second)
+            .unwrap();
+
+        let hist = first.hist();
+
+        for i in 0..=11{
+            assert_eq!(hist[i], 2);
+        }
+        for i in 12..=23{
+            assert_eq!(hist[i], 1);
+        }
+
+        let third = HistU8Fast::new(0,23)
+            .unwrap();
+            
+        first.try_add(&third)
+            .expect_err("Needs to be Err because ranges do not match");
     }
 
 }
