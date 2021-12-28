@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.0 (pending)
+
+WangLandauAdaptive:
+* remove internal field - serialization affected
+
+EntropicSamplingAdaptive:
+* remove internal field - serialization affected
+
 ## v0.1.2
 
 HistogramFast:

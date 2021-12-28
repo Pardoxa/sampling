@@ -47,7 +47,6 @@ pub enum EntropicErrors {
 pub struct EntropicSamplingAdaptive<Hist, R, E, S, Res, T>
 {
     rng: R,
-    samples_per_trial: usize,
     trial_list: Vec<usize>,
     best_of_steps: Vec<usize>,
     min_best_of_count: usize,
@@ -113,7 +112,6 @@ impl<Hist, R, E, S, Res, T> TryFrom<WangLandauAdaptive<Hist, R, E, S, Res, T>>
                 min_best_of_count: wl.min_best_of_count,
                 best_of_steps: wl.best_of_steps,
                 best_of_threshold: wl.best_of_threshold,
-                samples_per_trial: wl.samples_per_trial,
                 rng: wl.rng,
                 trial_list: wl.trial_list,
                 ensemble: wl.ensemble,

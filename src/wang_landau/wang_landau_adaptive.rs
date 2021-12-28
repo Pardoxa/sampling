@@ -28,7 +28,6 @@ use serde::{Serialize, Deserialize};
 pub struct WangLandauAdaptive<Hist, R, E, S, Res, Energy>
 {
     pub(crate) rng: R,
-    pub(crate) samples_per_trial: usize,
     pub(crate) trial_list: Vec<usize>,
     pub(crate) best_of_steps: Vec<usize>,
     pub(crate) min_best_of_count: usize,
@@ -435,6 +434,17 @@ where R: Rng,
     }
 }
 
+impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy> 
+{
+    /// * `samples_per_trial` - how often a specific step_size should be tried before
+    /// estimating the fraction of accepted steps resulting from the stepsize
+    /// * This number was used to create a trial list of appropriate length
+    pub fn samples_per_trial(&self) -> usize
+    {
+        self.trial_list.len() / self.accepted_step_hist.len()
+    }
+}
+
 
 impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy> 
 where R: Rng,
@@ -517,7 +527,6 @@ where R: Rng,
                 rejected_step_hist,
                 trial_list,
                 rng,
-                samples_per_trial,
                 step_res_marker: PhantomData::<Res>,
                 log_f: 1.0,
                 log_f_threshold,
