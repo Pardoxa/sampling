@@ -92,7 +92,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// assert_eq!(iter.next(), Some(&[0.5, 1.0]));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn bin_iter<'a>(&'a self) -> impl Iterator<Item = &'a [T;2]>
+    pub fn bin_iter(&self) -> impl Iterator<Item = &[T;2]>
     {
         BorderWindow::new(self.bin_borders.as_slice())
     }
@@ -119,7 +119,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// assert_eq!(iter.next(), Some((&[0.5, 1.0], 2)));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item = (&'a [T;2], usize)>
+    pub fn bin_hits_iter(&self) -> impl Iterator<Item = (&[T;2], usize)>
     {
         self.bin_iter()
             .zip(

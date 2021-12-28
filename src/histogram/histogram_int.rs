@@ -44,7 +44,7 @@ impl<T> HistogramInt<T>{
     /// assert_eq!(bin_iter.next(), Some(&[6, 8]));
     /// assert_eq!(bin_iter.next(), None);
     /// ```
-    pub fn bin_iter<'a>(&'a self) -> impl Iterator<Item = &'a [T;2]>
+    pub fn bin_iter(& self) -> impl Iterator<Item = &[T;2]>
     {
         BorderWindow::new(self.bin_borders.as_slice())
     }
@@ -88,7 +88,7 @@ impl<T> HistogramInt<T>{
     /// );
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn bin_hits_iter<'a>(&'a self) -> impl Iterator<Item = (&[T;2], usize)>
+    pub fn bin_hits_iter(&self) -> impl Iterator<Item = (&[T;2], usize)>
     {
         self.bin_iter()
             .zip(

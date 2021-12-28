@@ -130,6 +130,7 @@ impl<T> HistogramFast<T>
     /// * Otherwise the hitcount of the bins of self will be increased 
     /// by the corresponding hitcount of other. 
     /// * other will be unchanged
+    #[allow(clippy::result_unit_err)]
     pub fn try_add(&mut self, other: &Self) -> Result<(), ()>
     where T: Eq
     {
@@ -663,9 +664,11 @@ mod tests{
 
         let hist = first.hist();
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..=11{
             assert_eq!(hist[i], 2);
         }
+        #[allow(clippy::needless_range_loop)]
         for i in 12..=23{
             assert_eq!(hist[i], 1);
         }

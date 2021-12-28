@@ -51,7 +51,7 @@ pub fn norm_log10_sum_to_1(log10_density: &mut[f64]){
 
 /// Glues together probabilities
 /// size is original_hist.bin_count()
-pub(crate) fn glue(size: usize, log10_vec: &Vec<Vec<f64>>, left_list: &Vec<usize>, right_list: &Vec<usize>) -> Result<Vec<f64>, GlueErrors>
+pub(crate) fn glue(size: usize, log10_vec: &[Vec<f64>], left_list: &[usize], right_list: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
     let mut glue_log_density = vec![f64::NAN; size];
 
@@ -68,6 +68,7 @@ pub(crate) fn glue(size: usize, log10_vec: &Vec<Vec<f64>>, left_list: &Vec<usize
     }
     glue_log_density[l..=r].copy_from_slice(first_log);
     let mut glue_count = vec![0_usize; glue_log_density.len()];
+    #[allow(clippy::needless_range_loop)]
     for i in l..=r {
         glue_count[i] = 1;
     }
@@ -100,7 +101,7 @@ pub(crate) fn glue(size: usize, log10_vec: &Vec<Vec<f64>>, left_list: &Vec<usize
     Ok(glue_log_density)
 }
 
-pub(crate) fn height_correction(log10_vec: &mut Vec<Vec<f64>>, z_vec: &Vec<f64>){
+pub(crate) fn height_correction(log10_vec: &mut Vec<Vec<f64>>, z_vec: &[f64]){
     log10_vec.iter_mut()
         .skip(1)
         .zip(z_vec.iter())
@@ -110,7 +111,7 @@ pub(crate) fn height_correction(log10_vec: &mut Vec<Vec<f64>>, z_vec: &Vec<f64>)
         );
 }
 
-pub(crate) fn calc_z(log10_vec: &Vec<Vec<f64>>, left_list: &Vec<usize>, right_list: &Vec<usize>) -> Result<Vec<f64>, GlueErrors>
+pub(crate) fn calc_z(log10_vec: &[Vec<f64>], left_list: &[usize], right_list: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
     let mut z_vec = Vec::with_capacity(left_list.len() - 1);
     for i in 1..left_list.len()
@@ -150,7 +151,7 @@ pub(crate) fn calc_z(log10_vec: &Vec<Vec<f64>>, left_list: &Vec<usize>, right_li
     Ok(z_vec)
 }
 
-pub(crate) fn get_index<T>(val: &T, borders: &Vec<T>) -> Result<usize, GlueErrors>
+pub(crate) fn get_index<T>(val: &T, borders: &[T]) -> Result<usize, GlueErrors>
 where 
     T: PartialOrd
 {

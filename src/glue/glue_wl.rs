@@ -132,7 +132,7 @@ where WL: WangLandauHist<HIST>,
     );
     
     let borders = original_hist.borders_clone()
-        .map_err(|e| GlueErrors::BorderCreation(e))?;
+        .map_err(GlueErrors::BorderCreation)?;
 
     let mut left_list = Vec::with_capacity(list.len());
     let mut right_list = Vec::with_capacity(list.len());

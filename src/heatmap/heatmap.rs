@@ -473,8 +473,8 @@ where
                 let denominator = row_sum as f64;
                 let res_slice = &mut res[start_index..fin];
                 for (res_val, &heat_val) in res_slice
-                    .into_iter()
-                    .zip(row_slice.into_iter())
+                    .iter_mut()
+                    .zip(row_slice.iter())
                 {
                     *res_val = heat_val as f64 / denominator;
                 }

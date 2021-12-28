@@ -1,7 +1,7 @@
 # Unordered TODO list
 
-- [ ] Create new TODO list
-
+- [ ] remove #![allow(clippy::missing_safety_doc)]
+* [ ] remove #[allow(clippy::result_unit_err)] and find other solution? Will be breaking change
 
 # Finished TODOs
 

@@ -482,7 +482,7 @@ where Hist: Histogram + HistogramVal<T>,
     {
         while condition(self) {
             self.entropic_step_unsafe(&mut energy_fn);
-            print_fn(&self);
+            print_fn(self);
         }
     }
 
@@ -516,7 +516,7 @@ where Hist: Histogram + HistogramVal<T>,
     {
         while condition(self) {
             self.entropic_step(&mut energy_fn);
-            print_fn(&self);
+            print_fn(self);
         }
     }
 
@@ -548,7 +548,7 @@ where Hist: Histogram + HistogramVal<T>,
     {
         while condition(self) {
             self.entropic_step_acc(&mut energy_fn);
-            print_fn(&self);
+            print_fn(self);
         }
     }
 

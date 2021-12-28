@@ -1,5 +1,6 @@
 # Changelog
 
+
 ## v0.2.0 (pending)
 
 WangLandauAdaptive:
@@ -10,10 +11,15 @@ EntropicSamplingAdaptive:
 
 ## v0.1.2
 
-HistogramFast:
+HistogramFast, HistogramInt and HistogramFloat:
 * adding `bin_iter`
 * adding `bin_hits_iter`
-* adding `count`
+* adding `increment`
+* adding `increment_quiet`
+
+HistogramFast
+* adding `equal_range`
+* adding `try_add`
 
 ## v0.1.1
 

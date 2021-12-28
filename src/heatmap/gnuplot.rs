@@ -132,14 +132,14 @@ impl GnuplotSettings {
     /// * Anything gnuplot accepts (e.g. "2cm, 2.9cm") is acceptable
     /// # Note
     /// the code does not check, if your input for `size` makes any sense
-    pub fn size<'a, S: Into<String>>(&'a mut self, size: S) -> &'a mut Self
+    pub fn size<S: Into<String>>(&'_ mut self, size: S) -> &'_ mut Self
     {
         self.size = size.into();
         self
     }
 
     /// # Builder pattern - set x_label
-    pub fn x_label<'a, S: Into<String>>(&'a mut self, x_label: S) -> &'a mut Self
+    pub fn x_label<S: Into<String>>(&'_ mut self, x_label: S) -> &'_ mut Self
     {
         self.x_label = x_label.into();
         self
@@ -158,14 +158,14 @@ impl GnuplotSettings {
     }
 
     /// # Builder pattern - set y_label
-    pub fn y_label<'a, S: Into<String>>(&'a mut self, y_label: S) -> &'a mut Self
+    pub fn y_label<S: Into<String>>(&'_ mut self, y_label: S) -> &'_ mut Self
     {
         self.y_label = y_label.into();
         self
     }
 
     /// # Builder pattern - set title
-    pub fn title<'a, S: Into<String>>(&'a mut self, title: S) -> &'a mut Self
+    pub fn title<S: Into<String>>(&'_ mut self, title: S) -> &'_ mut Self
     {
         self.title = title.into();
         self
@@ -178,7 +178,7 @@ impl GnuplotSettings {
     }
 
     /// # Builder pattern - set terminal
-    pub fn terminal<'a>(&'a mut self, terminal: GnuplotTerminal) -> &'a mut Self
+    pub fn terminal(&'_ mut self, terminal: GnuplotTerminal) -> &'_ mut Self
     {
         self.terminal = terminal;
         self
@@ -192,7 +192,7 @@ impl GnuplotSettings {
     }
 
     /// # Builder pattern - set color palette
-    pub fn palette<'a>(&'a mut self, palette: GnuplotPalette) -> &'a mut Self
+    pub fn palette(&'_ mut self, palette: GnuplotPalette) -> &'_ mut Self
     {
         self.palette = palette;
         self
@@ -205,14 +205,14 @@ impl GnuplotSettings {
     }
 
     /// Set x_axis - See GnuplotAxis or try it out
-    pub fn x_axis<'a>(&'a mut self, axis: GnuplotAxis) -> &'a mut Self
+    pub fn x_axis(&'_ mut self, axis: GnuplotAxis) -> &'_ mut Self
     {
         self.x_axis = Some(axis);
         self
     }
 
     /// Set y_axis - See GnuplotAxis or try it out
-    pub fn y_axis<'a>(&'a mut self, axis: GnuplotAxis) -> &'a mut Self
+    pub fn y_axis(&'_ mut self, axis: GnuplotAxis) -> &'_ mut Self
     {
         self.y_axis = Some(axis);
         self
@@ -272,7 +272,7 @@ pub struct CubeHelixParameter{
 
 fn valid(v: f32) -> bool
 {
-    0.0 <= v && 1.0 >= v
+    (0.0..=1.0).contains(&v)
 }
 
 impl CubeHelixParameter {
@@ -681,7 +681,7 @@ impl GnuplotPointSettings{
     pub fn legend<S: Into<String>>(&mut self, legend: S) -> &mut Self
     {
         let s = legend.into();
-        if s.contains('\"') || s.contains("\n")
+        if s.contains('\"') || s.contains('\n')
         {
             self.legend = "Invalid character encountered".to_owned();
             self
