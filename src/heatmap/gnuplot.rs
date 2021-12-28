@@ -1,6 +1,11 @@
-use std::{borrow::*, fmt, convert::From};
-use std::io::Write;
-use std::default::Default;
+use{
+    std::{
+        fmt,
+        io::Write,
+        convert::From,
+        borrow::*
+    }
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

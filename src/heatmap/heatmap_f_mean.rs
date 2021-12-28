@@ -1,8 +1,9 @@
-use std::borrow::Borrow;
-
-use num_traits::AsPrimitive;
-use crate::*;
-use average::WeightedMean;
+use{
+    crate::*,
+    average::WeightedMean,
+    num_traits::AsPrimitive,
+    std::borrow::Borrow
+};
 
 /// # Heatmap with mean of y-axis
 /// * stores heatmap in row-major order: the rows of the heatmap are contiguous,

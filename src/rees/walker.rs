@@ -1,6 +1,13 @@
-use rand::Rng;
-use std::{marker::PhantomData, mem::*, num::*, sync::*, usize};
-use crate::{*, rewl::log_density_to_log10_density};
+use{
+    crate::{*, rewl::log_density_to_log10_density},
+    rand::Rng,
+    std::{
+        marker::PhantomData, 
+        mem::*, 
+        num::*, 
+        sync::*,
+    }
+};
 
 #[cfg(feature = "sweep_time_optimization")]
 use std::time::*;

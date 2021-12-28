@@ -1,6 +1,7 @@
-use crate::*;
-use std::cmp::*;
-use glue_helper::*;
+use{
+    crate::{*, glue_helper::*},
+    std::cmp::*
+};
 
 
 /// # Combine multiple WangLandau intervals to get the probability distribution of the whole interval

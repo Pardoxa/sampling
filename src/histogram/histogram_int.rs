@@ -1,7 +1,21 @@
-use num_traits::{ops::{checked::*, wrapping::*}, cast::*, identities::*, Bounded};
-use crate::histogram::*;
-use std::{borrow::*, ops::*, num::*, marker::PhantomData};
-
+use{
+    crate::histogram::*,
+    num_traits::{
+        ops::{
+            checked::*, 
+            wrapping::*
+        },
+        cast::*,
+        identities::*,
+        Bounded
+    },
+    std::{
+        marker::PhantomData,
+        borrow::*,
+        ops::*,
+        num::*,
+    }
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

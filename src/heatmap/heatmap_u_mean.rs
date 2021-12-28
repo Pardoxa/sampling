@@ -1,8 +1,12 @@
-use std::borrow::Borrow;
-use crate::heatmap::{gnuplot_write_helper_plot, gnuplot_write_output};
-use num_traits::AsPrimitive;
-use crate::*;
-use average::{MeanWithError, Estimate, WeightedMean};
+use{
+    crate::{
+        *,
+        heatmap::{gnuplot_write_helper_plot, gnuplot_write_output}
+    },
+    std::borrow::Borrow,
+    num_traits::AsPrimitive,
+    average::{MeanWithError, Estimate, WeightedMean}
+};
 
 /// # Heatmap with mean of y-axis
 /// * stores heatmap in row-major order: the rows of the heatmap are contiguous,

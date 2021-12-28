@@ -1,14 +1,18 @@
-use crate::*;
-use std::io::Write;
-use std::borrow::*;
-use transpose::*;
-use std::convert::*;
-use crate::heatmap::{gnuplot_write_helper_plot, gnuplot_write_output};
+use{
+    crate::{
+        *,
+        heatmap::{gnuplot_write_helper_plot, gnuplot_write_output}
+    },
+    std::{
+        io::Write,
+        borrow::*,
+        convert::*
+    },
+    transpose::*
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
-
-
 
 /// # Heatmap
 /// * stores heatmap in row-major order: the rows of the heatmap are contiguous,

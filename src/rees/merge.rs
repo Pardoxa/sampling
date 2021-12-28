@@ -1,6 +1,7 @@
-use crate::glue_helper::*;
-use crate::*;
-use rayon::prelude::*;
+use{
+    crate::{*, glue_helper::*},
+    rayon::prelude::*
+};
 
 pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
 {

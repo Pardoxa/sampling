@@ -1,7 +1,8 @@
-use num_traits::{float::*, cast::*, identities::*};
-use crate::histogram::*;
-use std::{borrow::*, num::*};
-
+use{
+    crate::histogram::*,
+    std::{borrow::*, num::*},
+    num_traits::{float::*, cast::*, identities::*}
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

@@ -1,8 +1,20 @@
-use rand::{Rng, seq::*};
-use std::{marker::PhantomData, iter::*, io::Write};
-use crate::{*, traits::*};
-use std::{collections::*, cmp::*, num::*};
-use num_traits::{Bounded, ops::wrapping::*, identities::*};
+use{
+    crate::{*, traits::*},
+    rand::{Rng, seq::*},
+    num_traits::{
+        Bounded, 
+        ops::wrapping::*, 
+        identities::*
+    },
+    std::{
+        marker::PhantomData, 
+        io::Write,
+        iter::*, 
+        collections::*,
+        cmp::*,
+        num::*
+    }
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

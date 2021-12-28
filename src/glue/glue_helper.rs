@@ -1,7 +1,7 @@
-use crate::*;
-use std::cmp::*;
-use std::convert::*;
-
+use{
+    crate::*,
+    std::{cmp::*, convert::*}
+};
 
 #[derive(Debug)]
 /// Possible errors that can occur during gluing together

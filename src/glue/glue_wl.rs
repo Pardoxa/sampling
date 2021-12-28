@@ -1,9 +1,11 @@
-use crate::*;
-use std::cmp::*;
-use std::io::Write;
-use std::fmt::Display;
-use glue_helper::*;
-
+use{
+    crate::{*, glue_helper::*},
+    std::{
+        io::Write,
+        fmt::Display,
+        cmp::*,
+    }
+};
 
 /// # Glued together probability
 /// * you can [write it to a file](#method.write), maybe the file makes more sense

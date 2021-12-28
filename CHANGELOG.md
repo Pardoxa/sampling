@@ -3,13 +3,13 @@
 
 ## v0.2.0 (pending)
 
-WangLandauAdaptive:
+WangLandauAdaptive (breaking):
 * remove internal field - serialization affected
 
-EntropicSamplingAdaptive:
+EntropicSamplingAdaptive (breaking):
 * remove internal field - serialization affected
 
-## v0.1.2
+## v0.1.2 (skipped, changes are in v0.2.0)
 
 HistogramFast, HistogramInt and HistogramFloat:
 * adding `bin_iter`

@@ -1,6 +1,8 @@
-use crate::wang_landau::*;
-use crate::Histogram;
-use std::io::Write;
+use{
+    crate::{wang_landau::*, Histogram},
+    std::io::Write
+};
+
 /// # Traits for quantities that all Wang Landau simulations have
 /// * see also: `WangLandauHist`
 /// * this trait is for convinience, so that you do not have

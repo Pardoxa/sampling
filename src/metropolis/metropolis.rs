@@ -1,7 +1,9 @@
-use rand::Rng;
-use crate::{MarkovChain, HasRng};
-use std::marker::PhantomData;
-use num_traits::AsPrimitive;
+use{
+    crate::{MarkovChain, HasRng},
+    rand::Rng,
+    std::marker::PhantomData,
+    num_traits::AsPrimitive
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

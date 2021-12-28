@@ -1,8 +1,13 @@
-use crate::*;
-use crate::rewl::*;
-use rand::{Rng, SeedableRng, Error};
-use std::{marker::PhantomData, num::NonZeroUsize, sync::*};
-use rayon::prelude::*;
+use{
+    crate::{*, rewl::*},
+    rand::{Rng, SeedableRng, Error},
+    rayon::prelude::*,
+    std::{
+        marker::PhantomData, 
+        num::NonZeroUsize, 
+        sync::*
+    }
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

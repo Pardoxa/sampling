@@ -1,10 +1,14 @@
-use crate::*;
-use crate::{rees::replica_exchange, rewl::Rewl};
-use rand::{Rng, prelude::SliceRandom};
-use std::{num::NonZeroUsize, sync::*, cmp::*};
-use rayon::{prelude::*};
-use glue_helper::subtract_max;
-use crate::rewl::ignore_fn;
+use{
+    crate::{
+        *,
+        rees::replica_exchange,
+        rewl::{Rewl, ignore_fn},
+        glue_helper::subtract_max
+    },
+    rand::{Rng, prelude::SliceRandom},
+    std::{num::NonZeroUsize, sync::*, cmp::*},
+    rayon::prelude::*
+};
 
 #[cfg(feature = "sweep_time_optimization")]
 use std::cmp::Reverse;

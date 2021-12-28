@@ -1,8 +1,14 @@
-use rand::{Rng, seq::*};
-use std::{marker::PhantomData, iter::*};
-use crate::{*, traits::*};
-use std::{collections::*, convert::*};
-use std::io::Write;
+use{
+    crate::{*, traits::*},
+    rand::{Rng, seq::*},
+    std::{
+        marker::PhantomData,
+        io::Write,
+        iter::*,
+        collections::*,
+        convert::*
+    }
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

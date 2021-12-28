@@ -1,11 +1,11 @@
-use crate::*;
-use std::borrow::*;
-use transpose::*;
-use std::io::Write;
+use{
+    crate::*,
+    transpose::*,
+    std::{io::Write, borrow::*}
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
-
 
 /// # Get index of heatmap corresponding to a coordinate
 #[inline(always)]

@@ -1,7 +1,8 @@
-use rand::Rng;
-use std::{marker::PhantomData, mem::*, num::*, sync::*, usize};
-use crate::*;
-use crate::wang_landau::WangLandauMode;
+use{
+    crate::{*, wang_landau::WangLandauMode},
+    rand::Rng,
+    std::{marker::PhantomData, mem::*, num::*, sync::*}
+};
 
 #[cfg(feature = "sweep_time_optimization")]
 use std::time::*;

@@ -1,5 +1,10 @@
-use rand::{Rng, distributions::{Bernoulli, Distribution}};
-use std::ops::Mul;
+use{
+    rand::{
+        Rng,
+        distributions::{Bernoulli, Distribution}
+    },
+    std::ops::Mul
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};

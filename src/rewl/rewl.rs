@@ -1,9 +1,13 @@
-use crate::*;
-use crate::rewl::*;
-use crate::glue_helper::*;
-use rand::{Rng, SeedableRng, prelude::SliceRandom};
-use std::{num::NonZeroUsize, sync::*, cmp::*};
-use rayon::{iter::ParallelIterator, prelude::*};
+use{
+    crate::{
+        *,
+        rewl::*,
+        glue_helper::*
+    },
+    rayon::{iter::ParallelIterator, prelude::*},
+    rand::{Rng, SeedableRng, prelude::SliceRandom},
+    std::{num::NonZeroUsize, sync::*, cmp::*}
+};
 
 #[cfg(feature = "sweep_time_optimization")]
 use std::cmp::Reverse;
