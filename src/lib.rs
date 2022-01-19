@@ -6,7 +6,8 @@
 //! * [Detailed example](examples/coin_flips/index.html#example-replica-exchange-wang-landau) for 
 //! parallel Replica exchange Wang Landau
 
-#![deny(missing_docs, warnings)]
+// TODO Remove comment to force Documentation of everything as requirement for compiling
+//#![deny(missing_docs, warnings)]
 #![allow(clippy::missing_safety_doc)]
 /// Contains traits useful for sampling an ensemble
 /// like MarkovChain or Metropolis etc.

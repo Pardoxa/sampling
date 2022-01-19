@@ -107,7 +107,14 @@ pub(crate) fn height_correction(log10_vec: &mut Vec<Vec<f64>>, z_vec: &[f64]){
         .zip(z_vec.iter())
         .for_each( |(vec, &z)|
             vec.iter_mut()
-                .for_each(|val| *val += z )
+                .for_each(
+                    |val| 
+                    {
+                        *val += z;
+                        println!("z = {}", z); 
+
+                    }
+                )
         );
 }
 

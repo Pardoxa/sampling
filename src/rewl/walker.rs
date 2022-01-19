@@ -243,6 +243,14 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     }
 }
 
+impl <R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
+    where Hist: HistogramVal<Energy>,
+{
+    fn log_f_1_t(&self) -> f64
+    { 
+        self.hist.bin_count() as f64 / self.step_count as f64
+    }
+}
 
 impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
 where R: Rng + Send + Sync,
@@ -296,11 +304,6 @@ where R: Rng + Send + Sync,
     pub fn log10_density(&self) -> Vec<f64>
     {
         log_density_to_log10_density(self.log_density())
-    }
-
-    fn log_f_1_t(&self) -> f64
-    {
-        self.hist.bin_count() as f64 / self.step_count as f64
     }
 
     pub(crate) fn all_bins_reached(&self) -> bool
@@ -521,5 +524,24 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         walker_a.bin = new_bin_a;
         walker_b.re +=1;
         walker_a.re +=1;
+
+    }
+    // TODO Double check this scope that was added
+    {
+        if walker_a.mode.is_mode_1_t() {
+            walker_a.log_f =  walker_a.log_f_1_t();
+        }
+    
+        if walker_b.mode.is_mode_1_t() {
+            walker_b.log_f =  walker_b.log_f_1_t();
+        }
+    
+        walker_a.hist.count_index(walker_a.bin)
+                    .expect("Histogram index Error, ERRORCODE 0x8");
+        walker_a.log_density[walker_a.bin] += walker_a.log_f;
+    
+        walker_b.hist.count_index(walker_b.bin)
+                    .expect("Histogram index Error, ERRORCODE 0x8");
+        walker_b.log_density[walker_b.bin] += walker_b.log_f;
     }
 }
