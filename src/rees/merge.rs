@@ -322,8 +322,6 @@ where Hist: HistogramCombine + Histogram,
     // calc z
     let z_vec = calc_z(&log_prob, &alignment).expect("Unable to calculate Z in glueing");
 
-    println!("{:?}", z_vec);
-
     // correct height
     height_correction(&mut log_prob, &z_vec);
     // renaming

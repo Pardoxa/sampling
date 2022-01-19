@@ -111,8 +111,6 @@ pub(crate) fn height_correction(log10_vec: &mut Vec<Vec<f64>>, z_vec: &[f64]){
                     |val| 
                     {
                         *val += z;
-                        println!("z = {}", z); 
-
                     }
                 )
         );

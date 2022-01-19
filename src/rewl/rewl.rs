@@ -60,6 +60,17 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     pub(crate) walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     pub(crate) log_f_threshold: f64,
     pub(crate) replica_exchange_mode: bool,
+    pub(crate) roundtrip_halves: Vec<usize>,
+    pub(crate) last_extreme_interval_visited: Vec<ExtremeInterval>
+}
+
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub enum ExtremeInterval
+{
+    Left,
+    Right,
+    None
 }
 
 
@@ -132,9 +143,13 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     }
 
     /// # Get the number of intervals present
-    pub fn num_intervals(&self) -> usize
+    pub fn num_intervals(&self) -> NonZeroUsize
     {
-        self.walker.len() / self.chunk_size.get()
+        match NonZeroUsize::new(self.walker.len() / self.chunk_size.get())
+        {
+            Some(v) => v,
+            None => unreachable!()
+        }
     }
 
     /// Returns number of walkers per interval
@@ -251,9 +266,6 @@ where R: Send + Sync + Rng + SeedableRng,
     Res: Send + Sync,
     S: Send + Sync
 {
-
-
-
 
 
     /// # Perform the Replica exchange wang landau simulation
@@ -424,7 +436,100 @@ where R: Send + Sync + Rng + SeedableRng,
                         replica_exchange(walker_a, walker_b);
                     }
                 }
-            )
+            );
+
+        self.update_roundtrips();
+    }
+
+    
+    pub(crate) fn update_roundtrips(&mut self){
+        if self.num_intervals().get() == 1 {
+            return;
+        }
+
+        // check all walker that are currently in the first interval
+        let mut chunk_iter = self.walker.chunks(self.chunk_size.get());
+        let first_chunk = chunk_iter.next().unwrap();
+        first_chunk.iter()
+            .for_each(
+                |walker|
+                {
+                    let id = walker.id();
+                    let last_visited = match self.last_extreme_interval_visited.get_mut(id){
+                        Some(last) => last,
+                        None => unreachable!()
+                    };
+
+                    match last_visited {
+                        ExtremeInterval::Right => {
+                            *last_visited = ExtremeInterval::Left;
+                            self.roundtrip_halves[id] += 1;
+                        },
+                        ExtremeInterval::None => {
+                            *last_visited = ExtremeInterval::Left;
+                        },
+                        _ => ()
+                    }
+                }
+            );
+
+        // check all walker that are currently in the last interval
+        let last_chunk = match chunk_iter.last()
+        {
+            Some(chunk) => chunk,
+            None => unreachable!()
+        };
+
+        last_chunk.iter()
+            .for_each(
+                |walker|
+                {
+                    let id = walker.id();
+                    let last_visited = match self.last_extreme_interval_visited.get_mut(id){
+                        Some(last) => last,
+                        None => unreachable!()
+                    };
+
+                    match last_visited {
+                        ExtremeInterval::Left => {
+                            *last_visited = ExtremeInterval::Right;
+                            self.roundtrip_halves[id] += 1;
+                        },
+                        ExtremeInterval::None => {
+                            *last_visited = ExtremeInterval::Right;
+                        },
+                        _ => ()
+                    }
+                }
+            );
+
+    }
+
+
+    pub fn min_roundtrips(&self) -> usize 
+    {
+        match self.roundtrip_iter().min()
+        {
+            Some(v) => v,
+            None => unreachable!()
+        }
+    }
+
+    pub fn max_roundtrips(&self) -> usize 
+    {
+        match self.roundtrip_iter().max()
+        {
+            Some(v) => v,
+            None => unreachable!()
+        }
+    }
+
+    #[inline]
+    pub fn roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
+    {
+        self.roundtrip_halves
+            .iter()
+            .map(|&r_h| r_h / 2)
     }
 
     /// returns largest value of factor log_f present in the walkers

@@ -380,14 +380,23 @@ where Hist: Histogram,
             ensembles_rw_lock.push(RwLock::new(e));
         }
 
+        let last_extreme_interval_visited = vec![ExtremeInterval::None; walker.len()];
+        let roundtrip_halves = vec![0; walker.len()];
+
+        let mut res = Rewl{
+            ensembles: ensembles_rw_lock,
+            replica_exchange_mode: true,
+            chunk_size: walker_per_interval,
+            walker,
+            log_f_threshold,
+            last_extreme_interval_visited,
+            roundtrip_halves
+        };
+
+        res.update_roundtrips();
+
         Ok(
-            Rewl{
-                ensembles: ensembles_rw_lock,
-                replica_exchange_mode: true,
-                chunk_size: walker_per_interval,
-                walker,
-                log_f_threshold
-            }
+            res
         )
     }
 
