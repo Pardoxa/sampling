@@ -308,7 +308,7 @@ where Hist: HistogramCombine + Histogram,
     if alignment.is_empty(){
         // entering this means we only have 1 interval!
         assert_eq!(log_prob.len(), 1);
-        norm_log10_sum_to_1(&mut log_prob[0]);
+        norm_ln_prob(&mut log_prob[0]);
         let glued = log_prob[0].clone();
         return ReplicaGlued{
             base: LogBase::Base10,
@@ -332,10 +332,7 @@ where Hist: HistogramCombine + Histogram,
         .expect("Glue error!");
 
     // now norm the result
-    // TODO AM I REALLY BASE 10 here?
-    norm_log10_sum_to_1(&mut glued_log_density);
-
-    let shift = glued_log_density[0] - aligned_intervals[0][0];
+    let shift = norm_ln_prob(&mut glued_log_density);
 
     aligned_intervals
         .iter_mut()
@@ -343,7 +340,7 @@ where Hist: HistogramCombine + Histogram,
         .for_each(|v| *v += shift);
 
     ReplicaGlued{
-        base: LogBase::Base10,
+        base: LogBase::BaseE,
         encapsulating_histogram: e_hist,
         aligned: aligned_intervals,
         glued: glued_log_density,
@@ -434,8 +431,8 @@ where T: histogram::HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display
 {
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
-        writeln!(writer, "#bin merged interval0 …")?;
-        writeln!(writer, "#Base {:?}", self.base)?;
+        writeln!(writer, "#bin log_merged log_interval0 …")?;
+        writeln!(writer, "#log: {:?}", self.base)?;
 
         let mut alinment_helper: Vec<_> = std::iter::once(0)
             .chain(

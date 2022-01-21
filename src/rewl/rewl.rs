@@ -693,6 +693,7 @@ where R: Send + Sync + Rng + SeedableRng,
         let (hists, log_probs) = self.get_log_prob_and_hists();
         let (alignment, log_prob, e_hist) = 
             self.no_deriv_merged_log_probability_helper2(log_probs, hists)?;
+
         Ok(
             no_derive_merged_and_aligned(
                 alignment,
