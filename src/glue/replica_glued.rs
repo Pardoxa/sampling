@@ -128,9 +128,11 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         writeln!(writer, "#bin log_merged log_interval0 …")?;
         writeln!(writer, "#log: {:?}", self.base)?;
 
+        let bin_size_recip = bin_size.recip();
+
         let rescale = match self.base {
-            LogBase::BaseE => bin_size.ln(),
-            LogBase::Base10 => bin_size.log10(),
+            LogBase::BaseE => bin_size_recip.ln(),
+            LogBase::Base10 => bin_size_recip.log10(),
         };
 
         let mut alinment_helper: Vec<_> = std::iter::once(0)
