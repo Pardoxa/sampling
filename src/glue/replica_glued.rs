@@ -78,22 +78,7 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         writeln!(writer, "#bin log_merged log_interval0 …")?;
         writeln!(writer, "#log: {:?}", self.base)?;
 
-        let mut alinment_helper: Vec<_> = std::iter::once(0)
-            .chain(
-                self.alignment.iter()
-                    .map(|&v| -(v as isize))
-            ).collect();
-
-        let mut sum = 0;
-        alinment_helper.iter_mut()
-            .for_each(
-                |val| 
-                {
-                    let old = sum;
-                    sum += *val;
-                    *val += old;
-                }
-            );
+        let mut alinment_helper = self.alinment_helper();
 
         for (&log_prob, bin) in self.glued
             .iter()
@@ -117,6 +102,29 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         }
         Ok(())
     }
+}
+impl<T> ReplicaGlued<HistogramFast<T>>
+{
+    fn alinment_helper(&self) -> Vec<isize>
+    {
+        let mut alinment_helper: Vec<_> = std::iter::once(0)
+            .chain(
+                self.alignment.iter()
+                    .map(|&v| -(v as isize))
+            ).collect();
+
+        let mut sum = 0;
+        alinment_helper.iter_mut()
+            .for_each(
+                |val| 
+                {
+                    let old = sum;
+                    sum += *val;
+                    *val += old;
+                }
+            );
+        alinment_helper
+    }
 
     pub fn write_rescaled<W: std::io::Write>(
         &self,
@@ -135,24 +143,7 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
             LogBase::Base10 => bin_size_recip.log10(),
         };
 
-        let mut alinment_helper: Vec<_> = std::iter::once(0)
-            .chain(
-                self.alignment.iter()
-                    .map(|&v| -(v as isize))
-            ).collect();
-
-        let mut sum = 0;
-        alinment_helper.iter_mut()
-            .for_each(
-                |val| 
-                {
-                    let old = sum;
-                    sum += *val;
-                    *val += old;
-                }
-            );
-
-        
+        let mut alinment_helper = self.alinment_helper();
 
         for (index, log_prob) in self.glued
             .iter()
