@@ -1,7 +1,6 @@
 use{
     crate::{*, glue_helper::*, glue::ReplicaGlued},
     rayon::prelude::*,
-    std::f64::consts::LOG10_E,
 };
 
 pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
@@ -346,17 +345,4 @@ where Hist: HistogramCombine + Histogram,
         glued: glued_log_density,
         alignment
     }
-}
-
-
-pub(crate) fn ln_to_log10(slice: &mut [f64])
-{
-    slice.iter_mut()
-            .for_each(|val| *val *= LOG10_E);
-}
-
-pub(crate) fn log10_to_ln(slice: &mut [f64])
-{
-    slice.iter_mut()
-        .for_each(|val| *val /= LOG10_E);
 }

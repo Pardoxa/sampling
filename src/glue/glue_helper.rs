@@ -1,6 +1,6 @@
 use{
     crate::*,
-    std::{cmp::*, convert::*}
+    std::{cmp::*, convert::*, f64::consts::LOG10_E}
 };
 
 #[derive(Debug)]
@@ -201,4 +201,16 @@ pub(crate) fn subtract_max(list: &mut[f64]) -> f64
             .for_each(|val| *val -= max);
     }
     max
+}
+
+pub(crate) fn ln_to_log10(slice: &mut [f64])
+{
+    slice.iter_mut()
+            .for_each(|val| *val *= LOG10_E);
+}
+
+pub(crate) fn log10_to_ln(slice: &mut [f64])
+{
+    slice.iter_mut()
+        .for_each(|val| *val /= LOG10_E);
 }

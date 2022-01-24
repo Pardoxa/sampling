@@ -1,8 +1,14 @@
-use crate::{log10_to_ln, ln_to_log10};
-use crate::histogram::*;
+use crate::{
+        glue_helper::{log10_to_ln, ln_to_log10},
+        histogram::*
+};
+
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
 
 // TODO Document enum
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum LogBase{
     Base10,
     BaseE
@@ -10,6 +16,7 @@ pub enum LogBase{
 
 // TODO maybe rename struct?
 #[derive(Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ReplicaGlued<Hist>
 {
     pub(crate) encapsulating_histogram: Hist,
