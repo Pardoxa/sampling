@@ -95,7 +95,7 @@ where Hist: HistogramCombine + Histogram,
     aligned_intervals[0][..log_prob[0].len()]
         .copy_from_slice(&log_prob[0]);
     
-    // Nothing to allign, only one interval here
+    // Nothing to align, only one interval here
     if merge_points.is_empty() {
         norm_ln_prob(&mut aligned_intervals[0]);
         merged_log_prob.copy_from_slice(&aligned_intervals[0]);
@@ -153,6 +153,92 @@ where Hist: HistogramCombine + Histogram,
         );
     Ok(
         (e_hist, merged_log_prob, aligned_intervals)
+    )
+}
+
+pub(crate) fn merged_and_aligned2<Hist>(
+    e_hist: Hist,
+    merge_points: Vec<usize>,
+    alignment: Vec<usize>,
+    mut log_prob: Vec<Vec<f64>>,
+) -> Result<ReplicaGlued<Hist>, HistErrors>
+where Hist: HistogramCombine + Histogram,
+{
+    // Not even one Interval - this has to be an error
+    if log_prob.is_empty() {
+        return Err(HistErrors::EmptySlice)
+    }
+
+    let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+
+    
+    // Nothing to align, only one interval here
+    if alignment.is_empty() {
+        norm_ln_prob(&mut log_prob[0]);
+        let merged_prob = log_prob[0].clone();
+        let r = ReplicaGlued::new(
+            e_hist,
+            merged_prob,
+            log_prob,
+            LogBase::BaseE,
+            alignment
+        );
+        return Ok(r);
+    }
+
+    merged_log_prob[..=merge_points[0]]
+        .copy_from_slice(&log_prob[0][..=merge_points[0]]);
+
+
+    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
+    let mut align_sum = 0;
+
+    for ((&a, &mp), log_prob_p1) in alignment.iter()
+        .zip(merge_points.iter())
+        .zip(log_prob.iter_mut().skip(1))
+    {
+        let position_l = mp + align_sum;
+        align_sum += a;
+        let left = mp - a;
+
+        let shift = merged_log_prob[position_l] - log_prob_p1[left];
+
+        // shift
+        log_prob_p1
+            .iter_mut()
+            .for_each(|v| *v = *v + shift);
+
+        merged_log_prob[position_l..]
+            .iter_mut()
+            .zip(log_prob_p1[left..].iter())
+            .for_each(
+                |(merge, &val)|
+                {
+                    *merge = val;
+                }
+            );
+
+
+    }
+    
+    let shift = norm_ln_prob(&mut merged_log_prob);
+    log_prob.iter_mut()
+        .for_each(
+            |interval|
+            interval.iter_mut()
+                .for_each(|val| *val -= shift)
+        );
+
+    let glued = ReplicaGlued::new(
+        e_hist, 
+        merged_log_prob, 
+        log_prob, 
+        LogBase::BaseE, 
+        alignment
+    );
+        
+    Ok(
+        glued
     )
 }
 

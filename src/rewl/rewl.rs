@@ -649,28 +649,12 @@ where R: Send + Sync + Rng + SeedableRng,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log10_prob_and_aligned(&self) -> Result<FormerGlued<Hist>, HistErrors>
+    pub fn merged_log10_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine
     {
-        let (e_hist, mut log_prob, mut aligned) = self.merged_log_prob_and_aligned()?;
-        
-        ln_to_log10(&mut log_prob);
-        
-        aligned.par_iter_mut()
-            .for_each(
-                |slice| 
-                {
-                    ln_to_log10(slice);
-                }
-            );
-
-        let glued = FormerGlued{
-            encapsulating_hist: e_hist,
-            glued: log_prob,
-            aligned,
-            base: LogBase::Base10
-        };
-        Ok(glued)
+        let mut r = self.merged_log_prob_and_aligned()?;
+        r.switch_base();
+        Ok(r)
     }
 
 
@@ -706,28 +690,10 @@ where R: Send + Sync + Rng + SeedableRng,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log_prob_and_aligned(&self) -> GluedResult<Hist>
+    pub fn merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine 
     {
-        let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
-
-        let shift = norm_ln_prob(&mut log_prob);
-        
-        aligned.par_iter_mut()
-            .for_each(
-                |aligned|
-                {
-                    aligned.iter_mut()
-                        .for_each(|val| *val -= shift)
-                }
-            );
-        Ok(
-            (
-                e_hist,
-                log_prob,
-                aligned
-            )
-        )
+        self.merged_log_probability_and_align()
     }
 
     fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
@@ -763,20 +729,17 @@ where R: Send + Sync + Rng + SeedableRng,
         )
     }
 
-    fn merged_log_probability_and_align(&self) -> GluedResult<Hist>
+    fn merged_log_probability_and_align(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         let (merge_points, alignment, log_prob, e_hist) = 
             self.merged_log_probability_helper2(log_probs, hists)?;
-        merged_and_aligned(
-            self.walker.iter()
-                    .step_by(self.walkers_per_interval().get())
-                    .map(|v| v.hist()),
+        merged_and_aligned2(
+            e_hist,
             merge_points,
             alignment,
-            log_prob,
-            e_hist
+            log_prob
         )
     }
 
