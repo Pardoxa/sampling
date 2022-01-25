@@ -22,6 +22,59 @@ use serde::{Serialize, Deserialize};
 ///    their logarithmic "hight" was allready corrected
 pub type Glued<Hist> = (Hist, Vec<f64>, Vec<Vec<f64>>);
 
+// I want to do an even bigger refactoring
+pub struct FormerGlued<Hist>
+{
+    encapsulating_hist: Hist,
+    glued: Vec<f64>,
+    aligned: Vec<Vec<f64>>,
+    base: LogBase
+}
+
+impl<Hist> FormerGlued<Hist>
+{
+    pub fn glued(&self) -> &[f64]
+    {
+        &self.glued
+    }
+
+    pub fn alined(&self) -> &[Vec<f64>]
+    {
+        &self.aligned
+    }
+
+    pub fn base(&self) -> LogBase
+    {
+        self.base
+    }
+
+    pub fn encapsulating_hist(&self) -> &Hist
+    {
+        &self.encapsulating_hist
+    }
+
+    /// Change from Base 10 to Base E or the other way round
+    pub fn switch_base(&mut self)
+    {
+        match self.base
+        {
+            LogBase::Base10 => {
+                log10_to_ln(&mut self.glued);
+                self.aligned
+                    .iter_mut()
+                    .for_each(|interval| log10_to_ln( interval));
+                self.base = LogBase::BaseE;
+            },
+            LogBase::BaseE => {
+                ln_to_log10(&mut self.glued);
+                self.aligned
+                    .iter_mut()
+                    .for_each(|interval| ln_to_log10( interval));
+                self.base = LogBase::Base10;
+            }
+        }
+    }
+}
 /// Result of glueing. See [Glued]
 pub type GluedResult<Hist> = Result<Glued<Hist>, HistErrors>;
 
@@ -582,6 +635,7 @@ where R: Send + Sync + Rng + SeedableRng,
 
     }
 
+    /// TODO CHeck documentation, changed result type
     /// # Results of the simulation
     /// 
     /// This is what we do the simulation for!
@@ -595,7 +649,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log10_prob_and_aligned(&self) -> GluedResult<Hist>
+    pub fn merged_log10_prob_and_aligned(&self) -> Result<FormerGlued<Hist>, HistErrors>
     where Hist: HistogramCombine
     {
         let (e_hist, mut log_prob, mut aligned) = self.merged_log_prob_and_aligned()?;
@@ -609,10 +663,16 @@ where R: Send + Sync + Rng + SeedableRng,
                     ln_to_log10(slice);
                 }
             );
-        Ok(
-            (e_hist, log_prob, aligned)
-        )
+
+        let glued = FormerGlued{
+            encapsulating_hist: e_hist,
+            glued: log_prob,
+            aligned,
+            base: LogBase::Base10
+        };
+        Ok(glued)
     }
+
 
 
     /// # Result of the simulations!
