@@ -615,68 +615,6 @@ where R: Send + Sync + Rng + SeedableRng,
             .all(|w| w.log_f() < self.log_f_threshold)
     }
 
-    /// # Result of the simulations!
-    /// This is what we do the simulation for!
-    /// 
-    /// It returns the log10 of the normalized (i.e. sum=1 within numerical precision) probability density and the 
-    /// histogram, which contains the corresponding bins.
-    ///
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
-    pub fn merged_log10_prob(&self) -> Result<(Hist, Vec<f64>), HistErrors>
-    where Hist: HistogramCombine
-    {
-        let (e_hist, mut log_prob) = self.merged_log_prob()?;
-
-        // switch base of log
-        ln_to_log10(&mut log_prob);
-
-        Ok((e_hist, log_prob))
-
-    }
-
-    /// TODO CHeck documentation, changed result type
-    /// # Results of the simulation
-    /// 
-    /// This is what we do the simulation for!
-    /// 
-    /// It returns histogram, which contains the corresponding bins and
-    /// the logarithm with base 10 of the normalized (i.e. sum=1 within numerical precision) 
-    /// probability density. Lastly it returns the vector of the aligned probability estimates (also log10) of the
-    /// different intervals. This can be used to see, how good the simulation worked,
-    /// e.g., by plotting them to see, if they match
-    ///
-    /// ## Notes
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
-    pub fn merged_log10_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
-    where Hist: HistogramCombine
-    {
-        let mut r = self.merged_log_prob_and_aligned()?;
-        r.switch_base();
-        Ok(r)
-    }
-
-
-
-    /// # Result of the simulations!
-    /// This is what we do the simulation for!
-    /// 
-    /// It returns the natural logarithm of the normalized (i.e. sum=1 within numerical precision) probability density and the 
-    /// histogram, which contains the corresponding bins.
-    ///
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
-    pub fn merged_log_prob(&self) -> Result<(Hist, Vec<f64>), HistErrors>
-    where Hist: HistogramCombine
-    {
-        let (mut log_prob, e_hist) = self.merged_log_probability()?;
-
-        norm_ln_prob(&mut log_prob);
-        
-        Ok((e_hist, log_prob))
-    }
-
     /// # Results of the simulation
     /// 
     /// This is what we do the simulation for!
@@ -688,49 +626,10 @@ where R: Send + Sync + Rng + SeedableRng,
     /// e.g., by plotting them to see, if they match
     ///
     /// ## Notes
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine 
-    {
-        self.merged_log_probability_and_align()
-    }
-
-    fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
-    where Hist: HistogramCombine
-    {
-        let (hists, log_probs) = self.get_log_prob_and_hists();
-        let (merge_points, alignment, log_prob, e_hist) = 
-            self.merged_log_probability_helper2(log_probs, hists)?;
-        Ok(
-            only_merged(
-                merge_points,
-                alignment,
-                log_prob,
-                e_hist
-            )
-        )
-    }
-
-    // TODO Rename function
-    pub fn no_deriv_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
-    where Hist: HistogramCombine
-    {
-        let (hists, log_probs) = self.get_log_prob_and_hists();
-        let (alignment, log_prob, e_hist) = 
-            average_merged_log_probability_helper2(log_probs, hists)?;
-
-        Ok(
-            no_derive_merged_and_aligned(
-                alignment,
-                log_prob,
-                e_hist
-            )
-        )
-    }
-
-    fn merged_log_probability_and_align(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
-    where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         let (merge_points, alignment, log_prob, e_hist) = 
@@ -740,6 +639,23 @@ where R: Send + Sync + Rng + SeedableRng,
             merge_points,
             alignment,
             log_prob
+        )
+    }
+
+    // TODO Rename function
+    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (alignment, log_prob, e_hist) = 
+            average_merged_log_probability_helper2(log_probs, hists)?;
+
+        Ok(
+            average_merged_and_aligned(
+                alignment,
+                log_prob,
+                e_hist
+            )
         )
     }
 

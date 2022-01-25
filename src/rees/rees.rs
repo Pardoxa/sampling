@@ -675,7 +675,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
             average_merged_log_probability_helper2(log_probs, hists)?;
 
         Ok(
-            no_derive_merged_and_aligned(
+            average_merged_and_aligned(
                 alignment,
                 log_prob,
                 e_hist

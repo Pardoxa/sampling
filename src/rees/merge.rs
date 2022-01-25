@@ -383,7 +383,7 @@ fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> R
 }
 
 // TODO Rename function?
-pub(crate) fn no_derive_merged_and_aligned<Hist>(
+pub(crate) fn average_merged_and_aligned<Hist>(
     alignment: Vec<usize>,
     mut log_prob: Vec<Vec<f64>>,
     e_hist: Hist

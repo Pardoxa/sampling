@@ -514,14 +514,13 @@
 ///
 /// // now lets get the result of the simulation:
 /// // The logarithm (here base e, there is also a function for base 10) of the probability density (or density of states)
-/// let merged = rewl.merged_log_prob()
+/// let glued = rewl.derivative_merged_log_prob_and_aligned()
 ///     .unwrap();
 /// 
-/// // this is the above mentioned density. 
-/// // merged.0 will be the corresponding histogram
-/// let ln_prob = merged.1;
+/// let ln_prob = glued.glued();
+/// 
 ///
-/// // For this example, we know the exact reut. Lets calculate it to compare
+/// // For this example, we know the exact result. Lets calculate it to compare
 /// let binomial = Binomial::new(0.5, n as u64).unwrap();
 /// let ln_prob_true: Vec<_> = (0..=n)
 ///     .map(|k| binomial.ln_pmf(k as u64))
@@ -567,7 +566,7 @@
 /// let file = File::create("coin_flip_rewl.dat").unwrap();
 /// let buf = BufWriter::new(file);
 /// 
-/// let glued = rewl.merged_log_prob_and_aligned().unwrap();
+/// let glued = rewl.derivative_merged_log_prob_and_aligned().unwrap();
 /// 
 /// glued.write(buf).unwrap();
 /// 
