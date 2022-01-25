@@ -104,6 +104,22 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
             .get(index)
             .map(|w| w.hist())
     }
+
+    fn get_log_prob_and_hists(&self) -> (Vec<&Hist>, Vec<Vec<f64>>)
+    where Hist: Histogram
+    {
+            // get the log_probabilities - the walkers over the same intervals are merged
+            let log_prob: Vec<_> = self.walker
+                .chunks(self.chunk_size.get())
+                .map(get_merged_walker_prob)
+                .collect();
+            
+            let hists: Vec<_> = self.walker.iter()
+                .step_by(self.chunk_size.get())
+                .map(|w| w.hist())
+                .collect();
+            (hists, log_prob)
+    }
 }
 
 impl<Ensemble, R, Hist, Energy, S, Res> From<Rewl<Ensemble, R, Hist, Energy, S, Res>> for Rees<(), Ensemble, R, Hist, Energy, S, Res>
@@ -650,6 +666,23 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
+    // TODO Rename function
+    pub fn no_deriv_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    where Hist: HistogramCombine
+    {
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (alignment, log_prob, e_hist) = 
+            average_merged_log_probability_helper2(log_probs, hists)?;
+
+        Ok(
+            no_derive_merged_and_aligned(
+                alignment,
+                log_prob,
+                e_hist
+            )
+        )
+    }
+
     fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
@@ -908,7 +941,7 @@ where Hist: Histogram
                     let mut density = w.log_density_refined();
                     norm_ln_prob(&mut density);
                     averaged_log_density.iter_mut()
-                        .zip(density.into_iter())
+                        .zip(density)
                         .for_each(
                             |(average, other)|
                             {

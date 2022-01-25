@@ -692,7 +692,7 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         let (alignment, log_prob, e_hist) = 
-            self.no_deriv_merged_log_probability_helper2(log_probs, hists)?;
+            average_merged_log_probability_helper2(log_probs, hists)?;
 
         Ok(
             no_derive_merged_and_aligned(
@@ -734,42 +734,6 @@ where R: Send + Sync + Rng + SeedableRng,
             .collect();
         (hists, log_prob)
     }        
-
-    // TODO maybe rename function
-    #[allow(clippy::type_complexity)]
-    fn no_deriv_merged_log_probability_helper2(
-        &self,
-        mut log_prob: Vec<Vec<f64>>,
-        hists: Vec<&Hist>
-    ) -> Result<(Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
-    where Hist: HistogramCombine
-    {
-        // get the log_probabilities - the walkers over the same intervals are merged
-        log_prob
-            .par_iter_mut()
-            .for_each(
-                |v| 
-                {
-                    subtract_max(v);
-                }
-            );
-
-
-        let e_hist = Hist::encapsulating_hist(&hists)?;
-
-        let alignment  = hists.iter()
-            .zip(hists.iter().skip(1))
-            .map(|(&left, &right)| left.align(right))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(
-            (
-                alignment,
-                log_prob,
-                e_hist
-            )
-        )
-    }
 
     #[allow(clippy::type_complexity)]
     fn merged_log_probability_helper2(

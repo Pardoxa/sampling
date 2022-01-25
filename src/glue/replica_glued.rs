@@ -1,6 +1,9 @@
-use crate::{
-        glue_helper::{log10_to_ln, ln_to_log10},
-        histogram::*
+use {
+    crate::{
+        glue_helper::{log10_to_ln, ln_to_log10, subtract_max},
+        histogram::*,
+    },
+    rayon::{prelude::*, iter::ParallelIterator}
 };
 
 #[cfg(feature = "serde_support")]
@@ -28,6 +31,23 @@ pub struct ReplicaGlued<Hist>
 
 impl<Hist> ReplicaGlued<Hist>
 {
+    pub fn new(
+        encapsulating_histogram: Hist, 
+        glued: Vec<f64>, 
+        aligned: Vec<Vec<f64>>, 
+        base: LogBase, 
+        alignment: Vec<usize>
+    ) -> Self
+    {
+        Self{
+            alignment,
+            aligned,
+            base,
+            glued,
+            encapsulating_histogram
+        }
+    }
+
     /// # Returns Slice which represents the glued logarithmic probability density
     /// The base of the logarithm can be found via [`self.base()`](`Self::base`)
     pub fn glued(&self) -> &[f64]
@@ -181,3 +201,38 @@ impl<T> ReplicaGlued<HistogramFast<T>>
         Ok(())
     }
 } 
+
+    // TODO maybe rename function
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn average_merged_log_probability_helper2<Hist>(
+        mut log_prob: Vec<Vec<f64>>,
+        hists: Vec<&Hist>
+    ) -> Result<(Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+    where Hist: HistogramCombine
+    {
+        // get the log_probabilities - the walkers over the same intervals are merged
+        log_prob
+            .par_iter_mut()
+            .for_each(
+                |v| 
+                {
+                    subtract_max(v);
+                }
+            );
+
+
+        let e_hist = Hist::encapsulating_hist(&hists)?;
+
+        let alignment  = hists.iter()
+            .zip(hists.iter().skip(1))
+            .map(|(&left, &right)| left.align(right))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(
+            (
+                alignment,
+                log_prob,
+                e_hist
+            )
+        )
+    }
