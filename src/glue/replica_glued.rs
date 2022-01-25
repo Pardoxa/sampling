@@ -31,7 +31,7 @@ pub struct ReplicaGlued<Hist>
 
 impl<Hist> ReplicaGlued<Hist>
 {
-    pub fn new(
+    pub unsafe fn new_unchecked(
         encapsulating_histogram: Hist, 
         glued: Vec<f64>, 
         aligned: Vec<Vec<f64>>, 

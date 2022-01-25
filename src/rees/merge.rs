@@ -176,13 +176,15 @@ where Hist: HistogramCombine + Histogram,
     if alignment.is_empty() {
         norm_ln_prob(&mut log_prob[0]);
         let merged_prob = log_prob[0].clone();
-        let r = ReplicaGlued::new(
-            e_hist,
-            merged_prob,
-            log_prob,
-            LogBase::BaseE,
-            alignment
-        );
+        let r = unsafe{   
+            ReplicaGlued::new_unchecked(
+                e_hist,
+                merged_prob,
+                log_prob,
+                LogBase::BaseE,
+                alignment
+            )
+        };
         return Ok(r);
     }
 
@@ -229,13 +231,15 @@ where Hist: HistogramCombine + Histogram,
                 .for_each(|val| *val -= shift)
         );
 
-    let glued = ReplicaGlued::new(
-        e_hist, 
-        merged_log_prob, 
-        log_prob, 
-        LogBase::BaseE, 
-        alignment
-    );
+    let glued = unsafe{
+        ReplicaGlued::new_unchecked(
+            e_hist, 
+            merged_log_prob, 
+            log_prob, 
+            LogBase::BaseE, 
+            alignment
+        )
+    };
         
     Ok(
         glued
