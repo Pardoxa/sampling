@@ -28,7 +28,11 @@ fn derivative(data: &[f64]) -> Vec<f64>
     d
 }
 
-pub(crate) fn derivative_merged(data: &[f64]) -> Vec<f64>
+/// # Calculates the derivative of a Vector
+/// * Uses five-point stencil method if more than 4 points are in the vector
+/// * Otherwise uses other derivative
+/// * will return a Vector of NaN if `data.len() < 2`
+pub fn derivative_merged(data: &[f64]) -> Vec<f64>
 {
     if data.len() < 5 {
         return derivative(data);

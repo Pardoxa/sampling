@@ -3,7 +3,8 @@ use{
         *,
         rees::replica_exchange,
         rewl::{Rewl, ignore_fn},
-        glue_helper::{subtract_max, ln_to_log10}
+        glue_helper::{subtract_max, ln_to_log10},
+        glue::derivative::*
     },
     rand::{Rng, prelude::SliceRandom},
     std::{num::NonZeroUsize, sync::*, cmp::*},

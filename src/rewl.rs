@@ -5,8 +5,6 @@ pub use walker::*;
 #[allow(clippy::module_inception)]
 mod rewl;
 pub use rewl::*;
-mod derivative;
-pub(crate) use derivative::*;
 mod rewl_builder;
 pub use rewl_builder::*;
 

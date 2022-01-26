@@ -1,5 +1,10 @@
 use{
-    crate::{*, glue_helper::*, glue::ReplicaGlued},
+    crate::{
+        *, 
+        glue_helper::*, 
+        glue::ReplicaGlued,
+        glue::derivative::*
+    },
     rayon::prelude::*,
 };
 
@@ -281,35 +286,7 @@ where Hist: HistogramCombine + Send + Sync
     )
 }
 
-pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -> Vec<usize>
-{
-    derivatives.iter()
-        .zip(derivatives[1..].iter())
-        .zip(alignment.iter())
-        .map(
-            |((left, right), &align)|
-            {
-                (align..)
-                    .zip(
-                        left[align..].iter()
-                        .zip(right.iter())
-                    )
-                    .map(
-                        |(index, (&left, &right))|
-                        {
-                            (index, (left - right).abs())
-                        }
-                    ).fold( (usize::MAX, f64::INFINITY),
-                        |a, b|
-                        if a.1 < b.1 {
-                            a
-                        } else {
-                            b
-                        }
-                    ).0
-            }
-        ).collect()
-}
+
 
 // TODO maybe rename function?
 fn calc_z(log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>

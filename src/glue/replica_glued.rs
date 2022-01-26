@@ -6,9 +6,8 @@ use {
             subtract_max,
         },
         histogram::*,
-        calc_merge_points,
-        derivative_merged
-    }
+    },
+    super::derivative::*
 };
 
 #[cfg(feature = "serde_support")]
@@ -206,6 +205,36 @@ impl<T> ReplicaGlued<HistogramFast<T>>
         Ok(())
     }
 } 
+
+pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -> Vec<usize>
+{
+    derivatives.iter()
+        .zip(derivatives[1..].iter())
+        .zip(alignment.iter())
+        .map(
+            |((left, right), &align)|
+            {
+                (align..)
+                    .zip(
+                        left[align..].iter()
+                        .zip(right.iter())
+                    )
+                    .map(
+                        |(index, (&left, &right))|
+                        {
+                            (index, (left - right).abs())
+                        }
+                    ).fold( (usize::MAX, f64::INFINITY),
+                        |a, b|
+                        if a.1 < b.1 {
+                            a
+                        } else {
+                            b
+                        }
+                    ).0
+            }
+        ).collect()
+}
 
 // TODO maybe rename function
 #[allow(clippy::type_complexity)]
