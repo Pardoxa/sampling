@@ -22,59 +22,7 @@ use serde::{Serialize, Deserialize};
 ///    their logarithmic "hight" was allready corrected
 pub type Glued<Hist> = (Hist, Vec<f64>, Vec<Vec<f64>>);
 
-// I want to do an even bigger refactoring
-pub struct FormerGlued<Hist>
-{
-    encapsulating_hist: Hist,
-    glued: Vec<f64>,
-    aligned: Vec<Vec<f64>>,
-    base: LogBase
-}
 
-impl<Hist> FormerGlued<Hist>
-{
-    pub fn glued(&self) -> &[f64]
-    {
-        &self.glued
-    }
-
-    pub fn alined(&self) -> &[Vec<f64>]
-    {
-        &self.aligned
-    }
-
-    pub fn base(&self) -> LogBase
-    {
-        self.base
-    }
-
-    pub fn encapsulating_hist(&self) -> &Hist
-    {
-        &self.encapsulating_hist
-    }
-
-    /// Change from Base 10 to Base E or the other way round
-    pub fn switch_base(&mut self)
-    {
-        match self.base
-        {
-            LogBase::Base10 => {
-                log10_to_ln(&mut self.glued);
-                self.aligned
-                    .iter_mut()
-                    .for_each(|interval| log10_to_ln( interval));
-                self.base = LogBase::BaseE;
-            },
-            LogBase::BaseE => {
-                ln_to_log10(&mut self.glued);
-                self.aligned
-                    .iter_mut()
-                    .for_each(|interval| ln_to_log10( interval));
-                self.base = LogBase::Base10;
-            }
-        }
-    }
-}
 /// Result of glueing. See [Glued]
 pub type GluedResult<Hist> = Result<Glued<Hist>, HistErrors>;
 
@@ -307,6 +255,21 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
                 );
             Some(sweep_size)
         }
+    }
+
+    fn get_log_prob_and_hists(&self) -> (Vec<&Hist>, Vec<Vec<f64>>)
+    {
+        // get the log_probabilities - the walkers over the same intervals are merged
+        let log_prob: Vec<_> = self.walker
+            .chunks(self.chunk_size.get())
+            .map(get_merged_walker_prob)
+            .collect();
+
+        let hists: Vec<_> = self.walker.iter()
+            .step_by(self.chunk_size.get())
+            .map(|w| w.hist())
+            .collect();
+        (hists, log_prob)
     }
 }
 
@@ -633,7 +596,7 @@ where R: Send + Sync + Rng + SeedableRng,
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         let (merge_points, alignment, log_prob, e_hist) = 
-            self.merged_log_probability_helper2(log_probs, hists)?;
+            merged_log_probability_helper2(log_probs, hists)?;
         merged_and_aligned2(
             e_hist,
             merge_points,
@@ -657,66 +620,7 @@ where R: Send + Sync + Rng + SeedableRng,
                 e_hist
             )
         )
-    }
-
-    fn get_log_prob_and_hists(&self) -> (Vec<&Hist>, Vec<Vec<f64>>)
-    {
-        // get the log_probabilities - the walkers over the same intervals are merged
-        let log_prob: Vec<_> = self.walker
-            .par_chunks(self.chunk_size.get())
-            .map(get_merged_walker_prob)
-            .collect();
-        
-        let hists: Vec<_> = self.walker.iter()
-            .step_by(self.chunk_size.get())
-            .map(|w| w.hist())
-            .collect();
-        (hists, log_prob)
     }        
-
-    #[allow(clippy::type_complexity)]
-    fn merged_log_probability_helper2(
-        &self,
-        mut log_prob: Vec<Vec<f64>>,
-        hists: Vec<&Hist>
-    ) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
-    where Hist: HistogramCombine
-    {
-        // get the log_probabilities - the walkers over the same intervals are merged
-        log_prob
-            .par_iter_mut()
-            .for_each(
-                |v| 
-                {
-                    subtract_max(v);
-                }
-            );
-
-
-        // get the derivative, for merging later
-        let derivatives: Vec<_> = log_prob.par_iter()
-            .map(|v| derivative_merged(v))
-            .collect();
-
-        let e_hist = Hist::encapsulating_hist(&hists)?;
-
-        let alignment  = hists.iter()
-            .zip(hists.iter().skip(1))
-            .map(|(&left, &right)| left.align(right))
-            .collect::<Result<Vec<_>, _>>()?;
-        
-        
-        let merge_points = calc_merge_points(&alignment, &derivatives);
-
-        Ok(
-            (
-                merge_points,
-                alignment,
-                log_prob,
-                e_hist
-            )
-        )
-    }
 
     /// # Get Ids
     /// This is an indicator that the replica exchange works.
@@ -870,41 +774,6 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     let mut res = merged_log_probability_and_align_ignore(rewls, ignore)?;
-    ln_to_log10(&mut res.1);
-    res.2.par_iter_mut()
-        .for_each(|slice| ln_to_log10(slice));
-    Ok(res)
-}
-
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
-/// * Here, however, all logarithms are base 10
-pub fn log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    log10_probability_and_align_ignore(rewls, &[])
-}
-
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * similar to [log10_probability_and_align](`crate::rewl::log10_probability_and_align`)
-/// * Now, however, we have a slice called `ignore`. It should contain the indices 
-/// of all walkers, that should be ignored for the alignment and merging into the 
-/// final probability density function. The indices do not need to be sorted, though
-/// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]
-) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    let mut res = log_probability_and_align_ignore(rewls, ignore)?;
     ln_to_log10(&mut res.1);
     res.2.par_iter_mut()
         .for_each(|slice| ln_to_log10(slice));
@@ -1151,4 +1020,67 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
                 }
             );
     container
+}
+
+pub fn derivative_glue_and_align<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
+) -> Result<ReplicaGlued<Hist>, HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
+    Energy: PartialOrd
+{
+    derivative_glue_and_align_ignore(rewls, &[])
+}
+
+// TODO correct ordering before merging
+/// TODO Documentation
+/// # Results of the simulation
+/// This is what we do the simulations for!
+/// 
+/// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
+/// * Now, however, we have a slice called `ignore`. It should contain the indices 
+/// of all walkers, that should be ignored for the alignment and merging into the 
+/// final probability density function. The indices do not need to be sorted, though
+/// duplicates will be ignored and indices, which are out of bounds will also be ignored
+pub fn derivative_glue_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
+    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], 
+    ignore: &[usize]
+) -> Result<ReplicaGlued<Hist>, HistErrors>
+where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
+    Energy: PartialOrd
+{
+    if rewls.is_empty(){
+        return Err(HistErrors::EmptySlice);
+    }
+
+    let combined_probs_and_hists_iter = rewls.iter()
+        .map(|rewl| rewl.get_log_prob_and_hists());
+
+    let mut container: Vec<(&Hist, Vec<f64>)> = combined_probs_and_hists_iter
+        .flat_map(
+            |entry| 
+            entry.0.into_iter().zip(entry.1.into_iter())
+        ).collect();
+
+    container
+        .sort_unstable_by(
+            |s, o| 
+                s.0.left_compare(o.0)
+        );
+
+    if !ignore.is_empty(){
+        ignore_fn(&mut container, ignore);
+    }
+
+    let (hists, combined_probs) = container.into_iter().unzip();
+
+
+
+    let (merge_points, alignment, log_prob, e_hist) = 
+            merged_log_probability_helper2(combined_probs, hists)?;
+    merged_and_aligned2(
+        e_hist,
+        merge_points,
+        alignment,
+        log_prob
+    )
 }

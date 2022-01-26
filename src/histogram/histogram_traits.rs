@@ -1,4 +1,4 @@
-use std::{borrow::*,num::NonZeroUsize};
+use std::{borrow::*,num::NonZeroUsize, cmp::Ordering};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -112,6 +112,14 @@ pub trait HistogramCombine: Sized
     /// * index of bin of self corresponding to the leftest bin of `right`
     fn align<S>(&self, right: S)-> Result<usize, HistErrors>
     where S: Borrow<Self>;
+}
+
+/// Trait for comparing two intervals
+pub trait IntervalOrder
+{
+    /// Will compare leftest bin first.
+    /// if they are equal: will compare right bin
+    fn left_compare(&self, other: &Self) -> Ordering;
 }
 
 /// Possible Errors of the traits `Histogram` and `HistogramVal`

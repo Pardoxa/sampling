@@ -452,6 +452,22 @@ where T: Clone + std::fmt::Debug
     }
 }
 
+impl<T> IntervalOrder for HistogramInt<T>
+where T: Ord
+{
+    fn left_compare(&self, other: &Self) -> std::cmp::Ordering {
+        let self_left = &self.bin_borders[0];
+        let other_left = &other.bin_borders[0];
+        let order = self_left.cmp(other_left);
+        if order.is_eq() {
+            let self_right = self.bin_borders.last().unwrap();
+            let other_right = other.bin_borders.last().unwrap();
+            return self_right.cmp(other_right);
+        }
+        order
+    }
+}
+
 
 /// # Histogram for binning `usize` - alias for `HistogramInt<usize>`
 /// * you should use `HistUsizeFast` instead, if your bins are `[left, left+1,..., right]`

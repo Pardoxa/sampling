@@ -1,7 +1,13 @@
 use {
     crate::{
-        glue_helper::{log10_to_ln, ln_to_log10, subtract_max},
+        glue_helper::{
+            log10_to_ln, 
+            ln_to_log10, 
+            subtract_max,
+        },
         histogram::*,
+        calc_merge_points,
+        derivative_merged
     }
 };
 
@@ -201,37 +207,71 @@ impl<T> ReplicaGlued<HistogramFast<T>>
     }
 } 
 
-    // TODO maybe rename function
-    #[allow(clippy::type_complexity)]
-    pub(crate) fn average_merged_log_probability_helper2<Hist>(
-        mut log_prob: Vec<Vec<f64>>,
-        hists: Vec<&Hist>
-    ) -> Result<(Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
-    where Hist: HistogramCombine
-    {
-        // get the log_probabilities - the walkers over the same intervals are merged
-        log_prob
-            .iter_mut()
-            .for_each(
-                |v| 
-                {
-                    subtract_max(v);
-                }
-            );
-
-
-        let e_hist = Hist::encapsulating_hist(&hists)?;
-
-        let alignment  = hists.iter()
-            .zip(hists.iter().skip(1))
-            .map(|(&left, &right)| left.align(right))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(
-            (
-                alignment,
-                log_prob,
-                e_hist
-            )
+// TODO maybe rename function
+#[allow(clippy::type_complexity)]
+pub(crate) fn average_merged_log_probability_helper2<Hist>(
+    mut log_prob: Vec<Vec<f64>>,
+    hists: Vec<&Hist>
+) -> Result<(Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+where Hist: HistogramCombine
+{
+    // get the log_probabilities - the walkers over the same intervals are merged
+    log_prob
+        .iter_mut()
+        .for_each(
+            |v| 
+            {
+                subtract_max(v);
+            }
+        );
+    let e_hist = Hist::encapsulating_hist(&hists)?;
+    let alignment  = hists.iter()
+        .zip(hists.iter().skip(1))
+        .map(|(&left, &right)| left.align(right))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(
+        (
+            alignment,
+            log_prob,
+            e_hist
         )
-    }
+    )
+}
+
+#[allow(clippy::type_complexity)]
+pub(crate) fn merged_log_probability_helper2<Hist>(
+    mut log_prob: Vec<Vec<f64>>,
+    hists: Vec<&Hist>
+) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
+where Hist: HistogramCombine
+{
+    // get the log_probabilities - the walkers over the same intervals are merged
+    log_prob
+        .iter_mut()
+        .for_each(
+            |v| 
+            {
+                subtract_max(v);
+            }
+        );
+    // get the derivative, for merging later
+    let derivatives: Vec<_> = log_prob.iter()
+        .map(|v| derivative_merged(v))
+        .collect();
+    let e_hist = Hist::encapsulating_hist(&hists)?;
+    let alignment  = hists.iter()
+        .zip(hists.iter().skip(1))
+        .map(|(&left, &right)| left.align(right))
+        .collect::<Result<Vec<_>, _>>()?;
+    
+    
+    let merge_points = calc_merge_points(&alignment, &derivatives);
+    Ok(
+        (
+            merge_points,
+            alignment,
+            log_prob,
+            e_hist
+        )
+    )
+}

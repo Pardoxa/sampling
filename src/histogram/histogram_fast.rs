@@ -487,7 +487,17 @@ impl<T> HistogramCombine for HistogramFast<T>
     }
 }
 
-
+impl<T> IntervalOrder for HistogramFast<T>
+where T: PrimInt
+{
+    fn left_compare(&self, other: &Self) -> std::cmp::Ordering {
+        let order =  self.left.cmp(&other.left);
+        if order.is_eq() {
+            return self.right.cmp(&other.right)
+        }
+        order
+    }
+}
 
 
 
