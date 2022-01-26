@@ -208,7 +208,7 @@ where Hist: HistogramCombine + Histogram,
         // shift
         log_prob_p1
             .iter_mut()
-            .for_each(|v| *v = *v + shift);
+            .for_each(|v| *v += shift);
 
         merged_log_prob[position_l..]
             .iter_mut()

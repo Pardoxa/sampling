@@ -450,7 +450,7 @@
 /// * [see explanaition of the model](#example-coin-flips)
 /// ```
 /// // feature is activated by default
-/// //#[cfg(features="replica_exchange")]
+/// #[cfg(feature="replica_exchange")]
 /// {
 /// use rand::SeedableRng;
 /// use rand_pcg::Pcg64;

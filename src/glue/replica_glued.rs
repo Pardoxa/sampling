@@ -2,8 +2,7 @@ use {
     crate::{
         glue_helper::{log10_to_ln, ln_to_log10, subtract_max},
         histogram::*,
-    },
-    rayon::{prelude::*, iter::ParallelIterator}
+    }
 };
 
 #[cfg(feature = "serde_support")]
@@ -212,7 +211,7 @@ impl<T> ReplicaGlued<HistogramFast<T>>
     {
         // get the log_probabilities - the walkers over the same intervals are merged
         log_prob
-            .par_iter_mut()
+            .iter_mut()
             .for_each(
                 |v| 
                 {
