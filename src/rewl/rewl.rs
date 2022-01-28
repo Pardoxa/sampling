@@ -345,13 +345,8 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
-        let (merge_points, alignment, log_prob, e_hist) = 
-            derivative_merged_log_probability_helper2(log_probs, hists)?;
-        merged_and_aligned2(
-            e_hist,
-            merge_points,
-            alignment,
-            log_prob
+        derivative_merged_and_aligned(
+            log_probs, hists
         )
     }
 
@@ -1083,14 +1078,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrde
 
     let (hists, combined_probs) = container.into_iter().unzip();
 
-
-
-    let (merge_points, alignment, log_prob, e_hist) = 
-            derivative_merged_log_probability_helper2(combined_probs, hists)?;
-    merged_and_aligned2(
-        e_hist,
-        merge_points,
-        alignment,
-        log_prob
+    derivative_merged_and_aligned(
+        combined_probs, hists
     )
 }

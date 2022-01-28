@@ -7,7 +7,8 @@ use {
         },
         histogram::*,
     },
-    super::derivative::*
+    super::derivative::*,
+    std::borrow::Borrow
 };
 
 #[cfg(feature = "serde_support")]
@@ -267,13 +268,16 @@ where Hist: HistogramCombine
     )
 }
 
-#[allow(clippy::type_complexity)]
-pub(crate) fn derivative_merged_log_probability_helper2<Hist>(
+
+
+pub fn derivative_merged_and_aligned<H, Hist>(
     mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<&Hist>
-) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
-where Hist: HistogramCombine
+    hists: Vec<H>
+) -> Result<ReplicaGlued<Hist>, HistErrors>
+where Hist: HistogramCombine + Histogram,
+    H: Borrow<Hist>
 {
+
     // get the log_probabilities - the walkers over the same intervals are merged
     log_prob
         .iter_mut()
@@ -290,17 +294,113 @@ where Hist: HistogramCombine
     let e_hist = Hist::encapsulating_hist(&hists)?;
     let alignment  = hists.iter()
         .zip(hists.iter().skip(1))
-        .map(|(&left, &right)| left.align(right))
+        .map(|(left, right)| left.borrow().align(right.borrow()))
         .collect::<Result<Vec<_>, _>>()?;
     
     
     let merge_points = calc_merge_points(&alignment, &derivatives);
-    Ok(
-        (
-            merge_points,
-            alignment,
-            log_prob,
-            e_hist
+
+    // Not even one Interval - this has to be an error
+    if log_prob.is_empty() {
+        return Err(HistErrors::EmptySlice)
+    }
+
+    let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
+
+    
+    // Nothing to align, only one interval here
+    if alignment.is_empty() {
+        norm_ln_prob(&mut log_prob[0]);
+        let merged_prob = log_prob[0].clone();
+        let r = unsafe{   
+            ReplicaGlued::new_unchecked(
+                e_hist,
+                merged_prob,
+                log_prob,
+                LogBase::BaseE,
+                alignment
+            )
+        };
+        return Ok(r);
+    }
+
+    merged_log_prob[..=merge_points[0]]
+        .copy_from_slice(&log_prob[0][..=merge_points[0]]);
+
+
+    // https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=2dcb7b7a3be78397d34657ece42aa851
+    let mut align_sum = 0;
+
+    for ((&a, &mp), log_prob_p1) in alignment.iter()
+        .zip(merge_points.iter())
+        .zip(log_prob.iter_mut().skip(1))
+    {
+        let position_l = mp + align_sum;
+        align_sum += a;
+        let left = mp - a;
+
+        let shift = merged_log_prob[position_l] - log_prob_p1[left];
+
+        // shift
+        log_prob_p1
+            .iter_mut()
+            .for_each(|v| *v += shift);
+
+        merged_log_prob[position_l..]
+            .iter_mut()
+            .zip(log_prob_p1[left..].iter())
+            .for_each(
+                |(merge, &val)|
+                {
+                    *merge = val;
+                }
+            );
+
+
+    }
+    
+    let shift = norm_ln_prob(&mut merged_log_prob);
+    log_prob.iter_mut()
+        .for_each(
+            |interval|
+            interval.iter_mut()
+                .for_each(|val| *val -= shift)
+        );
+
+    let glued = unsafe{
+        ReplicaGlued::new_unchecked(
+            e_hist, 
+            merged_log_prob, 
+            log_prob, 
+            LogBase::BaseE, 
+            alignment
         )
+    };
+        
+    Ok(
+        glued
     )
+}
+
+pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
+{
+    let max = subtract_max(ln_prob);
+    // calculate actual sum in non log space
+    let sum = ln_prob.iter()
+        .fold(0.0, |acc, &val| {
+            if val.is_finite(){
+               acc +  val.exp()
+            } else {
+                acc
+            }
+        }
+    );
+
+    let shift = sum.ln();
+
+    ln_prob.iter_mut()
+        .for_each(|val| *val -= shift);
+
+    shift - max
+
 }
