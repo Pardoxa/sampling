@@ -4,6 +4,8 @@ use {
             log10_to_ln, 
             ln_to_log10, 
             subtract_max,
+            GlueErrors,
+            height_correction
         },
         histogram::*,
     },
@@ -36,7 +38,7 @@ pub struct ReplicaGlued<Hist>
 
 impl<Hist> ReplicaGlued<Hist>
 {
-    pub unsafe fn new_unchecked(
+    pub fn new_unchecked(
         encapsulating_histogram: Hist, 
         glued: Vec<f64>, 
         aligned: Vec<Vec<f64>>, 
@@ -237,42 +239,10 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
         ).collect()
 }
 
-// TODO maybe rename function
-#[allow(clippy::type_complexity)]
-pub(crate) fn average_merged_log_probability_helper2<Hist>(
-    mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<&Hist>
-) -> Result<(Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
-where Hist: HistogramCombine
-{
-    // get the log_probabilities - the walkers over the same intervals are merged
-    log_prob
-        .iter_mut()
-        .for_each(
-            |v| 
-            {
-                subtract_max(v);
-            }
-        );
-    let e_hist = Hist::encapsulating_hist(&hists)?;
-    let alignment  = hists.iter()
-        .zip(hists.iter().skip(1))
-        .map(|(&left, &right)| left.align(right))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(
-        (
-            alignment,
-            log_prob,
-            e_hist
-        )
-    )
-}
-
-
-
 pub fn derivative_merged_and_aligned<H, Hist>(
     mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<H>
+    hists: Vec<H>,
+    log_base: LogBase
 ) -> Result<ReplicaGlued<Hist>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
@@ -312,15 +282,14 @@ where Hist: HistogramCombine + Histogram,
     if alignment.is_empty() {
         norm_ln_prob(&mut log_prob[0]);
         let merged_prob = log_prob[0].clone();
-        let r = unsafe{   
+        let r = 
             ReplicaGlued::new_unchecked(
                 e_hist,
                 merged_prob,
                 log_prob,
-                LogBase::BaseE,
+                log_base,
                 alignment
-            )
-        };
+            );
         return Ok(r);
     }
 
@@ -367,15 +336,14 @@ where Hist: HistogramCombine + Histogram,
                 .for_each(|val| *val -= shift)
         );
 
-    let glued = unsafe{
+    let glued = 
         ReplicaGlued::new_unchecked(
             e_hist, 
             merged_log_prob, 
             log_prob, 
             LogBase::BaseE, 
             alignment
-        )
-    };
+        );
         
     Ok(
         glued
@@ -403,4 +371,150 @@ pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
 
     shift - max
 
+}
+
+// TODO Rename function?
+pub fn average_merged_and_aligned<Hist, H>(
+    mut log_prob: Vec<Vec<f64>>,
+    hists: Vec<H>,
+    log_base: LogBase
+) -> Result<ReplicaGlued<Hist>, HistErrors>
+where Hist: HistogramCombine + Histogram,
+    H: Borrow<Hist>
+{
+    // get the log_probabilities - the walkers over the same intervals are merged
+    log_prob
+        .iter_mut()
+        .for_each(
+            |v| 
+            {
+                subtract_max(v);
+            }
+        );
+    let e_hist = Hist::encapsulating_hist(&hists)?;
+    let alignment  = hists.iter()
+        .zip(hists.iter().skip(1))
+        .map(|(left, right)| left.borrow().align(right.borrow()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if alignment.is_empty(){
+        // entering this means we only have 1 interval!
+        assert_eq!(log_prob.len(), 1);
+        norm_ln_prob(&mut log_prob[0]);
+        let glued = log_prob[0].clone();
+        return Ok(
+                ReplicaGlued{
+                base: LogBase::Base10,
+                encapsulating_histogram: e_hist,
+                aligned: log_prob,
+                glued,
+                alignment
+            }
+        );
+    }
+
+    // calc z
+    let z_vec = calc_z(&log_prob, &alignment).expect("Unable to calculate Z in glueing");
+
+    // correct height
+    height_correction(&mut log_prob, &z_vec);
+    // renaming
+    let mut aligned_intervals = log_prob;
+
+    // glueing together
+    let mut glued_log_density = glue_no_derive(e_hist.bin_count(), &aligned_intervals, &alignment)
+        .expect("Glue error!");
+
+    // now norm the result
+    let shift = norm_ln_prob(&mut glued_log_density);
+
+    aligned_intervals
+        .iter_mut()
+        .flat_map(|vec| vec.iter_mut())
+        .for_each(|v| *v += shift);
+
+    Ok(
+        ReplicaGlued{
+            base: log_base,
+            encapsulating_histogram: e_hist,
+            aligned: aligned_intervals,
+            glued: glued_log_density,
+            alignment
+        }
+    )
+}
+
+// TODO DOcument function, maybe rename function?
+fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>
+{
+    let mut glue_log_density = vec![f64::NAN; size];
+
+
+    // init - first interval can be copied for better performance
+    let first_log = match log10_vec.first(){
+        Some(interval) => interval.as_slice(),
+        None => return Err(GlueErrors::EmptyList)
+    };
+   
+    glue_log_density[0..first_log.len()].copy_from_slice(first_log);
+    let mut glue_count = vec![0_usize; glue_log_density.len()];
+    
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..first_log.len() {
+        glue_count[i] = 1;
+    }
+
+    let mut offset = 0;
+    for (i, log_vec) in log10_vec.iter().enumerate().skip(1)
+    {
+        offset += alignment[i-1];
+
+        glue_log_density.iter_mut()
+            .zip(glue_count.iter_mut())
+            .skip(offset)
+            .zip(log_vec.iter())
+            .for_each(
+                |((glued, count), &prob)|
+                {
+                    *count += 1;
+                    *glued = if glued.is_finite(){
+                         *glued + prob
+                    } else {
+                        prob
+                    };
+                }
+            );
+    }
+
+    glue_log_density.iter_mut()
+        .zip(glue_count.iter())
+        .for_each(|(log, &count)| {
+            if count > 0 {
+                *log /= count as f64;
+            }
+        });
+    
+    Ok(glue_log_density)
+}
+
+// TODO maybe rename function?
+fn calc_z(log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>
+{
+    let mut z_vec = Vec::with_capacity(alignment.len());
+    for (i, &align) in alignment.iter().enumerate()
+    {
+        let prob_right = &log10_vec[i+1];
+        let prob_left = &log10_vec[i][align..];
+        let overlap_size = prob_right.len().min(prob_left.len());
+        
+        let sum = prob_left.iter().zip(prob_right.iter())
+            .fold(0.0, |acc, (&p, &c)| p - c + acc);
+        let mut z = sum / overlap_size as f64;
+        // also correct for adjustment of prev
+        if let Some(val) = z_vec.last() {
+            z += val;
+        }
+        z_vec.push(z);
+    }
+    Ok(z_vec)
 }

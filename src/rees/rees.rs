@@ -747,16 +747,11 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
-        let (alignment, log_prob, e_hist) = 
-            average_merged_log_probability_helper2(log_probs, hists)?;
 
-        Ok(
-            average_merged_and_aligned(
-                alignment,
-                log_prob,
-                e_hist
-            )
+        average_merged_and_aligned(
+            log_probs, hists, LogBase::BaseE
         )
+        
     }
 
     // TODO look at documentation
@@ -778,7 +773,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         
-        derivative_merged_and_aligned(log_probs, hists)
+        derivative_merged_and_aligned(log_probs, hists, LogBase::BaseE)
     }
 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
