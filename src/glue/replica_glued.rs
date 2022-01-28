@@ -24,6 +24,16 @@ pub enum LogBase{
     BaseE
 }
 
+impl LogBase{
+    fn norm_log_prob(&self, slice: &mut [f64]) -> f64
+    {
+        match self{
+            Self::Base10 => norm_log10_prob(slice),
+            Self::BaseE => norm_ln_prob(slice)
+        }
+    }
+}
+
 // TODO maybe rename struct?
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
@@ -280,7 +290,8 @@ where Hist: HistogramCombine + Histogram,
     
     // Nothing to align, only one interval here
     if alignment.is_empty() {
-        norm_ln_prob(&mut log_prob[0]);
+        log_base.norm_log_prob(&mut log_prob[0]);
+        
         let merged_prob = log_prob[0].clone();
         let r = 
             ReplicaGlued::new_unchecked(
@@ -327,8 +338,9 @@ where Hist: HistogramCombine + Histogram,
 
 
     }
-    
-    let shift = norm_ln_prob(&mut merged_log_prob);
+
+    let shift = log_base.norm_log_prob(&mut merged_log_prob);
+
     log_prob.iter_mut()
         .for_each(
             |interval|
@@ -373,6 +385,29 @@ pub(crate) fn norm_ln_prob(ln_prob: &mut[f64]) -> f64
 
 }
 
+pub(crate) fn norm_log10_prob(log10_prob: &mut[f64]) -> f64
+{
+    let max = subtract_max(log10_prob);
+    // calculate actual sum in non log space
+    let sum = log10_prob.iter()
+        .fold(0.0, |acc, &val| {
+            if val.is_finite(){
+               acc +  10.0_f64.powf(val)
+            } else {
+                acc
+            }
+        }
+    );
+
+    let shift = sum.log10();
+
+    log10_prob.iter_mut()
+        .for_each(|val| *val -= shift);
+
+    shift - max
+
+}
+
 // TODO Rename function?
 pub fn average_merged_and_aligned<Hist, H>(
     mut log_prob: Vec<Vec<f64>>,
@@ -400,7 +435,8 @@ where Hist: HistogramCombine + Histogram,
     if alignment.is_empty(){
         // entering this means we only have 1 interval!
         assert_eq!(log_prob.len(), 1);
-        norm_ln_prob(&mut log_prob[0]);
+        log_base.norm_log_prob(&mut log_prob[0]);
+        
         let glued = log_prob[0].clone();
         return Ok(
                 ReplicaGlued{
@@ -426,12 +462,12 @@ where Hist: HistogramCombine + Histogram,
         .expect("Glue error!");
 
     // now norm the result
-    let shift = norm_ln_prob(&mut glued_log_density);
+    let shift = log_base.norm_log_prob(&mut glued_log_density);
 
     aligned_intervals
         .iter_mut()
         .flat_map(|vec| vec.iter_mut())
-        .for_each(|v| *v += shift);
+        .for_each(|v| *v -= shift);
 
     Ok(
         ReplicaGlued{
