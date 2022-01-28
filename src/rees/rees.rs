@@ -633,6 +633,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     }
 
     #[allow(clippy::type_complexity)]
+    #[deprecated]
     fn merged_log_probability_helper(&self) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
@@ -690,6 +691,8 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     ///
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
+    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
+    #[allow(deprecated)]
     pub fn merged_log_prob(&self) -> Result<(Hist, Vec<f64>), HistErrors>
     where Hist: HistogramCombine
     {
@@ -713,6 +716,8 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Failes if the internal histograms (invervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
+    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
+    #[allow(deprecated)]
     pub fn merged_log_prob_and_aligned(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine 
     {
@@ -738,7 +743,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     }
 
     // TODO Rename function
-    pub fn no_deriv_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -754,6 +759,36 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
+    // TODO look at documentation
+    /// # Results of the simulation
+    /// 
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns histogram, which contains the corresponding bins and
+    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
+    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
+    /// different intervals. This can be used to see, how good the simulation worked,
+    /// e.g., by plotting them to see, if they match
+    ///
+    /// ## Notes
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
+    where Hist: HistogramCombine + Histogram
+    {
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (merge_points, alignment, log_prob, e_hist) = 
+            derivative_merged_log_probability_helper2(log_probs, hists)?;
+        merged_and_aligned2(
+            e_hist,
+            merge_points,
+            alignment,
+            log_prob
+        )
+    }
+
+    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
+    #[allow(deprecated)]
     fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
@@ -768,6 +803,8 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
+    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
+    #[allow(deprecated)]
     fn merged_log_probability_and_align(&self) -> GluedResult<Hist>
     where Hist: HistogramCombine
     {

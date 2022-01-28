@@ -268,7 +268,7 @@ where Hist: HistogramCombine
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn merged_log_probability_helper2<Hist>(
+pub(crate) fn derivative_merged_log_probability_helper2<Hist>(
     mut log_prob: Vec<Vec<f64>>,
     hists: Vec<&Hist>
 ) -> Result<(Vec<usize>, Vec<usize>, Vec<Vec<f64>>, Hist), HistErrors>
