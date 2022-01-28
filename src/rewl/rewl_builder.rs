@@ -390,7 +390,7 @@ where Hist: Histogram,
             walker,
             log_f_threshold,
             last_extreme_interval_visited,
-            roundtrip_halves
+            roundtrip_halfes: roundtrip_halves
         };
 
         res.update_roundtrips();

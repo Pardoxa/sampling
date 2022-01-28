@@ -61,7 +61,7 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     pub(crate) walker: Vec<RewlWalker<R, Hist, Energy, S, Res>>,
     pub(crate) log_f_threshold: f64,
     pub(crate) replica_exchange_mode: bool,
-    pub(crate) roundtrip_halves: Vec<usize>,
+    pub(crate) roundtrip_halfes: Vec<usize>,
     pub(crate) last_extreme_interval_visited: Vec<ExtremeInterval>
 }
 
@@ -271,6 +271,195 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
             .collect();
         (hists, log_prob)
     }
+
+    pub fn min_roundtrips(&self) -> usize 
+    {
+        match self.roundtrip_iter().min()
+        {
+            Some(v) => v,
+            None => unreachable!()
+        }
+    }
+
+    pub fn max_roundtrips(&self) -> usize 
+    {
+        match self.roundtrip_iter().max()
+        {
+            Some(v) => v,
+            None => unreachable!()
+        }
+    }
+
+    #[inline]
+    pub fn roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
+    {
+        self.roundtrip_halfes
+            .iter()
+            .map(|&r_h| r_h / 2)
+    }
+
+    /// returns largest value of factor log_f present in the walkers
+    pub fn largest_log_f(&self) -> f64
+    {
+        self.walker
+            .iter()
+            .map(|w| w.log_f())
+            .fold(std::f64::NEG_INFINITY, |acc, x| x.max(acc))
+
+    }
+
+    /// # Log_f factors of the walkers
+    /// * the log_f's will be reduced towards 0 during the simulation
+    pub fn log_f_vec(&self) -> Vec<f64>
+    {
+        self.walker
+            .iter()
+            .map(|w| w.log_f())
+            .collect()
+    }
+
+    /// # Is the simulation finished?
+    /// checks if **all** walkers have factors `log_f`
+    /// that are below the threshold you chose
+    pub fn is_finished(&self) -> bool
+    {
+        self.walker
+            .iter()
+            .all(|w| w.log_f() < self.log_f_threshold)
+    }
+
+    /// # Results of the simulation
+    /// 
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns histogram, which contains the corresponding bins and
+    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
+    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
+    /// different intervals. This can be used to see, how good the simulation worked,
+    /// e.g., by plotting them to see, if they match
+    ///
+    /// ## Notes
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
+    where Hist: HistogramCombine + Histogram
+    {
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (merge_points, alignment, log_prob, e_hist) = 
+            merged_log_probability_helper2(log_probs, hists)?;
+        merged_and_aligned2(
+            e_hist,
+            merge_points,
+            alignment,
+            log_prob
+        )
+    }
+
+    // TODO Rename function
+    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    where Hist: HistogramCombine + Histogram
+    {
+        let (hists, log_probs) = self.get_log_prob_and_hists();
+        let (alignment, log_prob, e_hist) = 
+            average_merged_log_probability_helper2(log_probs, hists)?;
+
+        Ok(
+            average_merged_and_aligned(
+                alignment,
+                log_prob,
+                e_hist
+            )
+        )
+    }        
+
+    /// # Get Ids
+    /// This is an indicator that the replica exchange works.
+    /// In the beginning, this will be a sorted vector, e.g. \[0,1,2,3,4\].
+    /// Then it will show, where the ensemble, which the corresponding walkers currently work with,
+    /// originated from. E.g. If the vector is \[3,1,0,2,4\], Then walker 0 has a
+    /// ensemble originating from walker 3, the walker 1 is back to its original 
+    /// ensemble, walker 2 has an ensemble originating form walker 0 and so on.
+    pub fn get_id_vec(&self) -> Vec<usize>
+    {
+        self.walker
+            .iter()
+            .map(|w| w.id())
+            .collect()
+    }
+
+    /// # read access to the internal histograms used by the walkers
+    pub fn hists(&self) -> Vec<&Hist>
+    {
+        self.walker.iter()
+            .map(|w| w.hist())
+            .collect()
+    }
+
+    /// # read access to internal histogram
+    /// * None if index out of range
+    pub fn get_hist(&self, index: usize) -> Option<&Hist>
+    {
+        self.walker
+            .get(index)
+            .map(|w| w.hist())
+    }
+
+    /// # Convert into Rees
+    /// This creates a Replica exchange entropic sampling simulation 
+    /// from this Replica exchange wang landau simulation
+    pub fn into_rees(self) -> Rees<(), Ensemble, R, Hist, Energy, S, Res>
+    where Hist: Histogram
+    {
+        self.into()
+    }
+
+    /// # Convert into Rees
+    /// * similar to [into_rees](`crate::rewl::Rewl::into_rees`), though now we can store extra information.
+    /// The extra information can be anything, e.g., files in which 
+    /// each walker should later write information every nth step or something 
+    /// else entirely.
+    /// 
+    /// # important
+    /// * The vector `extra` must be exactly as long as the walker slice and 
+    /// each walker is assigned the corresponding entry from the vector `extra`
+    /// * You can look at the walker slice with the [walkers](`crate::rewl::Rewl::walkers`) method
+    #[allow(clippy::type_complexity)]
+    pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
+    where Hist: Histogram
+    {
+        if extra.len() != self.walker.len()
+        {
+            Err((self, extra))
+        } else {
+            let rewl_roundtrips: Vec<_> = self.roundtrip_iter().collect();
+            let rees_roundtrip_halfes: Vec<_> = vec![0; rewl_roundtrips.len()];
+            let rees_last_extreme_interval_visited: Vec<_> = vec![ExtremeInterval::None; rewl_roundtrips.len()];
+
+            let mut walker = Vec::with_capacity(self.walker.len());
+            walker.extend(
+                self.walker
+                    .into_iter()
+                    .map(|w| w.into())
+            );
+
+            let mut rees = 
+            Rees{
+                walker,
+                ensembles: self.ensembles,
+                replica_exchange_mode: self.replica_exchange_mode,
+                extra,
+                chunk_size: self.chunk_size,
+                rewl_roundtrips,
+                rees_last_extreme_interval_visited,
+                rees_roundtrip_halfes
+            };
+            rees.update_roundtrips();
+            Ok(
+                rees
+            )
+            
+        }
+    }
 }
 
 
@@ -479,7 +668,7 @@ where R: Send + Sync + Rng + SeedableRng,
                     match last_visited {
                         ExtremeInterval::Right => {
                             *last_visited = ExtremeInterval::Left;
-                            self.roundtrip_halves[id] += 1;
+                            self.roundtrip_halfes[id] += 1;
                         },
                         ExtremeInterval::None => {
                             *last_visited = ExtremeInterval::Left;
@@ -509,7 +698,7 @@ where R: Send + Sync + Rng + SeedableRng,
                     match last_visited {
                         ExtremeInterval::Left => {
                             *last_visited = ExtremeInterval::Right;
-                            self.roundtrip_halves[id] += 1;
+                            self.roundtrip_halfes[id] += 1;
                         },
                         ExtremeInterval::None => {
                             *last_visited = ExtremeInterval::Right;
@@ -519,185 +708,6 @@ where R: Send + Sync + Rng + SeedableRng,
                 }
             );
 
-    }
-
-
-    pub fn min_roundtrips(&self) -> usize 
-    {
-        match self.roundtrip_iter().min()
-        {
-            Some(v) => v,
-            None => unreachable!()
-        }
-    }
-
-    pub fn max_roundtrips(&self) -> usize 
-    {
-        match self.roundtrip_iter().max()
-        {
-            Some(v) => v,
-            None => unreachable!()
-        }
-    }
-
-    #[inline]
-    pub fn roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
-    {
-        self.roundtrip_halves
-            .iter()
-            .map(|&r_h| r_h / 2)
-    }
-
-    /// returns largest value of factor log_f present in the walkers
-    pub fn largest_log_f(&self) -> f64
-    {
-        self.walker
-            .iter()
-            .map(|w| w.log_f())
-            .fold(std::f64::NEG_INFINITY, |acc, x| x.max(acc))
-
-    }
-
-    /// # Log_f factors of the walkers
-    /// * the log_f's will be reduced towards 0 during the simulation
-    pub fn log_f_vec(&self) -> Vec<f64>
-    {
-        self.walker
-            .iter()
-            .map(|w| w.log_f())
-            .collect()
-    }
-
-    /// # Is the simulation finished?
-    /// checks if **all** walkers have factors `log_f`
-    /// that are below the threshold you chose
-    pub fn is_finished(&self) -> bool
-    {
-        self.walker
-            .iter()
-            .all(|w| w.log_f() < self.log_f_threshold)
-    }
-
-    /// # Results of the simulation
-    /// 
-    /// This is what we do the simulation for!
-    /// 
-    /// It returns histogram, which contains the corresponding bins and
-    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
-    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
-    /// different intervals. This can be used to see, how good the simulation worked,
-    /// e.g., by plotting them to see, if they match
-    ///
-    /// ## Notes
-    /// Fails if the internal histograms (intervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
-    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
-    where Hist: HistogramCombine 
-    {
-        let (hists, log_probs) = self.get_log_prob_and_hists();
-        let (merge_points, alignment, log_prob, e_hist) = 
-            merged_log_probability_helper2(log_probs, hists)?;
-        merged_and_aligned2(
-            e_hist,
-            merge_points,
-            alignment,
-            log_prob
-        )
-    }
-
-    // TODO Rename function
-    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
-    where Hist: HistogramCombine
-    {
-        let (hists, log_probs) = self.get_log_prob_and_hists();
-        let (alignment, log_prob, e_hist) = 
-            average_merged_log_probability_helper2(log_probs, hists)?;
-
-        Ok(
-            average_merged_and_aligned(
-                alignment,
-                log_prob,
-                e_hist
-            )
-        )
-    }        
-
-    /// # Get Ids
-    /// This is an indicator that the replica exchange works.
-    /// In the beginning, this will be a sorted vector, e.g. \[0,1,2,3,4\].
-    /// Then it will show, where the ensemble, which the corresponding walkers currently work with,
-    /// originated from. E.g. If the vector is \[3,1,0,2,4\], Then walker 0 has a
-    /// ensemble originating from walker 3, the walker 1 is back to its original 
-    /// ensemble, walker 2 has an ensemble originating form walker 0 and so on.
-    pub fn get_id_vec(&self) -> Vec<usize>
-    {
-        self.walker
-            .iter()
-            .map(|w| w.id())
-            .collect()
-    }
-
-    /// # read access to the internal histograms used by the walkers
-    pub fn hists(&self) -> Vec<&Hist>
-    {
-        self.walker.iter()
-            .map(|w| w.hist())
-            .collect()
-    }
-
-    /// # read access to internal histogram
-    /// * None if index out of range
-    pub fn get_hist(&self, index: usize) -> Option<&Hist>
-    {
-        self.walker
-            .get(index)
-            .map(|w| w.hist())
-    }
-
-    /// # Convert into Rees
-    /// This creates a Replica exchange entropic sampling simulation 
-    /// from this Replica exchange wang landau simulation
-    pub fn into_rees(self) -> Rees<(), Ensemble, R, Hist, Energy, S, Res>
-    {
-        self.into()
-    }
-
-    /// # Convert into Rees
-    /// * similar to [into_rees](`crate::rewl::Rewl::into_rees`), though now we can store extra information.
-    /// The extra information can be anything, e.g., files in which 
-    /// each walker should later write information every nth step or something 
-    /// else entirely.
-    /// 
-    /// # important
-    /// * The vector `extra` must be exactly as long as the walker slice and 
-    /// each walker is assigned the corresponding entry from the vector `extra`
-    /// * You can look at the walker slice with the [walkers](`crate::rewl::Rewl::walkers`) method
-    #[allow(clippy::type_complexity)]
-    pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
-    {
-        if extra.len() != self.walker.len()
-        {
-            Err((self, extra))
-        } else {
-            let mut walker = Vec::with_capacity(self.walker.len());
-            walker.extend(
-                self.walker
-                    .into_iter()
-                    .map(|w| w.into())
-            );
-            let rees = 
-            Rees{
-                walker,
-                ensembles: self.ensembles,
-                replica_exchange_mode: self.replica_exchange_mode,
-                extra,
-                chunk_size: self.chunk_size
-            };
-            Ok(
-                rees
-            )
-            
-        }
     }
 }
 

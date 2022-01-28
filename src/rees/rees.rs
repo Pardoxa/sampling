@@ -28,7 +28,10 @@ pub struct ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, 
     pub(crate) ensembles: Vec<RwLock<Ensemble>>,
     pub(crate) walker: Vec<ReesWalker<R, Hist, Energy, S, Res>>,
     pub(crate) replica_exchange_mode: bool,
-    pub(crate) extra: Vec<Extra>
+    pub(crate) extra: Vec<Extra>,
+    pub(crate) rewl_roundtrips: Vec<usize>,
+    pub(crate) rees_roundtrip_halfes: Vec<usize>,
+    pub(crate) rees_last_extreme_interval_visited: Vec<ExtremeInterval>
 }
 
 /// # Short for [ReplicaExchangeEntropicSampling]
@@ -130,17 +133,11 @@ where Hist: Histogram
     {
         let extra = vec![(); rewl.walker.len()];
 
-        let walker = rewl.walker
-            .into_iter()
-            .map(|w| w.into())
-            .collect();
-        
-        Self{
-            extra,
-            chunk_size: rewl.chunk_size,
-            walker,
-            replica_exchange_mode: rewl.replica_exchange_mode,
-            ensembles: rewl.ensembles,
+        let rees_result = rewl.into_rees_with_extra(extra);
+
+        match rees_result{
+            Ok(rees) => rees,
+            Err(_) => unreachable!()
         }
     }
 }
@@ -309,6 +306,9 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
             chunk_size: self.chunk_size,
             ensembles: self.ensembles,
             replica_exchange_mode: self.replica_exchange_mode,
+            rees_last_extreme_interval_visited: self.rees_last_extreme_interval_visited,
+            rees_roundtrip_halfes: self.rees_roundtrip_halfes,
+            rewl_roundtrips: self.rewl_roundtrips
         };
         (
             rees,
@@ -335,6 +335,9 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
                 chunk_size: self.chunk_size,
                 ensembles: self.ensembles,
                 replica_exchange_mode: self.replica_exchange_mode,
+                rees_last_extreme_interval_visited: self.rees_last_extreme_interval_visited,
+                rees_roundtrip_halfes: self.rees_roundtrip_halfes,
+                rewl_roundtrips: self.rewl_roundtrips
             };
             Ok(
                 (
@@ -343,6 +346,68 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
                 )
             )
         }
+    }
+
+    pub(crate) fn update_roundtrips(&mut self)
+    {
+        if self.num_intervals() <= 1 {
+            return;
+        }
+        // check all walker that are currently in the first interval
+        let mut chunk_iter = self.walker.chunks(self.chunk_size.get());
+        let first_chunk = chunk_iter.next().unwrap();
+        first_chunk.iter()
+            .for_each(
+                |walker|
+                {
+                    let id = walker.id();
+                    let last_visited = match self.rees_last_extreme_interval_visited.get_mut(id){
+                        Some(last) => last,
+                        None => unreachable!()
+                    };
+
+                    match last_visited {
+                        ExtremeInterval::Right => {
+                            *last_visited = ExtremeInterval::Left;
+                            self.rees_roundtrip_halfes[id] += 1;
+                        },
+                        ExtremeInterval::None => {
+                            *last_visited = ExtremeInterval::Left;
+                        },
+                        _ => ()
+                    }
+                }
+            );
+
+        // check all walker that are currently in the last interval
+        let last_chunk = match chunk_iter.last()
+        {
+            Some(chunk) => chunk,
+            None => unreachable!()
+        };
+
+        last_chunk.iter()
+            .for_each(
+                |walker|
+                {
+                    let id = walker.id();
+                    let last_visited = match self.rees_last_extreme_interval_visited.get_mut(id){
+                        Some(last) => last,
+                        None => unreachable!()
+                    };
+
+                    match last_visited {
+                        ExtremeInterval::Left => {
+                            *last_visited = ExtremeInterval::Right;
+                            self.rees_roundtrip_halfes[id] += 1;
+                        },
+                        ExtremeInterval::None => {
+                            *last_visited = ExtremeInterval::Right;
+                        },
+                        _ => ()
+                    }
+                }
+            );
     }
 }
 
@@ -370,6 +435,9 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rees<(), Ensemble, R, Hist, Energy, S, R
                 chunk_size: self.chunk_size,
                 ensembles: self.ensembles,
                 replica_exchange_mode: self.replica_exchange_mode,
+                rees_last_extreme_interval_visited: self.rees_last_extreme_interval_visited,
+                rees_roundtrip_halfes: self.rees_roundtrip_halfes,
+                rewl_roundtrips: self.rewl_roundtrips
             };
             Ok(
                 rees
@@ -501,7 +569,9 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
                         replica_exchange(walker_a, walker_b);
                     }
                 }
-            )
+            );
+        
+        self.update_roundtrips()
     }
 
     /// # Perform the Replica exchange simulation

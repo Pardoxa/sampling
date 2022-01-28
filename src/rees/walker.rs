@@ -420,11 +420,12 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         swap(&mut walker_b.old_energy, &mut walker_a.old_energy);
         walker_b.bin = new_bin_b;
         walker_a.bin = new_bin_a;
-        walker_a.hist.count_index(new_bin_a).unwrap();
-        walker_b.hist.count_index(new_bin_b).unwrap();
         walker_a.re += 1;
         walker_b.re += 1;
     }
+
+    walker_a.hist.count_index(walker_a.bin).unwrap();
+    walker_b.hist.count_index(walker_b.bin).unwrap();
 }
 
 pub(crate) fn get_merged_refined_walker_prob<R, Hist, Energy, S, Res>(walker: &[ReesWalker<R, Hist, Energy, S, Res>]) -> Vec<f64>
