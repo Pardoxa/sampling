@@ -496,8 +496,10 @@ fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> R
     let mut glue_count = vec![0_usize; glue_log_density.len()];
     
     #[allow(clippy::needless_range_loop)]
-    for i in 0..first_log.len() {
-        glue_count[i] = 1;
+    for (index, val) in first_log.iter().enumerate() {
+        if val.is_finite(){
+            glue_count[index] = 1;
+        }
     }
 
     let mut offset = 0;
@@ -512,12 +514,15 @@ fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> R
             .for_each(
                 |((glued, count), &prob)|
                 {
-                    *count += 1;
-                    *glued = if glued.is_finite(){
-                         *glued + prob
-                    } else {
-                        prob
-                    };
+                    if prob.is_finite(){
+                        *count += 1;
+                        *glued = if glued.is_finite(){
+                            *glued + prob
+                        } else {
+                            prob
+                        };
+                    }
+                    
                 }
             );
     }
@@ -527,6 +532,8 @@ fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> R
         .for_each(|(log, &count)| {
             if count > 0 {
                 *log /= count as f64;
+            } else {
+                *log = f64::NAN;
             }
         });
     
@@ -541,11 +548,18 @@ fn calc_z(log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueE
     {
         let prob_right = &log10_vec[i+1];
         let prob_left = &log10_vec[i][align..];
-        let overlap_size = prob_right.len().min(prob_left.len());
         
-        let sum = prob_left.iter().zip(prob_right.iter())
-            .fold(0.0, |acc, (&p, &c)| p - c + acc);
-        let mut z = sum / overlap_size as f64;
+        let mut counter: usize = 0;
+        let mut sum = 0.0;
+        for (p, c) in prob_left.iter().zip(prob_right.iter())
+        {
+            if p.is_finite() && c.is_finite(){
+                counter += 1;
+                sum += p - c;
+            }
+        }
+        
+        let mut z = sum / counter as f64;
         // also correct for adjustment of prev
         if let Some(val) = z_vec.last() {
             z += val;
