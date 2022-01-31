@@ -124,6 +124,20 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
                 .collect();
             (hists, log_prob)
     }
+
+    pub fn rewl_roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
+    {
+        self.rewl_roundtrips
+            .iter()
+            .copied()
+    }
+
+    pub fn rees_roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
+    {
+        self.rees_roundtrip_halfes
+            .iter()
+            .map(|half| half / 2)
+    }
 }
 
 impl<Ensemble, R, Hist, Energy, S, Res> From<Rewl<Ensemble, R, Hist, Energy, S, Res>> for Rees<(), Ensemble, R, Hist, Energy, S, Res>
