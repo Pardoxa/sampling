@@ -45,7 +45,7 @@ impl GridRangeF64{
         steps: usize
     ) -> Self
     {
-        assert!(steps < 2, "steps has to be < 2");
+        assert!(steps >= 2, "steps has to be >= 2");
         let steps_m1 = NonZeroUsize::new(steps - 1).unwrap();
         Self::new_native(start, end, steps_m1)
     }

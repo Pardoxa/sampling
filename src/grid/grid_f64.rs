@@ -44,6 +44,11 @@ impl GridF64{
         self.y_range.iter()
     }
 
+    /// Checks if a point is contained within the range 
+    /// specified by `self`
+    /// ## Note
+    /// This does not check wether or not the point will 
+    /// actually be returned when iterating over the Grid
     pub fn contains(&self, point: &Point2D) -> bool
     {
         self.contains_xy(point.x, point.y)
@@ -56,11 +61,11 @@ impl GridF64{
 
     pub fn grid_point2d_iter(&'_ self) -> impl Iterator<Item=Point2D> + '_
     {
-        self.grid_point_iter()
+        self.grid_iter()
             .map(|(x, y)| Point2D{x, y})
     }
 
-    pub fn grid_point_iter(&'_ self) -> impl Iterator<Item=(f64, f64)> + '_
+    pub fn grid_iter(&'_ self) -> impl Iterator<Item=(f64, f64)> + '_
     {
         self.x_range.iter()
             .flat_map(
@@ -70,5 +75,33 @@ impl GridF64{
                         .zip(self.y_range.iter())
                 }
             )
+    }
+}
+
+#[cfg(test)]
+mod testing
+{
+    use super::*;
+
+    #[test]
+    fn iter_test()
+    {
+        let x_range = GridRangeF64::new(0.0, 1.0, 3);
+        let y_range = GridRangeF64::new(4.0, 3.0, 3);
+
+        let grid = GridF64::new(x_range, y_range);
+
+        let mut iter = grid.grid_iter();
+
+        assert_eq!(Some((0.0, 4.0)), iter.next());
+        assert_eq!(Some((0.0, 3.5)), iter.next());
+        assert_eq!(Some((0.0, 3.0)), iter.next());
+        assert_eq!(Some((0.5, 4.0)), iter.next());
+        assert_eq!(Some((0.5, 3.5)), iter.next());
+        assert_eq!(Some((0.5, 3.0)), iter.next());
+        assert_eq!(Some((1.0, 4.0)), iter.next());
+        assert_eq!(Some((1.0, 3.5)), iter.next());
+        assert_eq!(Some((1.0, 3.0)), iter.next());
+        assert_eq!(None, iter.next());
     }
 }

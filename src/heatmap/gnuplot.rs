@@ -831,6 +831,8 @@ pub enum GnuplotTerminal{
     /// # Use pdf as gnuplot terminal
     /// * gnuplot skript will create a `.pdf` file
     PDF,
+    /// # Does not specify a terminal
+    Empty,
 }
 
 impl GnuplotTerminal{
@@ -840,13 +842,20 @@ impl GnuplotTerminal{
         size: &str
     ) -> std::io::Result<()>
     {
+        let size = if size.is_empty(){
+            size.to_owned()
+        } else {
+            format!(" size {}", size)
+        };
+
         match self{
             Self::EpsLatex => {
-                write!(writer, "set t epslatex 9 standalone color size {} header \"\\\\usepackage{{amsmath}}\\n\"\nset font \",9\"", size)
+                write!(writer, "set t epslatex 9 standalone color{} header \"\\\\usepackage{{amsmath}}\\n\"\nset font \",9\"", size)
             },
             Self::PDF => {
-                write!(writer, "set t pdf size {}", size)
-            }
+                write!(writer, "set t pdf size{}", size)
+            },
+            Self::Empty => Ok(())
         }
     }
     
@@ -866,7 +875,8 @@ impl GnuplotTerminal{
                 } else {
                     write!(writer, "{}.pdf", name)
                 }
-            }
+            },
+            Self::Empty => Ok(())
         }
     }
 
