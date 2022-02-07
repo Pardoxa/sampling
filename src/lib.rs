@@ -47,5 +47,3 @@ pub use traits::*;
 pub use bootstrap::*;
 
 pub mod examples;
-
-pub mod grid;
