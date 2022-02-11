@@ -31,6 +31,27 @@ pub struct HistogramFast<T> {
     hist: Vec<usize>,
 }
 
+impl<T> HistogramFast<T>
+where T: Copy
+{
+    /// Get left border, inclusive
+    pub fn left(&self) -> T
+    {
+        self.left
+    }
+
+    /// Get right border, inclusive
+    pub fn right(&self) -> T
+    {
+        self.right
+    }
+
+    pub fn range_inclusive(&self) -> RangeInclusive<T>
+    {
+        self.left..=self.right
+    }
+}
+
 impl<T> HistogramFast<T> 
     where 
     T: PrimInt + HasUnsignedVersion,
