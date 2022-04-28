@@ -916,7 +916,7 @@ impl GnuplotTerminal{
                 writeln!(writer, "set output \"{name}.tex\"")
             },
             Self::PDF(name) => {
-                writeln!(writer, "set t pdf size{}", size)?;
+                writeln!(writer, "set t pdf {}", size)?;
                 writeln!(writer, "set output \"{name}.pdf\"")
             },
             Self::Empty => Ok(())
