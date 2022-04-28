@@ -599,18 +599,15 @@ where
     /// `GnuplotSettings`
     /// * The default axis are the bin indices, which, e.g, means they always 
     /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
-    pub fn gnuplot_quick<W, S>(
+    pub fn gnuplot_quick<W>(
         &self,
-        writer: W,
-        gnuplot_output_name: S
+        writer: W
     ) -> std::io::Result<()>
     where 
-        W: std::io::Write,
-        S: AsRef<str>
+        W: std::io::Write
     {
         self.gnuplot(
             writer,
-            gnuplot_output_name,
             GnuplotSettings::default()
         )
     }
@@ -664,12 +661,12 @@ where
     ///     .y_axis(GnuplotAxis::from_slice(&["a", "b", "c", "d"]))
     ///     .y_label("letter")
     ///     .x_label("number")
-    ///     .title("Example");
+    ///     .title("Example")
+    ///     .terminal(GnuplotTerminal::PDF("heatmap".to_owned()));
     ///
     /// // create gnuplot script
     /// heatmap.gnuplot(
     ///     buf,
-    ///     "heatmap.pdf",
     ///     settings
     /// ).unwrap();
     /// ```
@@ -677,92 +674,26 @@ where
     /// ```bash
     /// gnuplot heatmap.gp
     /// ```
-    pub fn gnuplot<W, S, GS>(
+    pub fn gnuplot<W, GS>(
         &self,
         mut gnuplot_writer: W,
-        gnuplot_output_name: S,
         settings: GS
     ) -> std::io::Result<()>
     where 
         W: Write,
-        S: AsRef<str>,
         GS: Borrow<GnuplotSettings>
     {
-        let settings = settings.borrow();
-        self.gnuplot_write_helper_setup(
+        let settings: &GnuplotSettings = settings.borrow();
+        let x_len = self.width;
+        let y_len = self.height;
+        settings.write_heatmap(
             &mut gnuplot_writer,
-            gnuplot_output_name.as_ref(),
-            settings
-        )?;
-        
-        gnuplot_write_helper_plot(
-            &mut gnuplot_writer,
-            settings.get_title()
-        )?;
-        writeln!(gnuplot_writer)?;
-        gnuplot_write_output(
-            gnuplot_writer,
-            gnuplot_output_name.as_ref(),
-            settings
+            |w| self.write_to(w),
+            x_len,
+            y_len
         )
     }
-    
 
-    pub(crate) fn gnuplot_write_helper_setup<W>(
-        &self, 
-        mut gnuplot_writer: W,
-        gnuplot_output_name: &str,
-        settings: &GnuplotSettings
-    ) -> std::io::Result<()>
-    where 
-    W: Write,
-    {
-        settings.write_terminal(&mut gnuplot_writer)?;
-        write!(gnuplot_writer, "\nset output \"")?;
-        settings.terminal.output(gnuplot_output_name, &mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "\"")?;
-        settings.write_label(&mut gnuplot_writer)?;
-
-        writeln!(gnuplot_writer, "set xrange[-0.5:{}]", self.width as f64 - 0.5)?;
-        writeln!(gnuplot_writer, "set yrange[-0.5:{}]", self.height as f64 - 0.5)?;
-        if !settings.title.is_empty(){
-            writeln!(gnuplot_writer, "set title '{}'", settings.title)?;
-        }
-        
-        settings.write_axis(
-            &mut gnuplot_writer,
-            self.hist_width.bin_count(),
-            self.hist_height.bin_count()
-        )?;
-
-        settings.palette.write_palette(&mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "set view map")?;
-
-        writeln!(gnuplot_writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")?;
-        writeln!(gnuplot_writer, "$data << EOD")?;
-        self.write_to(&mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "EOD")
-    }
-
-}
-
-pub(crate) fn gnuplot_write_output<W: Write>(
-    mut gnuplot_writer: W,
-    gnuplot_output_name: &str,
-    settings: &GnuplotSettings
-) -> std::io::Result<()>
-{
-    writeln!(gnuplot_writer, "set output")?;
-
-    settings.terminal.finish(gnuplot_output_name, gnuplot_writer)
-}
-
-pub(crate) fn gnuplot_write_helper_plot<W: Write>(
-    mut gnuplot_writer: W,
-    title: &str
-) -> std::io::Result<()>
-{
-    write!(gnuplot_writer, "splot $data matrix with image t \"{}\" ", title)
 }
 
 #[cfg(test)]

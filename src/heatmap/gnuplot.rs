@@ -233,6 +233,66 @@ impl GnuplotSettings {
         }
         Ok(())
     }
+
+    pub(crate) fn write_heatmap_helper1<W>(
+        &self, 
+        mut writer: W,
+        x_len: usize,
+        y_len: usize
+    ) -> std::io::Result<()>
+    where W: Write
+    {
+        self.write_terminal(&mut writer)?;
+       
+        self.write_label(&mut writer)?;
+
+        writeln!(writer, "set xrange[-0.5:{}]", x_len as f64 - 0.5)?;
+        writeln!(writer, "set yrange[-0.5:{}]", y_len as f64 - 0.5)?;
+        if !self.title.is_empty(){
+            writeln!(writer, "set title '{}'", self.title)?;
+        }
+
+        self.write_axis(
+            &mut writer,
+            x_len,
+            y_len
+        )?;
+
+        self.palette.write_palette(&mut writer)?;
+        writeln!(writer, "set view map")?;
+
+        writeln!(writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")
+    }
+
+    /// # Write a heatmap with the given gnuplot Settings
+    /// * `closure` has to write the heatmap. It must write `y_len` rows with `x_len` values each, where the latter values are seperated by a space.
+    /// This data will be used for the heatmap.
+    /// * `x_len`: The number of entrys in each column, that you promise the `closure` will write
+    /// * `y_len`: The number of columns you promise that the `closure` will write
+    pub fn write_heatmap<F, W>(
+        &self, 
+        mut writer: W, 
+        closure: F,
+        x_len: usize,
+        y_len: usize
+    ) -> std::io::Result<()>
+    where W: Write,
+        F: FnOnce (&mut W) -> std::io::Result<()>
+    {
+        self.write_heatmap_helper1(
+            &mut writer,
+            x_len,
+            y_len
+        )?;
+        writeln!(writer, "$data << EOD")?;
+        closure(&mut writer)?;
+
+        writeln!(writer, "EOD")?;
+
+        writeln!(writer, "splot $data matrix with image t \"{}\" ", &self.title)?;
+
+        self.terminal.finish(&mut writer)
+    }
 }
 
 impl Default for GnuplotSettings{
@@ -241,7 +301,7 @@ impl Default for GnuplotSettings{
             x_label: "".to_owned(),
             y_label: "".to_owned(),
             title: "".to_owned(),
-            terminal: GnuplotTerminal::PDF,
+            terminal: GnuplotTerminal::Empty,
             palette: GnuplotPalette::PresetHSV,
             x_axis: None,
             y_axis: None,
@@ -818,7 +878,7 @@ set palette functions red(map(gray)), green(map(gray)), blue(map(gray))\n")
 
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// # Options for choosing gnuplot Terminal
 pub enum GnuplotTerminal{
@@ -827,10 +887,12 @@ pub enum GnuplotTerminal{
     /// * if you do not have latexmk, you can still use this, but you have to manually edit the 
     /// gnuplotscrip later on
     /// * gnuplot script will create `.tex` file and `.pdf` file created from the tex file
-    EpsLatex,
+    /// * The String here is the output name, i.e., the filepath of the output of gnuplot (without the .tex)
+    EpsLatex(String),
     /// # Use pdf as gnuplot terminal
     /// * gnuplot skript will create a `.pdf` file
-    PDF,
+    /// * The String here is the output name, i.e., the filepath of the output of gnuplot (without the .pdf)
+    PDF(String),
     /// # Does not specify a terminal
     Empty,
 }
@@ -849,44 +911,49 @@ impl GnuplotTerminal{
         };
 
         match self{
-            Self::EpsLatex => {
-                write!(writer, "set t epslatex 9 standalone color{} header \"\\\\usepackage{{amsmath}}\\n\"\nset font \",9\"", size)
+            Self::EpsLatex(name) => {
+                writeln!(writer, "set t epslatex 9 standalone color{} header \"\\\\usepackage{{amsmath}}\\n\"\nset font \",9\"", size)?;
+                writeln!(writer, "set output \"{name}.tex\"")
             },
-            Self::PDF => {
-                write!(writer, "set t pdf size{}", size)
+            Self::PDF(name) => {
+                writeln!(writer, "set t pdf size{}", size)?;
+                writeln!(writer, "set output \"{name}.pdf\"")
             },
             Self::Empty => Ok(())
         }
     }
     
-    pub(crate) fn output<W: Write>(&self, name: &str, mut writer: W) -> std::io::Result<()>
-    {
-        match self {
-            Self::EpsLatex => {
-                if name.ends_with(".tex") {
-                    write!(writer, "{}", name)
-                } else {
-                    write!(writer, "{}.tex", name)
-                }
-            },
-            Self::PDF => {
-                if name.ends_with(".pdf") {
-                    write!(writer, "{}", name)
-                } else {
-                    write!(writer, "{}.pdf", name)
-                }
-            },
-            Self::Empty => Ok(())
-        }
-    }
+    //pub(crate) fn output<W: Write>(&self, name: &str, mut writer: W) -> std::io::Result<()>
+    //{
+    //    match self {
+    //        Self::EpsLatex => {
+    //            if name.ends_with(".tex") {
+    //                write!(writer, "{}", name)
+    //            } else {
+    //                write!(writer, "{}.tex", name)
+    //            }
+    //        },
+    //        Self::PDF => {
+    //            if name.ends_with(".pdf") {
+    //                write!(writer, "{}", name)
+    //            } else {
+    //                write!(writer, "{}.pdf", name)
+    //            }
+    //        },
+    //        Self::Empty => Ok(())
+    //    }
+    //}
 
-    pub(crate) fn finish<W: Write>(&self, output_name: &str, mut w: W) -> std::io::Result<()>
+    pub(crate) fn finish<W: Write>(&self, mut w: W) -> std::io::Result<()>
     {
         match self {
-            Self::EpsLatex => {
-                write!(w, "system('latexmk ")?;
-                self.output(output_name, &mut w)?;
+            Self::EpsLatex(name) => {
+                writeln!(w, "set output")?;
+                write!(w, "system('latexmk {name}.tex")?;
                 writeln!(w, " -pdf -f')")
+            },
+            Self::PDF(_) => {
+                writeln!(w, "set output")
             },
             _ => Ok(())
         }

@@ -101,7 +101,7 @@ pub(crate) fn glue(size: usize, log10_vec: &[Vec<f64>], left_list: &[usize], rig
     Ok(glue_log_density)
 }
 
-pub(crate) fn height_correction(log10_vec: &mut Vec<Vec<f64>>, z_vec: &[f64]){
+pub(crate) fn height_correction(log10_vec: &mut [Vec<f64>], z_vec: &[f64]){
     log10_vec.iter_mut()
         .skip(1)
         .zip(z_vec.iter())
@@ -177,7 +177,7 @@ where
 }
 
 /// calles subtract_max on all contained vectors
-pub(crate) fn inner_subtract_max(log10_vec: &mut Vec<Vec<f64>>)
+pub(crate) fn inner_subtract_max(log10_vec: &mut [Vec<f64>])
 {
     log10_vec.iter_mut()
         .for_each(

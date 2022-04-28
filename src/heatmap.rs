@@ -12,10 +12,12 @@
 //! do not have to be numbers at all. Therefore the default axis 
 //! are the bin indices.
 //! ```
-//! use sampling::{HistUsizeFast, HeatmapU, GnuplotSettings, GnuplotAxis, GnuplotPalette};
-//! use rand_pcg::Pcg64;
-//! use rand::{SeedableRng, distributions::{Uniform, Distribution}};
-//! use std::{fs::File, io::BufWriter};
+//! use {
+//!     sampling::{HistUsizeFast, HeatmapU, GnuplotSettings, GnuplotAxis, GnuplotPalette, GnuplotTerminal},
+//!     rand_pcg::Pcg64,
+//!     rand::{SeedableRng, distributions::{Uniform, Distribution}},
+//!     std::{fs::File, io::BufWriter}
+//! };
 //! 
 //! // random number generator for data creation
 //! let mut rng = Pcg64::seed_from_u64(2972398345698734489);
@@ -43,11 +45,11 @@
 //!     .expect("unable to create file");
 //! let heatmap_writer = BufWriter::new(heatmap_file);
 //! let mut settings = GnuplotSettings::default();
+//! settings.terminal(GnuplotTerminal::PDF("HeatmapU01".to_owned()));
 //! 
 //! // creating the gnuplot script
 //! heat.gnuplot(
-//!     heatmap_writer, 
-//!     "HeatmapU01",
+//!     heatmap_writer,
 //!     &settings
 //! ).unwrap();
 //! 
@@ -58,7 +60,8 @@
 //! settings.x_axis(x_axis)
 //!     .y_axis(y_axis)
 //! // you can also change the color space, if you like
-//!     .palette(GnuplotPalette::PresetRGB);
+//!     .palette(GnuplotPalette::PresetRGB)
+//!     .terminal(GnuplotTerminal::PDF("HeatmapU02".to_owned()));
 //! 
 //! // creating a file to store the gnuplot script in
 //! let heatmap_file = File::create("HeatmapU02.gp")
@@ -66,8 +69,7 @@
 //! let heatmap_writer = BufWriter::new(heatmap_file);
 //!
 //! heat.gnuplot(
-//!     heatmap_writer, 
-//!     "HeatmapU02",
+//!     heatmap_writer,
 //!     settings
 //! ).unwrap();
 //! ```

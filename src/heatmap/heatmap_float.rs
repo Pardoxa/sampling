@@ -1,8 +1,5 @@
 use{
-    crate::{
-        *,
-        heatmap::{gnuplot_write_helper_plot, gnuplot_write_output}
-    },
+    crate::*,
     std::{
         io::Write,
         borrow::*,
@@ -443,26 +440,24 @@ where
 
     /// # Create a gnuplot script to plot your heatmap
     /// * `writer`: The gnuplot script will be written to this
-    /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
-    /// be called? Ending of file will be set automatically
     /// # Note
     /// * This is the same as calling [`gnuplot`](Self::gnuplot) with default
     /// `GnuplotSettings`
     /// * The default axis are the bin indices, which, e.g, means they always 
     /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
-    pub fn gnuplot_quick<W, S>(
+    pub fn gnuplot_quick<W>(
         &self,
-        writer: W,
-        gnuplot_output_name: S
+        writer: W
     ) -> std::io::Result<()>
     where 
-        W: std::io::Write,
-        S: AsRef<str>
+        W: std::io::Write
     {
+        let mut d = GnuplotSettings::default();
+        let default = d
+            .terminal(GnuplotTerminal::Empty);
         self.gnuplot(
             writer,
-            gnuplot_output_name,
-            GnuplotSettings::default()
+            default
         )
     }
 
@@ -513,7 +508,8 @@ where
     ///     .y_axis(GnuplotAxis::from_slice(&["a", "b", "c", "d"]))
     ///     .y_label("letter")
     ///     .x_label("number")
-    ///     .title("Example");
+    ///     .title("Example")
+    ///     .terminal(GnuplotTerminal::PDF("heatmap_normalized".to_owned()));
     ///
     /// 
     /// // norm heatmap row wise - this converts HeatmapU to HeatmapfF64
@@ -522,7 +518,6 @@ where
     /// // create skript
     /// heatmap.gnuplot(
     ///     buf,
-    ///     "heatmap_normalized",
     ///     settings
     /// ).unwrap();
     /// ```
@@ -530,67 +525,24 @@ where
     /// ```bash
     /// gnuplot heatmap_normalized.gp
     /// ```
-    pub fn gnuplot<W, S, GS>(
+    pub fn gnuplot<W, GS>(
         &self,
         mut gnuplot_writer: W,
-        gnuplot_output_name: S,
         settings: GS
     ) -> std::io::Result<()>
     where 
         W: Write,
-        S: AsRef<str>,
         GS: Borrow<GnuplotSettings>
     {
-        let settings = settings.borrow();
-        self.gnuplot_write_helper_setup(
+        let settings: &GnuplotSettings = settings.borrow();
+        let x_len = self.width;
+        let y_len = self.height;
+        settings.write_heatmap(
             &mut gnuplot_writer,
-            gnuplot_output_name.as_ref(),
-            settings
-        )?;
-
-        gnuplot_write_helper_plot(&mut gnuplot_writer, settings.get_title())?;
-        writeln!(gnuplot_writer)?;
-
-        gnuplot_write_output(
-            gnuplot_writer,
-            gnuplot_output_name.as_ref(),
-            settings
+            |w| self.write_to(w),
+            x_len,
+            y_len
         )
-    }
-
-    pub(crate) fn gnuplot_write_helper_setup<W: Write>(
-        &self,
-        mut gnuplot_writer: W,
-        gnuplot_output_name: &str,
-        settings: &GnuplotSettings
-    ) -> std::io::Result<()>
-    {
-        settings.write_terminal(&mut gnuplot_writer)?;
-        write!(gnuplot_writer, "\nset output \"")?;
-        settings.terminal.output(gnuplot_output_name.as_ref(), &mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "\"")?;
-        settings.write_label(&mut gnuplot_writer)?;
-
-        writeln!(gnuplot_writer, "set xrange[-0.5:{}]", self.width as f64 - 0.5)?;
-        writeln!(gnuplot_writer, "set yrange[-0.5:{}]", self.height as f64 - 0.5)?;
-        if !settings.title.is_empty(){
-            writeln!(gnuplot_writer, "set title '{}'", settings.title)?;
-        }
-
-        settings.write_axis(
-            &mut gnuplot_writer,
-            self.hist_width.bin_count(),
-            self.hist_height.bin_count()
-        )?;
-
-        settings.palette.write_palette(&mut gnuplot_writer)?;
-        writeln!(gnuplot_writer, "set view map")?;
-
-        writeln!(gnuplot_writer, "set rmargin screen 0.8125\nset lmargin screen 0.175")?;
-        writeln!(gnuplot_writer, "$data << EOD")?;
-        self.write_to(&mut gnuplot_writer)?;
-
-        writeln!(gnuplot_writer, "EOD")
     }
 
 }

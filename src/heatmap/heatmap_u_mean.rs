@@ -1,8 +1,5 @@
 use{
-    crate::{
-        *,
-        heatmap::{gnuplot_write_helper_plot, gnuplot_write_output}
-    },
+    crate::*,
     std::borrow::Borrow,
     num_traits::AsPrimitive,
     average::{MeanWithError, Estimate, WeightedMean}
@@ -213,18 +210,15 @@ where HistX: Histogram,
     /// and default [`GnuplotPointSettings`](crate::heatmap::GnuplotPointSettings)
     /// * The default axis are the bin indices, which, e.g, means they always 
     /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
-    pub fn gnuplot_quick<W, S>(
+    pub fn gnuplot_quick<W>(
         &self,
         writer: W,
-        gnuplot_output_name: S
     ) -> std::io::Result<()>
     where 
-        W: std::io::Write,
-        S: AsRef<str>
+        W: std::io::Write
     {
         self.gnuplot(
             writer,
-            gnuplot_output_name,
             GnuplotSettings::default(),
             GnuplotPointSettings::default()
         )
@@ -245,23 +239,27 @@ where HistX: Histogram,
     /// ## Note 
     /// * The default axis are the bin indices, which, e.g, means they always 
     /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
-    pub fn gnuplot<W, S, GS>(
+    pub fn gnuplot<W, P, GS>(
         &self,
         mut writer: W,
-        gnuplot_output_name: S,
         settings: GS,
-        point: GnuplotPointSettings
+        points: P
     ) -> std::io::Result<()>
     where 
     W: std::io::Write,
-    S: AsRef<str>,
+    P: Borrow<GnuplotPointSettings>,
     GS: Borrow<GnuplotSettings>
     {
-        let settings = settings.borrow();
-        self.heatmap.gnuplot_write_helper_setup(
+        let settings: &GnuplotSettings = settings.borrow();
+        let point: &GnuplotPointSettings = points.borrow();
+
+        let x_len = self.heatmap.width;
+        let y_len = self.heatmap.height;
+
+        settings.write_heatmap_helper1(
             &mut writer,
-            gnuplot_output_name.as_ref(),
-            settings
+            x_len, 
+            y_len
         )?;
 
         writeln!(writer, "$mean_data << EOD")?;
@@ -270,10 +268,10 @@ where HistX: Histogram,
             writeln!(writer, "{} {:e}", index, value)?;
         }
         writeln!(writer, "EOD")?;
-        gnuplot_write_helper_plot(
-            &mut writer,
-            settings.get_title()
-        )?;
+        writeln!(writer, "$data << EOD")?;
+        self.heatmap.write_to(&mut writer)?;
+        writeln!(writer, "EOD")?;
+        write!(writer, "splot $data matrix with image t \"{}\" ", settings.get_title())?;
         writeln!(writer, ",\\")?;
         if point.frame
         {
@@ -286,12 +284,7 @@ where HistX: Histogram,
         point.color.write_hex(&mut writer)?;
         writeln!(writer, "\" ps {} t \"{}\"", point.get_size(), point.get_legend())?;
         
-
-        gnuplot_write_output(
-            writer,
-            gnuplot_output_name.as_ref(),
-            settings
-        )
+        settings.terminal.finish(writer)
     }
 }
 

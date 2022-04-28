@@ -259,7 +259,8 @@
 /// // Now, lets see, how our heatmap looks:
 /// let mut settings = GnuplotSettings::new();
 /// settings.x_label("#Heads")
-///     .y_label("Max heads in row");
+///     .y_label("Max heads in row")
+///     .terminal(GnuplotTerminal::PDF("heatmap_coin_flips".to_owned()));
 /// 
 /// // lets normalize coloumwise
 /// // This way, the scale of our heatmap tells us the conditional probability
@@ -272,7 +273,6 @@
 /// let buf = BufWriter::new(file);
 /// heatmap.gnuplot(
 ///     buf,
-///     "heatmap_coin_flips",
 ///     settings
 /// ).unwrap();
 /// 
