@@ -16,11 +16,14 @@ use {
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
-// TODO Document enum
+/// # Which LogBase is being used/should be used?
+/// 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum LogBase{
+    /// use base 10
     Base10,
+    /// use base e
     BaseE
 }
 
@@ -35,6 +38,7 @@ impl LogBase{
 }
 
 // TODO maybe rename struct?
+/// # Result of the gluing
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ReplicaGlued<Hist>
@@ -48,6 +52,7 @@ pub struct ReplicaGlued<Hist>
 
 impl<Hist> ReplicaGlued<Hist>
 {
+    /// Create a new `ReplicaGlued<Hist>` instance without checking anything
     pub fn new_unchecked(
         encapsulating_histogram: Hist, 
         glued: Vec<f64>, 
@@ -72,11 +77,14 @@ impl<Hist> ReplicaGlued<Hist>
         &self.glued
     }
 
+    /// # Get alignment slice
+    /// * Mostly used for internal things
     pub fn aligned(&self) -> &[Vec<f64>]
     {
         &self.aligned
     }
 
+    /// # Returns encapsulating Histogram
     pub fn encapsulating_hist(&self) -> &Hist
     {
         &self.encapsulating_histogram
@@ -117,6 +125,8 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
     T::Unsigned: num_traits::Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + num_traits::WrappingAdd + num_traits::ToPrimitive + std::ops::Sub<Output=T::Unsigned>
 {
+    /// # Write the ReplicaGlued in a human readable format
+    /// * You probably want to use this ;)
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
         writeln!(writer, "#bin log_merged log_interval0 …")?;

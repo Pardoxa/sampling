@@ -1,4 +1,4 @@
-//five-point stencil 
+/// five-point stencil derivative method 
 pub fn five_point_derivitive(data: &[f64]) -> Vec<f64>
 {
     let mut d = vec![f64::NAN; data.len()];

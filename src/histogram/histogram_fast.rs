@@ -46,6 +46,7 @@ where T: Copy
         self.right
     }
 
+    /// # Returns the range covered by the bins as a `RangeInclusive<T>`
     pub fn range_inclusive(&self) -> RangeInclusive<T>
     {
         self.left..=self.right
