@@ -397,14 +397,17 @@ where R: Rng + Send + Sync,
                         .exp();
                     if self.rng.gen::<f64>() > acception_prob 
                     {
+                        e.steps_rejected(&self.markov_steps);
                         self.count_rejected();
                         e.undo_steps_quiet(&self.markov_steps);
                     } else {
                         self.old_energy = energy;
                         self.bin = current_bin;
+                        e.steps_accepted(&self.markov_steps);
                     }
                 },
                 _ => {
+                    e.steps_rejected(&self.markov_steps);
                     self.count_rejected();
                     e.undo_steps_quiet(&self.markov_steps);
                 }

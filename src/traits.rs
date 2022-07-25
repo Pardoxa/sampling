@@ -108,6 +108,26 @@ pub trait MarkovChain<S, Res> {
             .for_each( |step| self.undo_step_quiet(step));
     }
 
+
+    /// # Function called whenever the steps are accepted.
+    /// *You can use it to create the acceptance statistics if 
+    /// you move a variety of different moves
+    /// * If you use the default implementation this will be a optimized out
+    #[inline]
+    fn steps_accepted(&mut self, _steps: &[S])
+    {
+
+    }
+
+    /// # Function called whenever the steps are rejected.
+    /// * You can use it to create the acceptance statistics if 
+    /// you move a variety of different moves
+    /// * If you use the default implementation this will be a optimized out
+    #[inline]
+    fn steps_rejected(&mut self, _steps: &[S])
+    {
+
+    }
 }
 
 /// For easy sampling of your ensemble

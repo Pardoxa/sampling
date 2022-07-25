@@ -319,10 +319,12 @@ where
                 self.old_energy = Some(energy);
                 *old_distance = distance;
                 self.count_accepted();
+                
                 return;
             }
         }
 
+        
         self.count_rejected();
         self.ensemble
             .undo_steps_quiet(&self.steps);
@@ -531,11 +533,13 @@ where
 
 
     fn count_accepted(&mut self){
+        self.ensemble.steps_accepted(&self.steps);
         self.accepted_steps_current += 1;
         self.accepted_steps_total += 1;
     }
 
     fn count_rejected(&mut self){
+        self.ensemble.steps_rejected(&self.steps);
         self.recected_steps_current += 1;
         self.recected_steps_total += 1;
     }

@@ -39,6 +39,11 @@ pub struct CoinFlipMove{
 pub struct CoinFlipSequence<R> {
     rng: R,
     seq: Vec<CoinFlip>,
+    /// You can ignore everything after here, it is just used for testing
+    steps: usize,
+    rejected: usize,
+    accepted: usize,
+    undo_count: usize
 }
 
 
@@ -63,6 +68,10 @@ impl<R> CoinFlipSequence<R>
         Self{
             rng,
             seq,
+            steps:0,
+            rejected: 0,
+            accepted: 0,
+            undo_count: 0
         }
     }
 }
@@ -132,6 +141,38 @@ where R: Rng
         }
     }
 
+    /// # Only implemented for testcases
+    /// Default implementation would suffice
+    #[inline]
+    fn m_steps(&mut self, count: usize, steps: &mut Vec<CoinFlipMove>) {
+        self.steps += 1;
+        steps.clear();
+        steps.extend((0..count)
+            .map(|_| self.m_step())
+        );
+    }
+
+    /// # Only implemented for testcases
+    /// Default implementation would suffice
+    #[inline]
+    fn m_steps_acc<Acc, AccFn>
+    (
+        &mut self,
+        count: usize,
+        steps: &mut Vec<CoinFlipMove>,
+        acc: &mut Acc,
+        mut acc_fn: AccFn
+    )
+    where AccFn: FnMut(&Self, &CoinFlipMove, &mut Acc)
+    {
+        self.steps += 1;
+        steps.clear();
+        steps.extend(
+            (0..count)
+                .map(|_| self.m_step_acc(acc, &mut acc_fn))
+        );
+    }
+
     fn undo_step(&mut self, step: &CoinFlipMove) {
         self.seq[step.index] = step.previouse;
     }
@@ -139,6 +180,50 @@ where R: Rng
     #[inline]
     fn undo_step_quiet(&mut self, step: &CoinFlipMove) {
         self.undo_step(step);   
+    }
+
+    /// # Only implemented for testcases
+    /// Default implementation would suffice
+    fn undo_steps(&mut self, steps: &[CoinFlipMove], res: &mut Vec<()>) {
+        self.undo_count += 1;
+        res.clear();
+        res.extend(
+            steps.iter()
+                .rev()
+                .map(|step| self.undo_step(step))
+        );
+        assert_eq!(self.rejected, self.undo_count);
+    }
+
+    /// # Only implemented for testcases
+    /// Default implementation would suffice
+    fn undo_steps_quiet(&mut self, steps: &[CoinFlipMove]) {
+        self.undo_count += 1;
+        steps.iter()
+            .rev()
+            .for_each( |step| self.undo_step_quiet(step));
+        assert_eq!(self.rejected, self.undo_count);
+    }
+
+    /// # Only implemented for testcases
+    /// Default implementation would suffice
+    fn steps_accepted(&mut self, _steps: &[CoinFlipMove])
+    {
+        self.accepted += 1;
+        if self.accepted + self.rejected != self.steps{
+            panic!("{} {} {}", self.steps, self.rejected, self.accepted)
+        }
+    }
+
+    /// # Only implemented for testcases
+    /// Default implementation would suffice
+    fn steps_rejected(&mut self, _steps: &[CoinFlipMove])
+    {
+        self.rejected += 1;
+        if self.accepted + self.rejected != self.steps{
+            panic!("{} {} {}", self.steps, self.rejected, self.accepted)
+        }
+
     }
 }
 

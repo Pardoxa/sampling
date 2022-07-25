@@ -31,7 +31,7 @@ use serde::{Serialize, Deserialize};
 /// > Fast algorithm to calculate density of states,”
 /// > Phys.&nbsp;Rev.&nbsp;E&nbsp;**75**: 046701 (2007), DOI&nbsp;[10.1103/PhysRevE.75.046701](https://doi.org/10.1103/PhysRevE.75.046701)
 /// 
-/// * The original Wang Landau algorithim comes from this paper
+/// * The original Wang Landau algorithm comes from this paper
 /// > F. Wang and D. P. Landau,
 /// > “Efficient, multiple-range random walk algorithm to calculate the density of states,” 
 /// > Phys.&nbsp;Rev.&nbsp;Lett.&nbsp;**86**, 2050–2053 (2001), DOI&nbsp;[10.1103/PhysRevLett.86.2050](https://doi.org/10.1103/PhysRevLett.86.2050)
@@ -247,7 +247,7 @@ impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy>
     }
 
     /// Is the simulation in the process of rebuilding the statistics,
-    /// i.e., is it currently trying many differnt step sizes?
+    /// i.e., is it currently trying many different step sizes?
     #[inline(always)]
     pub fn is_rebuilding_statistics(&self) -> bool
     {
@@ -255,7 +255,7 @@ impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy>
     }
 
     /// Is the simulation has finished the process of rebuilding the statistics,
-    /// i.e., is it currently not trying many differnt step sizes
+    /// i.e., is it currently not trying many different step sizes
     #[inline(always)]
     pub fn finished_rebuilding_statistics(&self) -> bool
     {
@@ -409,11 +409,13 @@ where R: Rng,
     }
 
     fn count_accepted(&mut self, size: usize){
+        self.ensemble.steps_accepted(&self.steps);
         self.accepted_step_hist[size - self.min_step] += 1;
         self.counter += 1;
     }
 
     fn count_rejected(&mut self, size: usize){
+        self.ensemble.steps_rejected(&self.steps);
         self.rejected_step_hist[size - self.min_step] += 1;
         self.counter += 1;
     }
@@ -641,11 +643,12 @@ where R: Rng,
             if distance <= *old_distance {
                 self.old_energy = Some(energy);
                 *old_distance = distance;
+                
                 self.count_accepted(size);
                 return;
             }
         }
-
+        
         self.count_rejected(size);
         self.ensemble.undo_steps_quiet(&self.steps);
         
@@ -659,8 +662,7 @@ where R: Rng,
     /// * `mid` - should be something like `128u8`, `0i8` or `0i16`. It is very unlikely that using a type with more than 16 bit makes sense for mid
     /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
     /// a valid state is found or forever
-    /// * alternates between greedy and interval heuristik everytime a wrapping counter passes `mid` or `U::min_value()`
-    /// * I recommend using this heuristik, if you do not know which one to use
+    /// * alternates between greedy and interval heuristic every time a wrapping counter passes `mid` or `U::min_value()`
     /// # Parameter
      /// * `energy_fn` function calculating `Some(energy)` of the system
     /// or rather the Parameter of which you wish to obtain the probability distribution.
@@ -791,7 +793,7 @@ where R: Rng,
     /// # Find a valid starting Point
     /// * if the ensemble is already at a valid starting point,
     /// the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
-    /// * Uses a greedy heuristik. Performs markov steps. If that brought us closer to the target interval,
+    /// * Uses a greedy heuristic. Performs markov steps. If that brought us closer to the target interval,
     /// the step is accepted. Otherwise it is rejected
     /// # Parameter
     /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
@@ -1063,7 +1065,7 @@ where R: Rng,
     /// which can be more efficient. This assumes, that cloning the Energy is cheap, which is true for 
     /// primitive types like usize or f64
     /// * parameter of `energy_fn`: `&E` Ensemble after the markov step `&S` was performed.
-    /// `&mut Energy` is the old energy, which has to be changed to the new energy of the sytem
+    /// `&mut Energy` is the old energy, which has to be changed to the new energy of the system
     pub fn wang_landau_step_acc<F>(
         &mut self,
         energy_fn: F

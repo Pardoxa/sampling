@@ -9,6 +9,9 @@ WangLandauAdaptive (breaking):
 EntropicSamplingAdaptive (breaking):
 * remove internal field - serialization affected
 
+MarkovChain:
+* Added functions steps_accepted and steps_rejected - they can be used to create your own statistics 
+
 ## v0.1.2 (skipped, changes are in v0.2.0)
 
 HistogramFast, HistogramInt and HistogramFloat:

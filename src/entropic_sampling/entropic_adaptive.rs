@@ -680,6 +680,7 @@ where Hist: Histogram + HistogramVal<T>,
         {
             Some(energy) => energy,
             None => {
+                self.ensemble.steps_rejected(&self.steps);
                 self.count_rejected(step_size);
                 self.histogram.count_index(self.old_bin).unwrap();
                 self.ensemble.undo_steps_quiet(&self.steps);
@@ -748,10 +749,12 @@ where Hist: Histogram + HistogramVal<T>,
 
                 if self.rng.gen::<f64>() > accept_prob {
                     // reject step
+                    self.ensemble.steps_rejected(&self.steps);
                     self.count_rejected(step_size);
                     self.ensemble.undo_steps_quiet(&self.steps);
                 } else {
                     // accept step
+                    self.ensemble.steps_accepted(&self.steps);
                     self.count_accepted(step_size);
                     
                     self.old_energy = current_energy;
@@ -760,6 +763,7 @@ where Hist: Histogram + HistogramVal<T>,
             },
             _  => {
                 // invalid step -> reject
+                self.ensemble.steps_rejected(&self.steps);
                 self.count_rejected(step_size);
                 self.ensemble.undo_steps_quiet(&self.steps);
             }

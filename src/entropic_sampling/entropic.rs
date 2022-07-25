@@ -180,7 +180,8 @@ impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
 }
 impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
 where Hist: Histogram,
-    R: Rng
+    R: Rng,
+    //E: MarkovChain<S, Res>
 {
 
     /// # Creates Entropic from a `WangLandauAdaptive` state
@@ -502,6 +503,7 @@ where Hist: Histogram + HistogramVal<T>,
             Some(energy) => energy,
             None => {
                 self.count_rejected();
+                self.ensemble.steps_rejected(&self.steps);
                 self.hist.count_index(self.old_bin).unwrap();
                 self.ensemble.undo_steps_quiet(&self.steps);
                 return;
@@ -580,18 +582,20 @@ where Hist: Histogram + HistogramVal<T>,
 
                 if self.rng.gen::<f64>() > accept_prob {
                     // reject step
+                    self.ensemble.steps_rejected(&self.steps);
                     self.count_rejected();
                     self.ensemble.undo_steps_quiet(&self.steps);
                 } else {
                     // accept step
+                    self.ensemble.steps_accepted(&self.steps);
                     self.count_accepted();
-                    
                     self.old_energy = current_energy;
                     self.old_bin = current_bin;
                 }
             },
             _  => {
                 // invalid step -> reject
+                self.ensemble.steps_rejected(&self.steps);
                 self.count_rejected();
                 self.ensemble.undo_steps_quiet(&self.steps);
             }

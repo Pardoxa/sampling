@@ -82,7 +82,7 @@ where Hist: Histogram,
         done as f64 / self.finished.len() as f64
     }
 
-    /// # Is the interval in a valid statring configuration?
+    /// # Is the interval in a valid starting configuration?
     /// Check which intervals have valid starting points
     /// ## Note
     /// * in the beginning the RewlBuilder has no way of knowing, if the intervals have
@@ -146,13 +146,13 @@ where Hist: Histogram,
     /// | `step_size`           | step_size for the markov steps, which will be performed                                                                                                  |
     /// | `sweep_size`          | How many steps will be performed until the replica exchanges are proposed                                                                                |
     /// | `walker_per_interval` | How many walkers should be used for each interval (entry of `hists`)                                                                                     |
-    /// | `log_f_threshold`     | Threshold for the logaritm of the factor f (see paper). Rewl Simulation is finished, when all(!) walkers have a factor log_f smaller than this threshold |
+    /// | `log_f_threshold`     | Threshold for the logarithm of the factor f (see paper). Rewl Simulation is finished, when all(!) walkers have a factor log_f smaller than this threshold |
     ///
     /// ## Notes
     /// * for proper statistics, you should seed the random number generators (used for the markov chain) of all ensembles 
     /// differently!
     /// * `log_f_threshold` has to be a [normal](`std::primitive::f64::is_normal`) and non negative number
-    /// * each enty of `ensembles` will be cloned `walker_per_interval - 1` times and their respective rngs will be 
+    /// * each entry of `ensembles` will be cloned `walker_per_interval - 1` times and their respective rngs will be 
     /// seeded via the `HasRng` trait
     pub fn from_ensemble_vec(
         ensembles: Vec<Ensemble>,
@@ -402,7 +402,7 @@ where Hist: Histogram,
 
 
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
-    /// * uses a greedy heuristik to find valid configurations, meaning configurations that 
+    /// * uses a greedy heuristic to find valid configurations, meaning configurations that 
     /// are within the required intervals, i.e., histograms
     /// ## Note
     /// * Depending on how complex your energy landscape is, this can take a very long time,
@@ -482,6 +482,7 @@ where Hist: Histogram,
         let step_size = self.step_size;
         let sweep_size = self.sweep_size;
         let mut finished = self.finished;
+        
         ensembles.into_par_iter()
             .zip(hists.into_par_iter())
             .zip(step_size.par_iter())
@@ -507,6 +508,7 @@ where Hist: Histogram,
                         let mut distance = h.distance(&energy);
 
                         let mut steps = Vec::with_capacity(step_size);
+                        
                         'outer2: loop 
                         {
                             for _ in 0..sweep_size.get()
@@ -516,18 +518,21 @@ where Hist: Histogram,
                                 {
                                     energy
                                 } else {
+                                    e.steps_rejected(&steps);
                                     e.undo_steps_quiet(&steps);
                                     continue;
                                 };
     
                                 let new_distance = h.distance(&current_energy);
                                 if new_distance <= distance {
+                                    e.steps_accepted(&steps);
                                     energy = current_energy;
                                     distance = new_distance;
                                     if distance == 0.0 {
                                         break 'outer2;
                                     }
                                 }else {
+                                    e.steps_rejected(&steps);
                                     e.undo_steps_quiet(&steps);
                                 }
                             }
@@ -553,7 +558,7 @@ where Hist: Histogram,
     }
 
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
-    /// * uses an interval heuristik to find valid configurations, meaning configurations that 
+    /// * uses an interval heuristic to find valid configurations, meaning configurations that 
     /// are within the required intervals, i.e., histograms
     /// * Uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
     /// or it is in an interval closer to the target interval. 
@@ -635,7 +640,7 @@ where Hist: Histogram,
 
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`interval_heuristik_choose_rng_build`](`crate::ReplicaExchangeWangLandauBuilder::interval_heuristik_choose_rng_build`)
-    /// * Difference: You can choose the Random numbver generator used for the Rewl Walkers, i.e., for 
+    /// * Difference: You can choose the Random number generator used for the Rewl Walkers, i.e., for 
     /// accepting or rejecting the markov steps and replica exchanges. 
     /// * usage: `self.try_interval_heuristik_choose_rng_build<RNG, _,_,_,_>(energy_fn, condition, overlap)]
     pub fn try_interval_heuristik_choose_rng_build<R, R2, F, C, Energy>
@@ -778,7 +783,7 @@ where Hist: Histogram,
     /// ## Note
     /// * `condition` can be used to limit the time of the search - it will end when `condition`
     /// returns false (or a valid solution is found)
-    /// * condition will be checked each time the heuristik switches bewteen greedy and interval heuristik
+    /// * condition will be checked each time the heuristik switches between greedy and interval heuristik
     pub fn try_mixed_heuristik_build<R, F, C, Energy>
     (
         self,
@@ -809,7 +814,7 @@ where Hist: Histogram,
     /// * interval_steps: How many steps to perform with interval heuristik before switching back to greedy heuristik?
     /// 
     /// ## Note
-    /// * condition will be checked each time the heuristik switches bewteen greedy and interval heuristik
+    /// * condition will be checked each time the heuristik switches between greedy and interval heuristik
     pub fn try_mixed_heuristik_choose_rng_build<R, R2, F, C, Energy>
     (
         self,
