@@ -180,6 +180,12 @@ impl<T> ReplicaGlued<HistogramFast<T>>
         alinment_helper
     }
 
+    /// # Write the normalized probability density function
+    /// The function will be normalized by using the binsize 
+    /// you specify (uniform binsize is assumed).
+    /// 
+    /// Then it will write the merged log probability as well as the intervals 
+    /// into the writer you specified
     pub fn write_rescaled<W: std::io::Write>(
         &self,
         mut writer: W,
@@ -259,6 +265,16 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
         ).collect()
 }
 
+/// # Calculate the probability density function from overlapping intervals
+/// `log_prob` is a vector of the logarithmic non-normalized probability densities
+/// 
+/// `hists` is a vector of the corresponding histograms
+/// 
+/// `LogBase`: Which base do the logarithmic probabilities have?
+/// 
+/// This uses a derviative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
+/// 
+/// The [ReplicaGlued] allows you to easily write the probability density function to a file
 pub fn derivative_merged_and_aligned<H, Hist>(
     mut log_prob: Vec<Vec<f64>>,
     hists: Vec<H>,
@@ -418,7 +434,17 @@ pub(crate) fn norm_log10_prob(log10_prob: &mut[f64]) -> f64
 
 }
 
-// TODO Rename function?
+/// # Calculate the probability density function from overlapping intervals
+/// `log_prob` is a vector of the logarithmic non-normalized probability densities
+/// 
+/// `hists` is a vector of the corresponding histograms
+/// 
+/// `LogBase`: Which base do the logarithmic probabilities have?
+/// 
+/// This uses a average merge, which first align all intervals and then merges 
+/// the probability densities by averaging in the logarithmic space
+/// 
+/// The [ReplicaGlued] allows you to easily write the probability density function to a file
 pub fn average_merged_and_aligned<Hist, H>(
     mut log_prob: Vec<Vec<f64>>,
     hists: Vec<H>,

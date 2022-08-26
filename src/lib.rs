@@ -7,7 +7,7 @@
 //! parallel Replica exchange Wang Landau
 
 // TODO Remove comment to force Documentation of everything as requirement for compiling
-//#![deny(missing_docs, warnings)]
+#![deny(missing_docs, warnings)]
 #![allow(clippy::missing_safety_doc)]
 /// Contains traits useful for sampling an ensemble
 /// like MarkovChain or Metropolis etc.

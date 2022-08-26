@@ -65,12 +65,18 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     pub(crate) last_extreme_interval_visited: Vec<ExtremeInterval>
 }
 
+/// # Enum used internally
+/// It will save if the corresponding interval is the leftest one, the rightes one
+/// or none of that
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum ExtremeInterval
 {
+    /// There is no interval that is "more left" then this one
     Left,
+    /// There is no interval that is "more right" then this one
     Right,
+    /// None of the above
     None
 }
 
@@ -272,6 +278,13 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
         (hists, log_prob)
     }
 
+    /// # Minimum of roundtrips
+    ///
+    /// Definition of roundtrip:
+    /// If a walker is in the leftest interval, then in the rightest and then in the leftest again 
+    /// (or the other way around) then this is counted as one roundtrip.
+    /// 
+    /// This will return the minimum of roundtrips
     pub fn min_roundtrips(&self) -> usize 
     {
         match self.roundtrip_iter().min()
@@ -281,6 +294,13 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
         }
     }
 
+    /// # Maximum of roundtrips
+    ///
+    /// Definition of roundtrip:
+    /// If a walker is in the leftest interval, then in the rightest and then in the leftest again 
+    /// (or the other way around) then this is counted as one roundtrip.
+    /// 
+    /// This will return the maximum of roundtrips
     pub fn max_roundtrips(&self) -> usize 
     {
         match self.roundtrip_iter().max()
@@ -291,6 +311,12 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     }
 
     #[inline]
+    /// # Roundtrips
+    /// Definition of roundtrip:
+    /// If a walker is in the leftest interval, then in the rightest and then in the leftest again 
+    /// (or the other way around) then this is counted as one roundtrip.
+    /// 
+    /// This will return an iterator over the roundtrips
     pub fn roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
     {
         self.roundtrip_halfes
@@ -332,11 +358,9 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It returns histogram, which contains the corresponding bins and
-    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
-    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
-    /// different intervals. This can be used to see, how good the simulation worked,
-    /// e.g., by plotting them to see, if they match
+    /// It uses derivative merging to give you a `ReplicaGlued` which you can use to write
+    /// the data into a file.
+    /// The derivative merged is explained in [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
     ///
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
@@ -350,7 +374,17 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
         )
     }
 
-    // TODO Rename function
+    /// # Results of the simulation
+    /// 
+    /// This is what we do the simulation for!
+    /// 
+    /// It uses average merging to give you a `ReplicaGlued` which you can use to write
+    /// the data into a file.
+    /// The average merged is explained in  [average_merged_and_aligned](crate::glue::average_merged_and_aligned)
+    ///
+    /// ## Notes
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals 
     pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
@@ -745,7 +779,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 /// # Results of the simulation
 /// This is what we do the simulation for!
 /// 
-/// * similar to [merged_log10_prob_and_aligned](`crate::rewl::Rewl::merged_log10_prob_and_aligned`)
+/// * similar to [merged_log_probability_and_align](merged_log_probability_and_align)
 /// * the difference is, that the logarithms are now calculated to base 10
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
@@ -1020,6 +1054,19 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
     container
 }
 
+/// # Results of the simulation
+/// Used to merge the probability density functions calculated with 
+/// different `REWL`.
+/// 
+/// This is what we do the simulation for!
+/// 
+/// It uses derivative merging to give you a `ReplicaGlued` which you can use to write
+/// the data into a file.
+/// The derivative merged is explained in [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
+///
+/// ## Notes
+/// Fails if the internal histograms (intervals) do not align. Might fail if 
+/// there is no overlap between neighboring intervals 
 pub fn derivative_glue_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
 ) -> Result<ReplicaGlued<Hist>, HistErrors>

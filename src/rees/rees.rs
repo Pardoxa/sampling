@@ -125,6 +125,15 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
             (hists, log_prob)
     }
 
+    /// # Iterate over the roundtrips done by the REWL
+    /// This returns an Iterator which returns the number of roundtrips for each walker.
+    /// Roundtrips are defined as follows:
+    /// 
+    /// If a walker is in the leftest interval, then in the rightest and then in the leftest again 
+    /// (or the other way around) then this is counted as one roundtrip.
+    /// Note: If only one interval exists, no roundtrips are possible
+    /// 
+    /// This iterator will return the roundtrips from the REWL simulation
     pub fn rewl_roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
     {
         self.rewl_roundtrips
@@ -132,6 +141,8 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
             .copied()
     }
 
+    /// # Iterator over roundtrips done by REES
+    /// - same as [rewl_roundtrip_iter](Self::rewl_roundtrip_iter) just for the rees roundtrips
     pub fn rees_roundtrip_iter(&'_ self) -> impl Iterator<Item=usize> + '_
     {
         self.rees_roundtrip_halfes
@@ -756,7 +767,19 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
-    // TODO Rename function
+    /// # Results of the simulation
+    /// 
+    /// This is what we do the simulation for!
+    /// 
+    /// It returns `ReplicaGlued` which allows you to print out the merged probability density function.
+    /// It also allows you to switch the base of the logarithm and so on, have a look!
+    /// 
+    /// It will use an average based merging algorthim, i.e., it will try to align the intervals
+    /// and merge them by using the values obtained by averaging in log-space 
+    /// 
+    /// ## Notes
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
+    /// there is no overlap between neighboring intervals
     pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine
     {
@@ -768,20 +791,22 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         
     }
 
-    // TODO look at documentation
     /// # Results of the simulation
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It returns histogram, which contains the corresponding bins and
-    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
-    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
-    /// different intervals. This can be used to see, how good the simulation worked,
-    /// e.g., by plotting them to see, if they match
-    ///
+    /// It returns `ReplicaGlued` which allows you to print out the merged probability density function.
+    /// It also allows you to switch the base of the logarithm and so on, have a look!
+    /// 
+    /// It will use an derivative based merging algorthim, i.e., it will try to align the intervals
+    /// and merge them by looking at the derivatives of the probability density function.
+    /// It will search for the (merging-)point where the derivatives are the most similar to each other 
+    /// and glue by using the values of one of the intervals before the merging point and the 
+    /// other interval afterwards. This is repeated for every interval
+    /// 
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
+    /// there is no overlap between neighboring intervals
     pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {

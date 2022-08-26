@@ -5,6 +5,8 @@ pub(crate) mod glue_helper;
 mod glue_entropic;
 mod replica_glued;
 
+/// # Module for numeric derivatives
+/// * Mostly intended for internal use, but you may use the functions as well if they help you
 pub mod derivative;
 
 pub use glue_wl::*;
