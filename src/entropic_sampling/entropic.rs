@@ -339,6 +339,7 @@ where Hist: Histogram + HistogramVal<T>,
     
     /// # Entropic sampling
     /// * if possible, use `entropic_sampling_while` instead, as it is safer
+    /// ## Safety
     /// * use this if you need **mutable access** to your ensemble while printing or 
     /// calculating the condition. Note, that whatever you do there, should not change
     /// the energy of the current state. Otherwise this can lead to undefined behavior and
@@ -440,9 +441,12 @@ where Hist: Histogram + HistogramVal<T>,
 
     /// # Entropic sampling
     /// * if possible, use `entropic_sampling` instead, as it is safer
+    /// ## Safety
     /// * **NOTE** You have mutable access to your ensemble (and to `self`, at least in the printing function).
     ///   This makes this function unsafe. You should never change your ensemble in a way, that will effect the outcome of the 
     /// energy function. Otherwise the results will just be wrong.
+    /// This is intended for usecases, where the energycalculation is more efficient with mutable access, e.g., through using a 
+    /// buffer stored in the ensemble
     /// * performs `self.entropic_step(energy_fn)` until `self.step_count == self.step_goal`
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
@@ -486,8 +490,11 @@ where Hist: Histogram + HistogramVal<T>,
     /// will always be rejected 
     /// # Important
     /// * `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
+    /// ## Safety
     /// * While you do have mutable access to the ensemble, the energy function should not change the 
     /// ensemble in a way, which affects the next calculation of the energy
+    /// * This is intended for usecases, where the energycalculation is more efficient with mutable access, e.g., through using a 
+    /// buffer stored in the ensemble
     pub unsafe fn entropic_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,

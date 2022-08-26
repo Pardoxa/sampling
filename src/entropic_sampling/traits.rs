@@ -108,6 +108,7 @@ pub trait EntropicEnsemble<E> : Entropic
     fn ensemble(&self) -> &E;
 
     /// # returns mutable reference to ensemble
+    /// ## Safety
     /// * If, whatever you do with the ensemble, changes the 
     ///   energy of the current state, 
     /// you cannot trust the results of entropic sampling anymore

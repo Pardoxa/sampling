@@ -135,16 +135,19 @@ impl <HistWidth, HistHeight> HeatmapF64<HistWidth, HistHeight>
 
     /// # row of the heatmap
     /// * returns reference of Slice of the specifed row of the heatmap without checking for bounds 
-    /// * Generally not recommended, use with caution! Calling this with out-of-bounds index will result in a panic!
+    /// * Generally not recommended, use with caution! 
+    /// ## Safety 
+    /// Calling this with out-of-bounds index will result in undefined behavior!
     pub unsafe fn get_row_unchecked(&self, y: usize) -> &[f64]
     {
         let fin = self.index(self.width, y);
         let start = self.index(0, y);
-        &self.heatmap[start..fin]
+        self.heatmap.get_unchecked(start..fin)
     }
 
     /// Returns value stored in the heatmap at specified 
     /// coordinates without performing bound checks.
+    /// ## Safety
     /// **undefined behavior** if coordinates are out of bounds
     pub unsafe fn get_unchecked(&self, x: usize, y: usize) -> f64
     {

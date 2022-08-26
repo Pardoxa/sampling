@@ -81,6 +81,10 @@ where T: Copy + AsPrimitive<f64>
     /// * otherwise it will set the stored `energy` and return Ok(())
     /// # Important
     /// * It is very unlikely that you need this function - Only use it, if you know what you are doing
+    /// ## Safety
+    /// This is not unsafe in the programming sense, but I chose to make it unsafe anyway to make the user 
+    /// aknowledge that this will result in a logical error for the algorithms if 
+    /// set to the incorrect energy
     #[allow(clippy::result_unit_err)]
     pub unsafe fn set_energy(&mut self, energy: T) -> Result<(),()>{
         if (energy.as_()).is_nan() {
@@ -99,9 +103,11 @@ where T: Copy + AsPrimitive<f64>
 
     /// returns mutable reference to ensemble
     /// * use with care!
+    /// ## Safety
     /// * if you change your ensemble, this might invalidate
     /// the simulation!
-    /// * The metropolis functions do not calculate the energy of the current state,
+    /// * The metropolis functions do not calculate the energy of the current state
+    /// * Unsafe purely for logical reasons, in the programming sense this function didn't need to be unsafe
     pub unsafe fn ensemble_mut(&mut self) -> &mut E
     {
         &mut self.ensemble
@@ -335,10 +341,13 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * if possible, prefere [`self.metropolis`](#method.metropolis) as it is safer
     /// * use this, if your energy function needs mutable access, or `measure`needs mutable access.
     ///  Be careful though, this can invalidate the results of your simulation
-    /// # Note
+    /// # Safety
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     /// If nan is possible, please check for that beforhand and return `None` in that case
     /// * Maybe do the same for infinity, it is unlikely, that infinit energys make sense 
+    /// * Note: I chose to make this function unsafe to force users to aknowledge the (purely logical) limitations 
+    /// regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// any undefined behavior or such regardless of if the user fullfills the requirements
     pub unsafe fn metropolis_unsafe<Energy, Mes>(
         &mut self,
         step_target: usize,
@@ -452,6 +461,10 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * prefere [`metropolis_while`](`crate::metropolis::Metropolis::metropolis_while`) as it is safer.
     /// * the changeing of the Ensemble must not affect subsequent Energy calculations - otherwise the 
     /// logic of the algorithm breaks down
+    /// ## Safety
+    /// * Note: I chose to make this function unsafe to force users to aknowledge the (purely logical) limitations 
+    /// regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// any undefined behavior or such regardless of if the user fullfills the requirements
     pub unsafe fn metropolis_while_unsafe<Energy, Mes, Cond>(
         &mut self,
         mut energy_fn: Energy,

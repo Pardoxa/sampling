@@ -477,6 +477,14 @@ where Hist: Histogram + HistogramVal<T>,
     ///  just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
+    ///  ## Safety
+    /// * While you do have mutable access to the ensemble, the energy function should not change the 
+    /// ensemble in a way, which affects the next calculation of the energy
+    /// * This is intended for usecases, where the energy calculation is more efficient with mutable access, e.g., through using a 
+    /// buffer stored in the ensemble
+    /// * Note: I chose to make this function unsafe to force users to aknowledge the (purely logical) limitations 
+    /// regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// any undefined behavior or such regardless of if the user fullfills the requirements
     pub unsafe fn entropic_sampling_while_unsafe<F, G, W>(
         &mut self,
         mut energy_fn: F,
@@ -581,6 +589,14 @@ where Hist: Histogram + HistogramVal<T>,
     ///  just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
+    ///  ## Safety
+    /// * While you do have mutable access to the ensemble, the energy function should not change the 
+    /// ensemble in a way, which affects the next calculation of the energy
+    /// * This is intended for usecases, where the energy calculation is more efficient with mutable access, e.g., through using a 
+    /// buffer stored in the ensemble
+    /// * Note: I chose to make this function unsafe to force users to aknowledge the (purely logical) limitations 
+    /// regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// any undefined behavior or such regardless of if the user fullfills the requirements
     pub unsafe fn entropic_sampling_unsafe<F, G>(
         &mut self,
         mut energy_fn: F,
@@ -664,6 +680,14 @@ where Hist: Histogram + HistogramVal<T>,
     /// will always be rejected 
     /// # Important
     /// * `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
+    ///  ## Safety
+    /// * While you do have mutable access to the ensemble, the energy function should not change the 
+    /// ensemble in a way, which affects the next calculation of the energy
+    /// * This is intended for usecases, where the energy calculation is more efficient with mutable access, e.g., through using a 
+    /// buffer stored in the ensemble
+    /// * Note: I chose to make this function unsafe to force users to aknowledge the (purely logical) limitations 
+    /// regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// any undefined behavior or such regardless of if the user fullfills the requirements
     pub unsafe fn entropic_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,

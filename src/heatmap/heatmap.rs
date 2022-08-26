@@ -126,6 +126,7 @@ impl <HistWidth, HistHeight> HeatmapUsize<HistWidth, HistHeight>
 
     /// Returns value stored in the heatmap at specified 
     /// coordinates without performing bound checks.
+    /// ## Safety
     /// **undefined behavior** if coordinates are out of bounds
     pub unsafe fn get_unchecked(&self, x: usize, y: usize) -> usize
     {
