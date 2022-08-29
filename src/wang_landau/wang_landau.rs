@@ -133,6 +133,18 @@ where
     }
 }
 
+/// Possible errors when setting initial guess
+#[derive(Clone, Copy, Debug)]
+pub enum SetInitialError{
+    /// # Dimensions do not match! 
+    /// The length of the initial guess and the amount of bins have to be the same 
+    DimensionError,
+    /// All values inside the initial guess have to be finite
+    NonFiniteEncountered,
+    /// log_f has to fullfill 0.0 < log_f < 10.0
+    InvalidLogF
+}
+
 
 impl <Hist, R, E, S, Res, Energy> WangLandauEnsemble<E> 
     for WangLandau1T<Hist, R, E, S, Res, Energy>
@@ -187,6 +199,43 @@ impl<Hist, R, E, S, Res, Energy>
             f64::NAN
         } else {
             self.accepted_steps_current as f64 / total as f64
+        }
+    }
+
+    /// # Set the initial guess for the non-normalized probability estimate
+    /// * `new_guess` your new guess for the probability estimate. Its length has to equal the number of bins of the internal histogram
+    /// which is the same as the length of the old estimate which you can get by calling [log_f](Self::log_f). All contained values have 
+    /// to be finite
+    /// * `new_log_f`: Which log_f to start at? 0.0 < log_f <= 10.0 has to be true. 
+    /// If you don't know what's best I recommand starting with log_f=1.0, the better your probability estimate is, the smaller this value can be
+    /// # Note
+    /// This will reset the calculation. Meaning you will have to call one of the initializing functions like `init_greedy_heuristic`again 
+    /// and all internal counters are reset to 0
+    pub fn set_initial_probability_guess(mut self, new_guess: Vec<f64>, new_log_f: f64) -> Result<Self, SetInitialError>
+    where Hist: Histogram
+    {
+        if 0.0 >= new_log_f || new_log_f > 10.0 {
+            Err(SetInitialError::InvalidLogF)
+        }
+        else if new_guess.len() != self.log_density.len()
+        { 
+            Err(SetInitialError::DimensionError)
+        } else if new_guess.iter().any(|val| !val.is_finite())
+        {
+            Err(SetInitialError::NonFiniteEncountered)
+        } else {
+            self.log_density = new_guess;
+            self.log_f = new_log_f;
+            self.step_count = 0;
+            self.accepted_steps_current = 0;
+            self.accepted_steps_total = 0;
+            self.recected_steps_current = 0;
+            self.recected_steps_total = 0;
+            self.mode = WangLandauMode::RefineOriginal;
+            self.hist.reset();
+            self.old_energy = None;
+            self.old_bin = usize::MAX;
+            Ok(self)
         }
     }
 }
