@@ -204,7 +204,7 @@ impl<Hist, R, E, S, Res, Energy>
 
     /// # Set the initial guess for the non-normalized probability estimate
     /// * `new_guess` your new guess for the probability estimate. Its length has to equal the number of bins of the internal histogram
-    /// which is the same as the length of the old estimate which you can get by calling [log_f](Self::log_f). All contained values have 
+    /// which is the same as the length of the old estimate which you can get by calling [log_density](Self::log_density). All contained values have 
     /// to be finite
     /// * `new_log_f`: Which log_f to start at? 0.0 < log_f <= 10.0 has to be true. 
     /// If you don't know what's best I recommand starting with log_f=1.0, the better your probability estimate is, the smaller this value can be
