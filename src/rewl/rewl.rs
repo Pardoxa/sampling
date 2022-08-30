@@ -81,6 +81,16 @@ pub enum ExtremeInterval
 }
 
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum ThresholdErrors{
+    /// No negative threshold value allowed
+    Negative,
+    /// The threshold cannot be subnormal
+    NonNormal,
+    /// The threshold is not allowed to be zero
+    Zero,
+}
+
 /// Short for [`ReplicaExchangeWangLandau`](crate::rewl::ReplicaExchangeWangLandau), 
 /// which you can look at for citations
 pub type Rewl<Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>;
@@ -342,6 +352,24 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
             .iter()
             .map(|w| w.log_f())
             .collect()
+    }
+
+    /// # change the threshold of log_f
+    /// * it has to be a positive, normal number
+    pub fn set_log_f_threshold(&mut self, new_threshold: f64) -> Result<f64, ThresholdErrors>
+    {
+        if !new_threshold.is_normal()
+        {   
+            Err(ThresholdErrors::NonNormal)
+        } else if new_threshold < 0.0 {
+            Err(ThresholdErrors::Negative)
+        } else if new_threshold == 0.0 {
+            Err(ThresholdErrors::Zero)
+        } else{
+            let old_threshold = self.log_f_threshold;
+            self.log_f_threshold = new_threshold;
+            Ok(old_threshold)
+        }
     }
 
     /// # Is the simulation finished?
