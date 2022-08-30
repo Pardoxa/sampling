@@ -68,10 +68,11 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     /// # mut access to your ensembles
     /// * if possible, prefer [`get_ensemble`](Self::get_ensemble)
     /// * **unsafe** only use this if you know what you are doing
+    /// * `None` if `index` out of range
+    /// ## Safety
+    /// * might **panic** if a thread is poisened
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
-    /// * `None` if `index` out of range
-    /// * might **panic** if a thread is poisened
     pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<&mut Ensemble>
     {
         self.ensembles
@@ -81,7 +82,7 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
 
     /// # Mutable iterator over ensembles
     /// * if possible, prefer [`ensemble_iter`](Self::ensemble_iter)
-    /// * **unsafe** only use this if you know what you are doing
+    /// ## Safety
     /// * it is assumed, that whatever you change has no effect on the 
     /// Markov Chain, the result of the energy function etc. 
     /// * might **panic** if a thread is poisened

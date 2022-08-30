@@ -405,10 +405,10 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * Function parameter of energy_fn: &ensemble, old_energy, &\[steps\] - that
     ///  means, you should prefere this, if you can calculate the new energy more efficient 
     /// by accessing the old energy and the information about what the markov step changed
-    /// # Note
+    /// # Safety
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     /// If nan is possible, please check for that beforhand and return `None` in that case
-    /// * Maybe do the same for infinity, it is unlikely, that infinit energys make sense 
+    /// * Maybe do the same for infinity, it is unlikely, that infinite energys make sense 
     pub unsafe fn metropolis_efficient_unsafe<Energy, Mes>
     (
         &mut self,
@@ -505,7 +505,9 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * similar to [`metropolis_efficient_while`](`crate::metropolis::Metropolis::metropolis_efficient_while`)
     /// ## Difference
     /// * now `energy_fn` works with a mutable reference of the ensemble instead
-    /// ## Note
+    /// * This is intended for usages in which the energy can be calculated much more efficiently using a 
+    /// mutable reference than an immutable one
+    /// ## Safety
     /// * Only use this, if it is absolutly nessessary. The ensemble must not be changed in a way,
     /// which affects successive energy calculations (or the markov steps)
     pub unsafe fn metropolis_efficient_while_unsafe<Energy, Mes, Cond>(
