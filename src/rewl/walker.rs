@@ -244,7 +244,7 @@ impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
 }
 
 impl <R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res> 
-    where Hist: HistogramVal<Energy>,
+    where Hist: Histogram + HistogramVal<Energy>,
 {
     fn log_f_1_t(&self) -> f64
     { 
@@ -489,7 +489,7 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
 (
     walker_a: &mut RewlWalker<R, Hist, Energy, S, Res>,
     walker_b: &mut RewlWalker<R, Hist, Energy, S, Res>
-) where Hist: HistogramVal<Energy>,
+) where Hist: Histogram + HistogramVal<Energy>,
     R: Rng
 {
     walker_a.proposed_re += 1;

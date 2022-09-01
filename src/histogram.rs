@@ -5,9 +5,11 @@ mod histogram_float;
 mod histogram_int;
 mod helper;
 mod histogram_fast;
+mod atomic_hist_int;
 
 pub use histogram_traits::*;
 pub use histogram_float::*;
 pub use histogram_int::*;
 pub use helper::*;
 pub use histogram_fast::*;
+pub use atomic_hist_int::*;

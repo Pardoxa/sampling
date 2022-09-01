@@ -320,6 +320,7 @@ where Hist: HistogramVal<Energy>,
     where F: Fn(&mut Ensemble) -> Option<Energy>,
         P: Fn(&Self, &mut Ensemble, &mut Extra),
         Ensemble: MarkovChain<S, Res>,
+        Hist: Histogram
     {
         #[cfg(feature = "sweep_time_optimization")]
         let start = Instant::now();
@@ -384,7 +385,7 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
 (
     walker_a: &mut ReesWalker<R, Hist, Energy, S, Res>,
     walker_b: &mut ReesWalker<R, Hist, Energy, S, Res>
-) where Hist: HistogramVal<Energy>,
+) where Hist: HistogramVal<Energy> + Histogram,
     R: Rng
 {
     walker_a.proposed_re += 1;

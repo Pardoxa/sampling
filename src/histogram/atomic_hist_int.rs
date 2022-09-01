@@ -23,21 +23,21 @@ use serde::{Serialize, Deserialize};
 
 
 /// # Generic Histogram for integer types
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct HistogramInt<T>
+pub struct AtomicHistogramInt<T>
 {
     pub(crate) bin_borders: Vec<T>,
-    pub(crate) hist: Vec<usize>,
+    pub(crate) hist: Vec<AtomicUsize>,
 }
 
-impl<T> From<AtomicHistogramInt<T>> for HistogramInt<T>
+impl<T> From<HistogramInt<T>> for AtomicHistogramInt<T>
 {
-    fn from(other: AtomicHistogramInt<T>) -> Self
+    fn from(other: HistogramInt<T>) -> Self
     {
         let hist = other.hist
             .into_iter()
-            .map(AtomicUsize::into_inner)
+            .map(|val| AtomicUsize::new(val))
             .collect();
         Self{
             hist, 
@@ -46,7 +46,7 @@ impl<T> From<AtomicHistogramInt<T>> for HistogramInt<T>
     }
 }
 
-impl<T> HistogramInt<T>{
+impl<T> AtomicHistogramInt<T>{
     /// similar to `self.borders_clone` but does not allocate memory
     pub fn borders(&self) -> &Vec<T>
     {
@@ -54,7 +54,7 @@ impl<T> HistogramInt<T>{
     }
 
     /// # Iterator over all the bins
-    /// In HistogramInt a bin is defined by two values: The left border (inclusive)
+    /// In AtomicHistogramInt a bin is defined by two values: The left border (inclusive)
     /// and the right border (exclusive)
     /// 
     /// Here you get an iterator which iterates over said borders.
@@ -80,11 +80,16 @@ impl<T> HistogramInt<T>{
     }
 
     /// # Iterate over all bins
-    /// In HistogramInt a bin is defined by two values: The left border (inclusive)
+    /// In AtomicHistogramInt a bin is defined by two values: The left border (inclusive)
     /// and the right border (exclusive)
     /// 
     /// This iterates over these values as well as the corresponding hit count (i.e. how often 
     /// the corresponding bin was hit)
+    /// 
+    /// # Note
+    /// Since I am using atomics here it is possible that the hit-count changes during the iteration,
+    /// if another thread writes to the histogram for example.
+    /// 
     /// ## Item of Iterator
     /// `(&[left_border, right_border], number_of_hits)`
     /// ## Example
@@ -118,20 +123,20 @@ impl<T> HistogramInt<T>{
     /// );
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn bin_hits_iter(&self) -> impl Iterator<Item = (&[T;2], usize)>
+    pub fn bin_hits_iter(&mut self) -> impl Iterator<Item = (&[T;2], usize)>
     {
         self.bin_iter()
             .zip(
                 self.hist
                     .iter()
-                    .copied()
+                    .map(|val| val.load(Ordering::Relaxed))
             )
     }
 
 }
 
 
-impl<T> HistogramInt<T>
+impl<T> AtomicHistogramInt<T>
 where T: Sub<T, Output=T> + Add<T, Output=T> + Ord + One + Copy + NumCast
 {
     #[inline]
@@ -140,8 +145,9 @@ where T: Sub<T, Output=T> + Add<T, Output=T> + Ord + One + Copy + NumCast
     /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
     /// Otherwise an Error is returned
     /// ## Note
-    /// This is the same as [HistogramVal::count_val]
-    pub fn increment<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
+    /// * This is the same as [AtomicHistogramVal::count_val]
+    /// * Uses atomic operations, so this is thread safe
+    pub fn increment<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         self.count_val(val)
     }
 
@@ -149,14 +155,16 @@ where T: Sub<T, Output=T> + Add<T, Output=T> + Ord + One + Copy + NumCast
     /// # Increment hit count
     /// Increments the hit count of the bin corresponding to `val`.
     /// If no bin corresponding to `val` exists, nothing happens
-    pub fn increment_quiet<V: Borrow<T>>(&mut self, val: V)
+    /// # Note
+    /// * Uses atomic operations for the counters, so this is thread safe
+    pub fn increment_quiet<V: Borrow<T>>(&self, val: V)
     {
         let _ = self.increment(val);
     }
 }
 
 
-impl<T> HistogramInt<T>
+impl<T> AtomicHistogramInt<T>
 where T: Copy{
     fn get_right(&self) -> T
     {
@@ -244,7 +252,7 @@ impl<'a, T> Iterator for BorderWindow<'a, T>
 }
 
 
-impl<T> HistogramInt<T> 
+impl<T> AtomicHistogramInt<T> 
 where T: PartialOrd + ToPrimitive + FromPrimitive + CheckedAdd + One + HasUnsignedVersion + Bounded
         + Sub<T, Output=T> + Mul<T, Output=T> + Zero + Copy,
     std::ops::RangeInclusive<T>: Iterator<Item=T>,
@@ -286,7 +294,7 @@ where T: PartialOrd + ToPrimitive + FromPrimitive + CheckedAdd + One + HasUnsign
             return Err(HistErrors::IntervalWidthZero);
         }
         
-        let hist = vec![0; bins];
+        let hist = (0..bins).map(|_| AtomicUsize::new(0)).collect();
         let bin_borders: Vec<_> = (T::Unsigned::zero()..=b)
             .map(|val| {
                 from_u(
@@ -317,7 +325,43 @@ where T: PartialOrd + ToPrimitive + FromPrimitive + CheckedAdd + One + HasUnsign
     }
 }
 
-impl<T> Histogram for HistogramInt<T>
+/// # Implements histogram
+/// * anything that implements `Histogram` should also implement the trait `HistogramVal`
+pub trait AtomicHistogram {
+    /// # `self.hist[index] += 1`, `Err()` if `index` out of bounds
+    #[inline(always)]
+    fn count_index(&self, index: usize) -> Result<(), HistErrors>{
+        self.count_multiple_index(index, 1)
+    }
+
+    /// # `self.hist[index] += count`, `Err()` if `index` out of bounds
+    fn count_multiple_index(&self, index: usize, count: usize) -> Result<(), HistErrors>;
+
+    /// # the created histogram
+    /// Since this uses atomics, you can also write to the underlying hist yourself,
+    /// if you so desire
+    fn hist(&self) -> &[AtomicUsize];
+
+    /// # How many bins the histogram contains
+    #[inline(always)]
+    fn bin_count(&self) -> usize
+    {
+        self.hist().len()
+    }
+    /// reset the histogram to zero
+    fn reset(&mut self);
+
+    /// # check if any bin was not hit yet
+    /// * Uses SeqCst Ordering
+    fn any_bin_zero(&self) -> bool
+    {
+        self.hist()
+            .iter()
+            .any(|val| val.load(Ordering::SeqCst) == 0)
+    }
+}
+
+impl<T> AtomicHistogram for AtomicHistogramInt<T>
 {
     #[inline]
     fn bin_count(&self) -> usize {
@@ -325,16 +369,17 @@ impl<T> Histogram for HistogramInt<T>
     }
 
     #[inline]
-    fn hist(&self) -> &Vec<usize> {
+    fn hist(&self) -> &[AtomicUsize] {
         &self.hist
     }
 
     #[inline]
-    fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
-        match self.hist.get_mut(index) {
+    /// Uses SeqCst
+    fn count_multiple_index(&self, index: usize, count: usize) -> Result<(), HistErrors> {
+        match self.hist.get(index) {
             None => Err(HistErrors::OutsideHist),
             Some(val) => {
-                *val += count;
+                val.fetch_add(count, Ordering::SeqCst);
                 Ok(())
             },
         }
@@ -345,14 +390,45 @@ impl<T> Histogram for HistogramInt<T>
         // compiles down to memset :)
         self.hist
             .iter_mut()
-            .for_each(|h| *h = 0);
+            .for_each(|h| *(h.get_mut()) = 0);
     }
 }
 
-impl<T> HistogramVal<T> for HistogramInt<T>
+/// * trait used for mapping values of arbitrary type `T` to bins
+/// * used to create a histogram
+pub trait AtomicHistogramVal<T>{
+    /// convert val to the respective histogram index
+    fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
+    /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
+    fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
+    /// # binning borders
+    /// * the borders used to bin the values
+    /// * any val which fullfills `self.border[i] <= val < self.border[i + 1]` 
+    /// will get index `i`.
+    /// * **Note** that the last border is exclusive
+    fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
+    /// does a value correspond to a valid bin?
+    fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    /// opposite of `is_inside`
+    fn not_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    /// get the left most border (inclusive)
+    fn first_border(&self) -> T;
+
+    /// * get second last border from the right
+    /// * should be the same as `let b = self.borders_clone().expect("overflow"); assert_eq!(self.second_last_border(), b[b.len()-2])`
+    fn second_last_border(&self) -> T;
+    /// # calculates some sort of absolute distance to the nearest valid bin
+    /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
+    /// * if a value corresponds to a valid bin, the distance should be zero
+    fn distance<V: Borrow<T>>(&self, val: V) -> f64;
+}
+
+impl<T> AtomicHistogramVal<T> for AtomicHistogramInt<T>
 where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 {
-    fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
+
+
+    fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>
     {
         let id = self.get_bin_index(val)?;
         self.count_index(id)
@@ -415,7 +491,7 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
     }
 }
 
-impl<T> HistogramIntervalDistance<T> for HistogramInt<T> 
+impl<T> HistogramIntervalDistance<T> for AtomicHistogramInt<T> 
 where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 {
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
@@ -435,7 +511,7 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
     }
 }
 
-impl<T> HistogramPartition for HistogramInt<T> 
+impl<T> HistogramPartition for AtomicHistogramInt<T> 
 where T: Clone + std::fmt::Debug
 {
     fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
@@ -461,7 +537,10 @@ where T: Clone + std::fmt::Debug
             let borders = self
                 .borders()[left_index..=right_index]
                 .to_vec();
-            let hist = vec![0; borders.len() - 1];
+            
+            let hist = (0..borders.len() - 1)
+                .map(|_| AtomicUsize::new(0))
+                .collect();
 
             let res = Self{
                 bin_borders: borders,
@@ -474,7 +553,7 @@ where T: Clone + std::fmt::Debug
     }
 }
 
-impl<T> IntervalOrder for HistogramInt<T>
+impl<T> IntervalOrder for AtomicHistogramInt<T>
 where T: Ord
 {
     fn left_compare(&self, other: &Self) -> std::cmp::Ordering {
@@ -491,43 +570,43 @@ where T: Ord
 }
 
 
-/// # Histogram for binning `usize` - alias for `HistogramInt<usize>`
+/// # Histogram for binning `usize` - alias for `AtomicHistogramInt<usize>`
 /// * you should use `HistUsizeFast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistUsize = HistogramInt<usize>;
-/// # Histogram for binning `u128` - alias for `HistogramInt<u128>`
+pub type AtomicHistUsize = AtomicHistogramInt<usize>;
+/// # Histogram for binning `u128` - alias for `AtomicHistogramInt<u128>`
 /// * you should use `HistU128Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistU128 = HistogramInt<u128>;
-/// # Histogram for binning `u64` - alias for `HistogramInt<u64>`
+pub type AtomicHistU128 = AtomicHistogramInt<u128>;
+/// # Histogram for binning `u64` - alias for `AtomicHistogramInt<u64>`
 /// * you should use `HistU64Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistU64 = HistogramInt<u64>;
-/// # Histogram for binning `u32` - alias for `HistogramInt<u32>`
+pub type AtomicHistU64 = AtomicHistogramInt<u64>;
+/// # Histogram for binning `u32` - alias for `AtomicHistogramInt<u32>`
 /// * you should use `HistU32Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistU32 = HistogramInt<u32>;
-/// # Histogram for binning `u16` - alias for `HistogramInt<u16>`
+pub type AtomicHistU32 = AtomicHistogramInt<u32>;
+/// # Histogram for binning `u16` - alias for `AtomicHistogramInt<u16>`
 /// * you should use `HistU16Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistU16 = HistogramInt<u16>;
-/// # Histogram for binning `u8` - alias for `HistogramInt<u8>`
+pub type AtomicHistU16 = AtomicHistogramInt<u16>;
+/// # Histogram for binning `u8` - alias for `AtomicHistogramInt<u8>`
 /// * you should use `HistU8Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistU8 = HistogramInt<u8>;
+pub type AtomicHistU8 = AtomicHistogramInt<u8>;
 
-/// # Histogram for binning `isize` - alias for `HistogramInt<isize>`
+/// # Histogram for binning `isize` - alias for `AtomicHistogramInt<isize>`
 /// * you should use `HistIsizeFast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistIsize = HistogramInt<isize>;
-/// # Histogram for binning `i128` - alias for `HistogramInt<i128>`
+pub type AtomicHistIsize = AtomicHistogramInt<isize>;
+/// # Histogram for binning `i128` - alias for `AtomicHistogramInt<i128>`
 /// * you should use `HistI128Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistI128 = HistogramInt<i128>;
-/// # Histogram for binning `i64` - alias for `HistogramInt<i64>`
+pub type AtomicHistI128 = AtomicHistogramInt<i128>;
+/// # Histogram for binning `i64` - alias for `AtomicHistogramInt<i64>`
 /// * you should use `HistI64Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistI64 = HistogramInt<i64>;
-/// # Histogram for binning `i32` - alias for `HistogramInt<i32>`
+pub type AtomicHistI64 = AtomicHistogramInt<i64>;
+/// # Histogram for binning `i32` - alias for `AtomicHistogramInt<i32>`
 /// * you should use `HistI32Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistI32 = HistogramInt<i32>;
-/// # Histogram for binning `i16` - alias for `HistogramInt<i16>`
+pub type AtomicHistI32 = AtomicHistogramInt<i32>;
+/// # Histogram for binning `i16` - alias for `AtomicHistogramInt<i16>`
 /// * you should use `HistI16Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistI16 = HistogramInt<i16>;
-/// # Histogram for binning `i8` - alias for `HistogramIntiu8>`
+pub type AtomicHistI16 = AtomicHistogramInt<i16>;
+/// # Histogram for binning `i8` - alias for `AtomicHistogramIntiu8>`
 /// * you should use `HistI8Fast` instead, if your bins are `[left, left+1,..., right]`
-pub type HistI8 = HistogramInt<i8>;
+pub type AtomicHistI8 = AtomicHistogramInt<i8>;
 
 #[cfg(test)]
 mod tests{
@@ -546,12 +625,12 @@ mod tests{
         + std::cmp::Eq + std::ops::Div<Output=T::Unsigned>
         + Ord + std::ops::Mul<Output=T::Unsigned> + WrappingSub + Copy,
     std::ops::RangeInclusive<T::Unsigned>: Iterator<Item=T::Unsigned>,
-    HistogramInt::<T>: std::fmt::Debug,
+    AtomicHistogramInt::<T>: std::fmt::Debug,
     {
         let bin_count = (to_u(right) - to_u(left)).to_usize().unwrap() + 1;
-        let hist_wrapped =  HistogramInt::<T>::new_inclusive(left, right, bin_count);
+        let hist_wrapped =  AtomicHistogramInt::<T>::new_inclusive(left, right, bin_count);
        
-        let mut hist = hist_wrapped.unwrap();
+        let hist = hist_wrapped.unwrap();
         assert!(hist.not_inside(T::max_value()));
         assert!(hist.not_inside(T::min_value()));
         for (id, i) in (left..=right).enumerate() {
@@ -575,7 +654,7 @@ mod tests{
         assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
         assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
         assert_eq!(
-            HistogramInt::<T>::new_inclusive(left, T::max_value(), bin_count).expect_err("err"),
+            AtomicHistogramInt::<T>::new_inclusive(left, T::max_value(), bin_count).expect_err("err"),
             HistErrors::Overflow
         );
     }
@@ -596,7 +675,7 @@ mod tests{
 
     #[test]
     fn hist_index(){
-        let hist = HistogramInt::<isize>::new(0, 20, 2).unwrap();
+        let hist = AtomicHistogramInt::<isize>::new(0, 20, 2).unwrap();
         assert_eq!(hist.borders(), &[0_isize, 10, 20]);
         for i in 0..=9
         {
@@ -608,7 +687,7 @@ mod tests{
         assert!(hist.get_bin_index(&20).is_err());
     }
 
-    /// This test makes sure, that HistogramInt and HistogramFast return the same partitions,
+    /// This test makes sure, that AtomicHistogramInt and HistogramFast return the same partitions,
     /// when the histograms are equivalent
     #[test]
     fn overlapping_partition_test()

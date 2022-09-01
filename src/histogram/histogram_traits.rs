@@ -37,16 +37,11 @@ pub trait Histogram {
 
 /// * trait used for mapping values of arbitrary type `T` to bins
 /// * used to create a histogram
-pub trait HistogramVal<T>: Histogram{
+pub trait HistogramVal<T>{
     /// convert val to the respective histogram index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
     /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
-    fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
-    {
-        let id = self.get_bin_index(val)?;
-        self.count_index(id)
-            .map(|_| id)
-    }
+    fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>;
     /// # binning borders
     /// * the borders used to bin the values
     /// * any val which fullfills `self.border[i] <= val < self.border[i + 1]` 

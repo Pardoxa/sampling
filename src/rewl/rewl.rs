@@ -769,7 +769,7 @@ where R: Send + Sync + Rng + SeedableRng,
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log10_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
-where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
     let mut res = merged_log_prob(rewls)?;
@@ -785,7 +785,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log_prob<Ensemble, R, Hist, Energy, S, Res>(rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
-where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
     if rewls.is_empty() {
@@ -812,7 +812,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     merged_log10_probability_and_align_ignore(rewls, &[])
@@ -830,7 +830,7 @@ pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, R
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     let mut res = merged_log_probability_and_align_ignore(rewls, ignore)?;
@@ -873,7 +873,7 @@ pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>
 (
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     merged_log_probability_and_align_ignore(rewls, &[])
@@ -891,7 +891,7 @@ pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     if rewls.is_empty(){
@@ -943,7 +943,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     log_probability_and_align_ignore(rewls, &[])
@@ -960,7 +960,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     if rewls.is_empty(){
@@ -1098,7 +1098,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
 pub fn derivative_glue_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
 ) -> Result<ReplicaGlued<Hist>, HistErrors>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
     Energy: PartialOrd
 {
     derivative_glue_and_align_ignore(rewls, &[])
@@ -1118,7 +1118,7 @@ pub fn derivative_glue_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], 
     ignore: &[usize]
 ) -> Result<ReplicaGlued<Hist>, HistErrors>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
     Energy: PartialOrd
 {
     if rewls.is_empty(){

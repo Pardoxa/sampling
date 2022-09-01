@@ -859,7 +859,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
 pub fn merged_log_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
 ) -> Result<(Vec<f64>, Hist), HistErrors>
-where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
     merged_log_prob_ignore(rees, &[])
@@ -876,7 +876,7 @@ pub fn merged_log_prob_ignore<Extra, Ensemble, R, Hist, Energy, S, Res>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
 ) -> Result<(Vec<f64>, Hist), HistErrors>
-where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+where Hist: HistogramVal<Energy> + HistogramCombine + Histogram + Send + Sync,
     Energy: PartialOrd
 {
     if rees.is_empty() {
@@ -904,7 +904,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
 pub fn merged_log10_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
-where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
+where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
     let mut res = merged_log_prob(rees)?;
@@ -924,7 +924,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Send + Sync,
 pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     if rees.is_empty() {
@@ -954,7 +954,7 @@ pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     if rees.is_empty() {
@@ -981,7 +981,7 @@ where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
 pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     merged_log10_probability_and_align_ignore(rees, &[])
@@ -998,7 +998,7 @@ pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, R
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
     ignore: &[usize]
 ) -> GluedResult<Hist>
-where Hist: HistogramCombine + HistogramVal<Energy> + Send + Sync,
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
     let mut res = merged_log_probability_and_align_ignore(rees, ignore)?;

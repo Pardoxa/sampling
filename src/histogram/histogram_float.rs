@@ -184,7 +184,14 @@ impl<T> Histogram for HistogramFloat<T>
 }
 
 impl<T> HistogramVal<T> for HistogramFloat<T>
-where T: Float + Zero + NumCast {
+where T: Float + Zero + NumCast{
+
+    fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
+    {
+        let id = self.get_bin_index(val)?;
+        self.count_index(id)
+            .map(|_| id)
+    }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
         let val = val.borrow();
