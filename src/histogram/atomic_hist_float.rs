@@ -158,7 +158,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// # Increment hit count
     /// Increments the hit count of the bin corresponding to `val`.
     /// If no bin corresponding to `val` exists, nothing happens
-    pub fn increment_quiet<B: Borrow<T>>(&mut self, val: B)
+    pub fn increment_quiet<B: Borrow<T>>(&self, val: B)
     {
         let _ = self.increment(val);
     }
