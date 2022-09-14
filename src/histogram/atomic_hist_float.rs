@@ -1,6 +1,6 @@
 use{
     crate::histogram::*,
-    std::{borrow::*, num::*, sync::atomic::AtomicUsize},
+    std::{borrow::*, num::*, sync::atomic::*},
     num_traits::{float::*, cast::*, identities::*}
 };
 
@@ -8,36 +8,38 @@ use{
 use serde::{Serialize, Deserialize};
 
 /// Generic Histogram struct
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct HistogramFloat<T>
+pub struct AtomicHistogramFloat<T>
 {
     pub(crate) bin_borders: Vec<T>,
-    pub(crate) hist: Vec<usize>,
+    pub(crate) hist: Vec<AtomicUsize>,
 }
 
-impl<T> From<AtomicHistogramFloat<T>> for HistogramFloat<T>
+impl<T> From<HistogramFloat<T>> for AtomicHistogramFloat<T>
 {
-    fn from(other: AtomicHistogramFloat<T>) -> Self {
-        let hist = other.hist.into_iter()
-            .map(AtomicUsize::into_inner)
+    fn from(other: HistogramFloat<T>) -> Self
+    {
+        let hist = other.hist
+            .into_iter()
+            .map(AtomicUsize::new)
             .collect();
         Self{
-            hist,
+            hist, 
             bin_borders: other.bin_borders
         }
     }
 }
 
-impl<T> HistogramFloat<T>{
+impl<T> AtomicHistogramFloat<T>{
     /// similar to `self.borders_clone` but does not allocate memory
-    pub fn borders(&self) -> &Vec<T>
+    pub fn borders(&self) -> &[T]
     {
         &self.bin_borders
     }
 }
 
-impl<T> HistogramFloat<T>
+impl<T> AtomicHistogramFloat<T>
 where T: Copy {
     fn get_right(&self) -> T
     {
@@ -45,7 +47,7 @@ where T: Copy {
     }
 }
 
-impl<T> HistogramFloat<T> 
+impl<T> AtomicHistogramFloat<T> 
 where T: Float + PartialOrd + FromPrimitive {
     /// # Create a new Historgram
     /// * right exclusive, left inclusive
@@ -69,7 +71,7 @@ where T: Float + PartialOrd + FromPrimitive {
         };
 
         let bin_size = (right - left) / bins_as_t;
-        let hist = vec![0; bins];
+        let hist = (0..bins).map(|_| AtomicUsize::new(0)).collect();
         let mut bin_borders = Vec::with_capacity(bins + 1);
         bin_borders.extend((0..bins)
             .map(|val| bin_size.mul_add(T::from_usize(val).unwrap(), left)) 
@@ -86,11 +88,11 @@ where T: Float + PartialOrd + FromPrimitive {
     /// Returns the length of the interval
     pub fn interval_length(&self) -> T
     {
-        self.get_right() - self.first_border()
+        self.get_right() - self.bin_borders[0]
     }
 
     /// # Iterator over all the bins
-    /// In HistogramFloat a bin is defined by two values: The left border (inclusive)
+    /// In AtomicHistogramFloat a bin is defined by two values: The left border (inclusive)
     /// and the right border (exclusive)
     /// 
     /// Here you get an iterator which iterates over said borders.
@@ -100,7 +102,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// ```
     /// use sampling::histogram::*;
     /// 
-    /// let hist = HistogramFloat::<f32>::new(0.0, 1.0, 2).unwrap();
+    /// let hist = AtomicHistogramFloat::<f32>::new(0.0, 1.0, 2).unwrap();
     /// let mut iter = hist.bin_iter();
     /// assert_eq!(iter.next(), Some(&[0.0, 0.5]));
     /// assert_eq!(iter.next(), Some(&[0.5, 1.0]));
@@ -112,7 +114,7 @@ where T: Float + PartialOrd + FromPrimitive {
     }
 
     /// # Iterate over all bins
-    /// In HistogramFloat a bin is defined by two values: The left border (inclusive)
+    /// In AtomicHistogramFloat a bin is defined by two values: The left border (inclusive)
     /// and the right border (exclusive)
     /// 
     /// This Iterator iterates over these values as well as the corresponding hit count (
@@ -123,7 +125,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// ```
     /// use sampling::histogram::*;
     /// 
-    /// let mut hist = HistogramFloat::<f64>::new(0.0, 1.0, 2).unwrap();
+    /// let mut hist = AtomicHistogramFloat::<f64>::new(0.0, 1.0, 2).unwrap();
     /// 
     /// hist.increment_quiet(0.5);
     /// hist.increment_quiet(0.71253782387);
@@ -139,7 +141,7 @@ where T: Float + PartialOrd + FromPrimitive {
             .zip(
                 self.hist
                     .iter()
-                    .copied()
+                    .map(|val| val.load(Ordering::Relaxed))
             )
     }
 
@@ -147,7 +149,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// # Increment hit count of bin
     /// This will increment the hit count of the bin corresponding to the value `val`.
     /// If the bin was valid it will return the index of the corresponding bin
-    pub fn increment<B: Borrow<T>>(&mut self, val: B)-> Result<usize, HistErrors>
+    pub fn increment<B: Borrow<T>>(&self, val: B)-> Result<usize, HistErrors>
     {
         self.count_val(val)
     }
@@ -162,24 +164,25 @@ where T: Float + PartialOrd + FromPrimitive {
     }
 }
 
-impl<T> Histogram for HistogramFloat<T>
+impl<T> AtomicHistogram for AtomicHistogramFloat<T>
 {
     #[inline(always)]
     fn bin_count(&self) -> usize {
         self.hist.len()
     }
 
-    #[inline(always)]
-    fn hist(&self) -> &Vec<usize> {
+    #[inline]
+    fn hist(&self) -> &[AtomicUsize] {
         &self.hist
     }
 
     #[inline]
-    fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
-        match self.hist.get_mut(index) {
+    /// Uses SeqCst
+    fn count_multiple_index(&self, index: usize, count: usize) -> Result<(), HistErrors> {
+        match self.hist.get(index) {
             None => Err(HistErrors::OutsideHist),
             Some(val) => {
-                *val += count;
+                val.fetch_add(count, Ordering::SeqCst);
                 Ok(())
             },
         }
@@ -187,19 +190,19 @@ impl<T> Histogram for HistogramFloat<T>
 
     #[inline]
     fn reset(&mut self) {
-        // compiles to memset ^__^
+        // compiles down to memset :)
         self.hist
             .iter_mut()
-            .for_each(|h| *h = 0);
+            .for_each(|h| *(h.get_mut()) = 0);
     }
 
 
 }
 
-impl<T> HistogramVal<T> for HistogramFloat<T>
+impl<T> AtomicHistogramVal<T> for AtomicHistogramFloat<T>
 where T: Float + Zero + NumCast{
 
-    fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
+    fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>
     {
         let id = self.get_bin_index(val)?;
         self.count_index(id)
@@ -276,7 +279,7 @@ where T: Float + Zero + NumCast{
     }
 }
 
-impl<T> HistogramIntervalDistance<T> for HistogramFloat<T> 
+impl<T> HistogramIntervalDistance<T> for AtomicHistogramFloat<T> 
 where T: Float + FromPrimitive + Zero + NumCast
 {
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
@@ -303,10 +306,10 @@ where T: Float + FromPrimitive + Zero + NumCast
 }
 
 /// Histogram for binning `f32` - alias for `HistogramFloat<f32>`
-pub type HistF32 = HistogramFloat<f32>;
+pub type AtomicHistF32 = AtomicHistogramFloat<f32>;
 
 /// Histogram for binning `f64` - alias for `HistogramFloat<f64>`
-pub type HistF64 = HistogramFloat<f64>;
+pub type AtomicHistF64 = AtomicHistogramFloat<f64>;
 
 
 #[cfg(test)]
@@ -326,7 +329,7 @@ mod tests{
             let left = iter.next().unwrap();
             let right = left + iter.next().unwrap();
 
-            let hist = HistogramFloat::<f64>::new(left, right, i).unwrap();
+            let hist = AtomicHistogramFloat::<f64>::new(left, right, i).unwrap();
 
             assert_eq!(left, hist.first_border(), "i={}", i);
             assert_eq!(right, hist.get_right(), "i={}", i);
@@ -341,7 +344,7 @@ mod tests{
         + PartialOrd,
     {
 
-        let hist_wrapped =  HistogramFloat::<T>::new(left, right, bin_count);
+        let hist_wrapped =  AtomicHistogramFloat::<T>::new(left, right, bin_count);
         if hist_wrapped.is_err(){
             dbg!(&hist_wrapped);
         }
@@ -390,19 +393,19 @@ mod tests{
        
         assert_eq!(
             HistErrors::InvalidVal,
-            HistogramFloat::<T>::new(T::nan(), right, bin_count).unwrap_err()
+            AtomicHistogramFloat::<T>::new(T::nan(), right, bin_count).unwrap_err()
         );
         assert_eq!(
             HistErrors::InvalidVal,
-            HistogramFloat::<T>::new(left, T::nan(), bin_count).unwrap_err()
+            AtomicHistogramFloat::<T>::new(left, T::nan(), bin_count).unwrap_err()
         );
         assert_eq!(
             HistErrors::InvalidVal,
-            HistogramFloat::<T>::new(left, T::infinity(), bin_count).unwrap_err()
+            AtomicHistogramFloat::<T>::new(left, T::infinity(), bin_count).unwrap_err()
         );
         assert_eq!(
             HistErrors::InvalidVal,
-            HistogramFloat::<T>::new(T::neg_infinity(), right, bin_count).unwrap_err()
+            AtomicHistogramFloat::<T>::new(T::neg_infinity(), right, bin_count).unwrap_err()
         );
     }
 

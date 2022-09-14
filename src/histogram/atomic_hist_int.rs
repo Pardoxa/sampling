@@ -37,7 +37,7 @@ impl<T> From<HistogramInt<T>> for AtomicHistogramInt<T>
     {
         let hist = other.hist
             .into_iter()
-            .map(|val| AtomicUsize::new(val))
+            .map(AtomicUsize::new)
             .collect();
         Self{
             hist, 
@@ -48,7 +48,7 @@ impl<T> From<HistogramInt<T>> for AtomicHistogramInt<T>
 
 impl<T> AtomicHistogramInt<T>{
     /// similar to `self.borders_clone` but does not allocate memory
-    pub fn borders(&self) -> &Vec<T>
+    pub fn borders(&self) -> &[T]
     {
         &self.bin_borders
     }
@@ -65,7 +65,7 @@ impl<T> AtomicHistogramInt<T>{
     /// ```
     /// use sampling::histogram::*;
     /// 
-    /// let hist = HistI8::new(0, 8, 4).unwrap();
+    /// let hist = AtomicHistI8::new(0, 8, 4).unwrap();
     /// let mut bin_iter = hist.bin_iter();
     ///
     /// assert_eq!(bin_iter.next(), Some(&[0_i8, 2]));
@@ -96,7 +96,7 @@ impl<T> AtomicHistogramInt<T>{
     /// ``` 
     /// use sampling::histogram::*;
     /// 
-    /// let mut hist = HistUsize::new(0, 6, 3).unwrap();
+    /// let mut hist = AtomicHistUsize::new(0, 6, 3).unwrap();
     /// 
     /// hist.increment(0).unwrap();
     /// hist.increment(5).unwrap();
