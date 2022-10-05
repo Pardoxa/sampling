@@ -40,6 +40,15 @@ pub struct WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>{
     check_refine_every: usize,
 }
 
+impl<Hist, Rng, Ensemble, S, Res, Energy>WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>
+{
+    /// Returns internal ensemble, histogram and Rng
+    pub fn into_inner(self) -> (Ensemble, Hist, Rng)
+    {
+        (self.ensemble, self.hist, self.rng)
+    }
+}
+
 
 impl<Hist, R, E, S, Res, Energy> WangLandau 
     for WangLandau1T<Hist, R, E, S, Res, Energy>
