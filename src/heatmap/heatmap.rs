@@ -526,6 +526,48 @@ where
         }
     }
 
+    pub fn count_multiple<A, B, X, Y, I>(&mut self, width_val_iter: I, height_val: B) -> Result<usize, HeatmapError>
+    where 
+        HistWidth: HistogramVal<X>,
+        HistHeight: HistogramVal<Y>,
+        A: Borrow<X>,
+        B: Borrow<Y>,
+        I: Iterator<Item = A>
+    {
+        let hight = self.hist_height.get_bin_index(height_val)
+            .map_err(|e| {
+                self.error_count += 1;
+                HeatmapError::YError(e)
+                }
+            )?;
+        
+        let mut counter = 0;
+
+        let y = hight * self.width;
+
+        for val in width_val_iter
+        {
+            counter += 1;
+            let x = self.hist_width
+                .count_val(val)
+                .map_err(|e| {
+                        self.error_count += 1;
+                        HeatmapError::XError(e)
+                    }
+                )?;
+
+            let index = y + x;
+            self.heatmap[index] += 1;
+        }
+
+        self.hist_height
+            .count_multiple_index(hight, counter)
+            .unwrap();
+
+        Ok(counter)
+        
+    }
+
     /// # update the heatmap
     /// * calculates the coordinate `(x, y)` of the bin corresponding
     /// to the given value pair `(width_val, height_val)`
@@ -703,6 +745,45 @@ mod tests{
     use rand::distributions::*;
     use rand::SeedableRng;
     use super::*;
+
+    #[test]
+    fn equality_test()
+    {
+        let h_y = HistUsizeFast::new_inclusive(0, 10).unwrap();
+        let h_x = HistU8Fast::new_inclusive(0, 16).unwrap();
+
+        let mut heatmap = HeatmapUsize::new(h_x, h_y);
+        let mut heatmap_2 = heatmap.clone();
+
+        let mut rng = Pcg64::seed_from_u64(27456487);
+
+        let uniform = Uniform::new_inclusive(0, 16);
+        for i in 0..10
+        {
+            let vals: Vec<_> = (&uniform).sample_iter(&mut rng).take(100).collect();
+            for val in vals.iter()
+            {
+                heatmap.count(val, i).unwrap();
+            }
+            heatmap_2.count_multiple(vals.into_iter(), i).unwrap();
+        }
+
+        // now check equality
+
+        heatmap
+            .heatmap()
+            .iter()
+            .zip(heatmap_2.heatmap().iter())
+            .for_each(|(&a, &b)| assert_eq!(a, b));
+
+        heatmap.height_hist().hist().iter()
+            .zip(heatmap_2.height_hist().hist().iter())
+            .for_each(|(&a, &b)| assert_eq!(a, b));
+
+        heatmap_2.width_hist().hist().iter()
+            .zip(heatmap.width_hist().hist().iter())
+            .for_each(|(&a, &b)| assert_eq!(a, b));
+    }
 
     #[test]
     fn row_test()
