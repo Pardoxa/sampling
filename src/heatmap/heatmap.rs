@@ -526,6 +526,12 @@ where
         }
     }
 
+    /// # update the heatmap
+    /// * calculates the coordinates `(x, y)` of the bin corresponding
+    /// to the given values pair `(width_iter_entry, height_val)`
+    /// * as soon as a coordinate is encountered that is out of bounds, it counts a "miss" and returns the HeatmapError,
+    ///  aborting further execution
+    /// * otherwise it counts the "hits" and returns the total number of hits added `usize`
     pub fn count_multiple<A, B, X, Y, I>(&mut self, width_val_iter: I, height_val: B) -> Result<usize, HeatmapError>
     where 
         HistWidth: HistogramVal<X>,
