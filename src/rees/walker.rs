@@ -356,15 +356,18 @@ where Hist: HistogramVal<Energy>,
                     if self.rng.gen::<f64>() > acception_prob 
                     {
                         self.count_rejected();
+                        e.steps_rejected(&self.markov_steps);
                         e.undo_steps_quiet(&self.markov_steps);
                     } else {
                         self.old_energy = energy;
                         self.bin = current_bin;
+                        e.steps_accepted(&self.markov_steps);
                     }
                 },
                 _ => {
                     self.count_rejected();
                     e.undo_steps_quiet(&self.markov_steps);
+                    e.steps_rejected(&self.markov_steps);
                 }
             }
 
