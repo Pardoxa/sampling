@@ -693,9 +693,6 @@ where
 
     /// # Wang Landau Step
     /// * if possible, use `self.wang_landau_step()` instead - it is safer
-    /// * unsafe, because you have to make sure, that the `energy_fn` function 
-    /// does not change the state of the ensemble in such a way, that the result of
-    /// `energy_fn` changes when called again. Maybe do cleanup at the beginning of the energy function?
     /// * performs a single Wang Landau step
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
@@ -703,9 +700,12 @@ where
     /// If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
     /// will always be rejected 
-    /// # Important
+    /// # Safety
     /// * You have to call one of the `self.init*` functions before calling this one - 
     /// **will panic otherwise**
+    /// * unsafe, because you have to make sure, that the `energy_fn` function 
+    /// does not change the state of the ensemble in such a way, that the result of
+    /// `energy_fn` changes when called again. Maybe do cleanup at the beginning of the energy function?
     pub unsafe fn wang_landau_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,
@@ -792,10 +792,12 @@ where
 
     /// # Wang Landau
     /// * if possible, use `self.wang_landau_convergence()` instead - it is safer
-    /// * You have mutable access to your ensemble, which is why this function is unsafe. 
-    /// If you do anything, which changes the future outcome of the energy function, the results will be wrong!
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step_unsafe(energy_fn, valid_ensemble)` until `self.is_finished()` 
+    /// # Safety
+    /// * You have mutable access to your ensemble, which is why this function is unsafe. 
+    /// If you do anything, which changes the future outcome of the energy function, the results will be wrong!
+    /// I use the unsafe keyword here to force the user to acknowledge that.
     pub unsafe fn wang_landau_convergence_unsafe<F>(
         &mut self,
         mut energy_fn: F,
@@ -840,11 +842,13 @@ where
 
     /// # Wang Landau
     /// * if possible, use `self.wang_landau_while()` instead - it is safer
-    /// * You have mutable access to your ensemble, which is why this function is unsafe. 
-    /// If you do anything, which changes the future outcome of the energy function, the results will be wrong!
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn)` until `self.is_finished()` 
     /// or `condition(&self)` is false
+    /// # Safety
+    /// * You have mutable access to your ensemble, which is why this function is unsafe. 
+    /// If you do anything, which changes the future outcome of the energy function, the results will be wrong!
+    /// I use the unsafe keyword here to force the user to acknowledge that
     pub unsafe fn wang_landau_while_unsafe<F, W>(
         &mut self,
         mut energy_fn: F,

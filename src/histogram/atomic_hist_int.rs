@@ -679,12 +679,12 @@ mod tests{
         assert_eq!(hist.borders(), &[0_isize, 10, 20]);
         for i in 0..=9
         {
-            assert_eq!(hist.get_bin_index(&i).unwrap(), 0);
+            assert_eq!(hist.get_bin_index(i).unwrap(), 0);
         }
         for i in 10..20 {
-            assert_eq!(hist.get_bin_index(&i).unwrap(), 1);
+            assert_eq!(hist.get_bin_index(i).unwrap(), 1);
         }
-        assert!(hist.get_bin_index(&20).is_err());
+        assert!(hist.get_bin_index(20).is_err());
     }
 
     /// This test makes sure, that AtomicHistogramInt and HistogramFast return the same partitions,

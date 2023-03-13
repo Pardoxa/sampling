@@ -127,8 +127,12 @@ pub trait WangLandauEnsemble<E> : WangLandau
     fn ensemble(&self) -> &E;
 
     /// # mutable reference to current state
-    /// * **unsafe** you should not make any changes, that effect the energy state of the system.
+    /// * Intended for usecases where mutable access allows for a much more 
+    /// efficient calculation of your calculations
+    /// # Safety
+    /// *you should not make any changes, that effect the 'energy' state of the system.
     /// otherwise the WangLandau simulations will give false results!
+    /// * Note that I only use the unsafe keyword to force the user to acknowledge the above
     unsafe fn ensemble_mut(&mut self) -> &mut E;
 }
 

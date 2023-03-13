@@ -296,6 +296,7 @@ where Hist: Histogram,
         Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, walker_per_interval, log_f_threshold)
     }
 
+    #[allow(clippy::result_large_err)]
     fn build<Energy, R, R2>
     (
         container: Vec<(Hist, Ensemble, Option<Energy>)>,
@@ -428,6 +429,7 @@ where Hist: Histogram,
     /// returns false.
     /// ##Note
     /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
+    #[allow(clippy::result_large_err)]
     pub fn try_greedy_build<R, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
         Ensemble: HasRng<R> + Sized,
@@ -466,6 +468,7 @@ where Hist: Histogram,
     /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
     /// acceptance of the replica exchange moves etc.)
     /// * usage: `self.try_greedy_choose_rng_build::<RNG,_,_,_,_>(energy_fn, condition)`
+    #[allow(clippy::result_large_err)]
     pub fn try_greedy_choose_rng_build<R, R2, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
     where Hist: HistogramVal<Energy>,
         R: Rng + SeedableRng + Send + Sync,
@@ -595,6 +598,7 @@ where Hist: Histogram,
     /// returns false.
     /// ##Note
     /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
+    #[allow(clippy::result_large_err)]
     pub fn try_interval_heuristik_build<R, F, C, Energy>
     (
         self,
@@ -643,6 +647,7 @@ where Hist: Histogram,
     /// * Difference: You can choose the Random number generator used for the Rewl Walkers, i.e., for 
     /// accepting or rejecting the markov steps and replica exchanges. 
     /// * usage: `self.try_interval_heuristik_choose_rng_build<RNG, _,_,_,_>(energy_fn, condition, overlap)]
+    #[allow(clippy::result_large_err)]
     pub fn try_interval_heuristik_choose_rng_build<R, R2, F, C, Energy>
     (
         self,
@@ -784,6 +789,7 @@ where Hist: Histogram,
     /// * `condition` can be used to limit the time of the search - it will end when `condition`
     /// returns false (or a valid solution is found)
     /// * condition will be checked each time the heuristik switches between greedy and interval heuristik
+    #[allow(clippy::result_large_err)]
     pub fn try_mixed_heuristik_build<R, F, C, Energy>
     (
         self,
@@ -815,6 +821,7 @@ where Hist: Histogram,
     /// 
     /// ## Note
     /// * condition will be checked each time the heuristik switches between greedy and interval heuristik
+    #[allow(clippy::result_large_err)]
     pub fn try_mixed_heuristik_choose_rng_build<R, R2, F, C, Energy>
     (
         self,

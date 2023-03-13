@@ -441,7 +441,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rees<(), Ensemble, R, Hist, Energy, S, R
 {
     /// # Add extra information to your Replica Exchange entropic sampling simulation
     /// * can be used to, e.g., print stuff during the simulation, or write it to a file and so on
-    #[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity, clippy::result_large_err)]
     pub fn add_extra<Extra>(
         self, 
         extra: Vec<Extra>

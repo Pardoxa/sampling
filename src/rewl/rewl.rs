@@ -473,7 +473,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * The vector `extra` must be exactly as long as the walker slice and 
     /// each walker is assigned the corresponding entry from the vector `extra`
     /// * You can look at the walker slice with the [walkers](`crate::rewl::Rewl::walkers`) method
-    #[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity, clippy::result_large_err)]
     pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
     where Hist: Histogram
     {
