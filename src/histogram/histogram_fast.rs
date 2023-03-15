@@ -338,7 +338,7 @@ impl<T> Histogram for HistogramFast<T>
             .iter_mut()
             .for_each(|h| *h = 0);
     }
-}
+} 
 
 impl<T> HistogramVal<T> for HistogramFast<T>
 where T: PrimInt + HasUnsignedVersion,

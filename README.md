@@ -2,7 +2,7 @@
 [![Crate](https://img.shields.io/crates/v/sampling.svg)](https://crates.io/crates/sampling)
 [![Docs](https://docs.rs/sampling/badge.svg)](https://docs.rs/sampling/)
 
-Minimal Rust version: 1.55.0
+Minimal Rust version: 1.60.0
 
 ## About
 
@@ -17,7 +17,7 @@ The Documentation of the working branch can be found [here](https://pardoxa.gith
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-sampling = "0.1.1"
+sampling = "0.2.0"
 # for feature "serde_support" (enabled by default) also use
 serde = { version = "1.0", features = ["derive"] }
 ```

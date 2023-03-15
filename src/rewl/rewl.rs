@@ -80,7 +80,9 @@ pub enum ExtremeInterval
     None
 }
 
-
+/// # Error types for threshold log_f
+/// This enum gives you information on the error during the 
+/// setting of a threshold
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ThresholdErrors{
     /// No negative threshold value allowed
@@ -855,7 +857,7 @@ where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// It is still the encapsulating interval, for which the probability density function was calculated
 /// * The `Vec<f64>` is the logarithm (base e) of the probability density function, 
 /// which you wanted to get!
-///  * `Vec<Vec<f64>> these are the aligned probability estimates (also logarithm base e)
+///  * `Vec<Vec<f64>>` these are the aligned probability estimates (also logarithm base e)
 /// of the different intervals. 
 /// This can be used to see, how good the simulation worked, e.g., by plotting them to see, if they match
 /// 
@@ -926,7 +928,7 @@ where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
 /// It is still the encapsulating interval, for which the probability density function was calculated
 /// * The `Vec<f64>` is the logarithm (base e) of the probability density function, 
 /// which you wanted to get!
-///  * `Vec<Vec<f64>> these are the aligned probability estimates (also logarithm base e)
+///  * `Vec<Vec<f64>>` these are the aligned probability estimates (also logarithm base e)
 /// of the different intervals. 
 /// This can be used to see, how good the simulation worked, e.g., by plotting them to see, if they match
 /// 

@@ -43,6 +43,7 @@ impl LogBase{
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ReplicaGlued<Hist>
 {
+    /// Histogram that encapsulates that is 
     pub(crate) encapsulating_histogram: Hist,
     pub(crate) glued: Vec<f64>,
     pub(crate) aligned: Vec<Vec<f64>>,

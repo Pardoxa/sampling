@@ -16,7 +16,7 @@ use{
 /// # Difference to `HeatmapU`
 /// * [`HeatmapU`](crate::heatmap::HeatmapU) does not contain the averages for th y-axis,
 /// but can be transposed and also used for Y-Histograms which take types which do not 
-/// implement AsPrimitive<f64>
+/// implement `AsPrimitive<f64>`
 pub struct HeatmapUsizeMean<HistX, HistY>
 {
     pub(crate) heatmap: HeatmapUsize<HistX, HistY>,
