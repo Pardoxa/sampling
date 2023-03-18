@@ -43,6 +43,8 @@ impl<H> Borrow<H> for GlueEntry<H>
     }
 }
 
+/// # Used to merge probability densities from WL, REWL, Entropic or REES simulations
+/// * You can also mix those methods and still glue them
 pub struct GlueJob<H>
 {
     collection: Vec<GlueEntry<H>>,
@@ -111,9 +113,47 @@ impl<H> GlueJob<H>
             );
     }
 
+    /// # Calculate the probability density function from overlapping intervals
+    /// 
+    /// This uses a average merge, which first align all intervals and then merges 
+    /// the probability densities by averaging in the logarithmic space
+    /// 
+    /// The [Glued] allows you to easily write the probability density function to a file
     pub fn average_merged_and_aligned<T>(&mut self) -> Result<Glued<H>, HistErrors>
     where H: Histogram + HistogramCombine + HistogramVal<T>,
         T: PartialOrd{
+
+        let log_prob = self.prepare_for_merge()?;
+        average_merged_and_aligned(
+            log_prob, 
+            &self.collection, 
+            self.desired_logbase
+        )
+    }
+
+    /// # Calculate the probability density function from overlapping intervals
+    /// 
+    /// This uses a derivative merge
+    /// 
+    /// The [Glued] allows you to easily write the probability density function to a file
+    pub fn derivative_glue_and_align<T>(&mut self) -> Result<Glued<H>, HistErrors>
+    where H: Histogram + HistogramCombine + HistogramVal<T>,
+        T: PartialOrd{
+
+        let log_prob = self.prepare_for_merge()?;
+        derivative_merged_and_aligned(
+            log_prob, 
+            &self.collection, 
+            self.desired_logbase
+        )
+    }
+
+    fn prepare_for_merge<T>(
+        &mut self
+    ) -> Result<Vec<Vec<f64>>, HistErrors>
+    where H: Histogram + HistogramCombine + HistogramVal<T>,
+    T: PartialOrd
+    {
         self.make_entries_desired_logbase();
         
         let mut encountered_invalid = false;
@@ -139,18 +179,13 @@ impl<H> GlueJob<H>
             return Err(HistErrors::InvalidVal);
         }
 
-        let log_prob = self.collection
-            .iter()
-            .map(|e| e.prob.clone())
-            .collect();
-
-        
-
-        average_merged_and_aligned(
-            log_prob, 
-            &self.collection, 
-            self.desired_logbase
+        Ok(
+            self.collection
+                .iter()
+                .map(|e| e.prob.clone())
+                .collect()
         )
+
     }
 
     fn make_entries_desired_logbase(&mut self)

@@ -393,7 +393,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         derivative_merged_and_aligned(
-            log_probs, hists, LogBase::BaseE
+            log_probs, &hists, LogBase::BaseE
         )
     }
 
@@ -946,9 +946,9 @@ where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + 
         ignore_fn(&mut container, ignore);
     }
 
-    let (hists, combined_probs) = container.into_iter().unzip();
+    let (hists, combined_probs): (Vec<_>, _) = container.into_iter().unzip();
 
     derivative_merged_and_aligned(
-        combined_probs, hists, LogBase::BaseE
+        combined_probs, &hists, LogBase::BaseE
     )
 }

@@ -281,12 +281,12 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
 /// 
 /// `LogBase`: Which base do the logarithmic probabilities have?
 /// 
-/// This uses a derviative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
+/// This uses a derivative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
 /// 
 /// The [ReplicaGlued] allows you to easily write the probability density function to a file
 pub fn derivative_merged_and_aligned<H, Hist>(
     mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<H>,
+    hists: &[H],
     log_base: LogBase
 ) -> Result<Glued<Hist>, HistErrors>
 where Hist: HistogramCombine + Histogram,
@@ -306,7 +306,7 @@ where Hist: HistogramCombine + Histogram,
     let derivatives: Vec<_> = log_prob.iter()
         .map(|v| derivative_merged(v))
         .collect();
-    let e_hist = Hist::encapsulating_hist(&hists)?;
+    let e_hist = Hist::encapsulating_hist(hists)?;
     let alignment  = hists.iter()
         .zip(hists.iter().skip(1))
         .map(|(left, right)| left.borrow().align(right.borrow()))
@@ -453,7 +453,7 @@ pub(crate) fn norm_log10_prob(log10_prob: &mut[f64]) -> f64
 /// This uses a average merge, which first align all intervals and then merges 
 /// the probability densities by averaging in the logarithmic space
 /// 
-/// The [ReplicaGlued] allows you to easily write the probability density function to a file
+/// The [Glued] allows you to easily write the probability density function to a file
 pub fn average_merged_and_aligned<Hist, H>(
     mut log_prob: Vec<Vec<f64>>,
     hists: &[H],
@@ -527,7 +527,7 @@ where Hist: HistogramCombine + Histogram,
     )
 }
 
-// TODO DOcument function, maybe rename function?
+
 fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
     let mut glue_log_density = vec![f64::NAN; size];
@@ -587,7 +587,7 @@ fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> R
     Ok(glue_log_density)
 }
 
-// TODO maybe rename function?
+
 fn calc_z(log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
     let mut z_vec = Vec::with_capacity(alignment.len());

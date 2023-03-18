@@ -776,7 +776,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         
-        derivative_merged_and_aligned(log_probs, hists, LogBase::BaseE)
+        derivative_merged_and_aligned(log_probs, &hists, LogBase::BaseE)
     }
 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
