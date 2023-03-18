@@ -381,7 +381,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It uses derivative merging to give you a `ReplicaGlued` which you can use to write
+    /// It uses derivative merging to give you a [Glued] which you can use to write
     /// the data into a file.
     /// The derivative merged is explained in [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
     ///
@@ -401,7 +401,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It uses average merging to give you a `ReplicaGlued` which you can use to write
+    /// It uses average merging to give you a [Glued] which you can use to write
     /// the data into a file.
     /// The average merged is explained in  [average_merged_and_aligned](crate::glue::average_merged_and_aligned)
     ///
@@ -882,73 +882,4 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
                 }
             );
     container
-}
-
-/// # Results of the simulation
-/// Used to merge the probability density functions calculated with 
-/// different `REWL`.
-/// 
-/// This is what we do the simulation for!
-/// 
-/// It uses derivative merging to give you a `ReplicaGlued` which you can use to write
-/// the data into a file.
-/// The derivative merged is explained in [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
-///
-/// ## Notes
-/// Fails if the internal histograms (intervals) do not align. Might fail if 
-/// there is no overlap between neighboring intervals 
-pub fn derivative_glue_and_align<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> Result<Glued<Hist>, HistErrors>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
-    Energy: PartialOrd
-{
-    derivative_glue_and_align_ignore(rewls, &[])
-}
-
-// TODO correct ordering before merging
-/// TODO Documentation
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
-/// * Now, however, we have a slice called `ignore`. It should contain the indices 
-/// of all walkers, that should be ignored for the alignment and merging into the 
-/// final probability density function. The indices do not need to be sorted, though
-/// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn derivative_glue_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], 
-    ignore: &[usize]
-) -> Result<Glued<Hist>, HistErrors>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
-    Energy: PartialOrd
-{
-    if rewls.is_empty(){
-        return Err(HistErrors::EmptySlice);
-    }
-
-    let combined_probs_and_hists_iter = rewls.iter()
-        .map(|rewl| rewl.get_log_prob_and_hists());
-
-    let mut container: Vec<(&Hist, Vec<f64>)> = combined_probs_and_hists_iter
-        .flat_map(
-            |entry| 
-            entry.0.into_iter().zip(entry.1.into_iter())
-        ).collect();
-
-    container
-        .sort_unstable_by(
-            |s, o| 
-                s.0.left_compare(o.0)
-        );
-
-    if !ignore.is_empty(){
-        ignore_fn(&mut container, ignore);
-    }
-
-    let (hists, combined_probs): (Vec<_>, _) = container.into_iter().unzip();
-
-    derivative_merged_and_aligned(
-        combined_probs, &hists, LogBase::BaseE
-    )
 }

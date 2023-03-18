@@ -715,7 +715,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// It returns the natural logarithm of the normalized (i.e. sum=1 within numerical precision) probability density and the 
     /// histogram, which contains the corresponding bins.
     ///
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
     #[allow(deprecated)]
@@ -735,10 +735,10 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It returns `ReplicaGlued` which allows you to print out the merged probability density function.
+    /// It returns [Glued] which allows you to print out the merged probability density function.
     /// It also allows you to switch the base of the logarithm and so on, have a look!
     /// 
-    /// It will use an average based merging algorthim, i.e., it will try to align the intervals
+    /// It will use an average based merging algorithm, i.e., it will try to align the intervals
     /// and merge them by using the values obtained by averaging in log-space 
     /// 
     /// ## Notes
@@ -759,10 +759,10 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It returns `ReplicaGlued` which allows you to print out the merged probability density function.
+    /// It returns [Glued] which allows you to print out the merged probability density function.
     /// It also allows you to switch the base of the logarithm and so on, have a look!
     /// 
-    /// It will use an derivative based merging algorthim, i.e., it will try to align the intervals
+    /// It will use an derivative based merging algorithm, i.e., it will try to align the intervals
     /// and merge them by looking at the derivatives of the probability density function.
     /// It will search for the (merging-)point where the derivatives are the most similar to each other 
     /// and glue by using the values of one of the intervals before the merging point and the 

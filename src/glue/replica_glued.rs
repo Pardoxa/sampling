@@ -45,7 +45,6 @@ impl LogBase{
     }
 }
 
-// TODO maybe rename struct?
 /// # Result of the gluing
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
@@ -61,7 +60,7 @@ pub struct Glued<Hist>
 
 impl<Hist> Glued<Hist>
 {
-    /// Create a new `ReplicaGlued<Hist>` instance without checking anything
+    /// Create a new `Glued<Hist>` instance without checking anything
     pub fn new_unchecked(
         encapsulating_histogram: Hist, 
         glued: Vec<f64>, 
@@ -134,7 +133,7 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
     T::Unsigned: num_traits::Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + num_traits::WrappingAdd + num_traits::ToPrimitive + std::ops::Sub<Output=T::Unsigned>
 {
-    /// # Write the ReplicaGlued in a human readable format
+    /// # Write the Glued in a human readable format
     /// * You probably want to use this ;)
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
@@ -283,7 +282,7 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
 /// 
 /// This uses a derivative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
 /// 
-/// The [ReplicaGlued] allows you to easily write the probability density function to a file
+/// The [Glued] allows you to easily write the probability density function to a file
 pub fn derivative_merged_and_aligned<H, Hist>(
     mut log_prob: Vec<Vec<f64>>,
     hists: &[H],
