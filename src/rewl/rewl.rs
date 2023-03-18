@@ -15,13 +15,6 @@ use std::cmp::Reverse;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
-/// Result of glueing
-/// * `Hist` is the histogram which shows the corresponding bins,
-/// * `Vec<f64>` is the result of the gluing and merging of the individual intervals
-/// * `Vec<Vec<f64>>` are the individual intervals, which are ready to be glued, i.e.,
-///    their logarithmic "hight" was allready corrected
-pub type Glued<Hist> = (Hist, Vec<f64>, Vec<Vec<f64>>);
-
 
 /// Result of glueing. See [Glued]
 pub type GluedResult<Hist> = Result<Glued<Hist>, HistErrors>;
@@ -395,7 +388,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -415,7 +408,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -835,10 +828,8 @@ pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, R
 where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
     Energy: PartialOrd
 {
-    let mut res = merged_log_probability_and_align_ignore(rewls, ignore)?;
-    ln_to_log10(&mut res.1);
-    res.2.par_iter_mut()
-        .for_each(|slice| ln_to_log10(slice));
+    let res = merged_log_probability_and_align_ignore(rewls, ignore)?;
+    assert!(matches!(res.base, LogBase::Base10));
     Ok(res)
 }
 
@@ -1099,7 +1090,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
 /// there is no overlap between neighboring intervals 
 pub fn derivative_glue_and_align<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> Result<ReplicaGlued<Hist>, HistErrors>
+) -> Result<Glued<Hist>, HistErrors>
 where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
     Energy: PartialOrd
 {
@@ -1119,7 +1110,7 @@ where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + 
 pub fn derivative_glue_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
     rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], 
     ignore: &[usize]
-) -> Result<ReplicaGlued<Hist>, HistErrors>
+) -> Result<Glued<Hist>, HistErrors>
 where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + IntervalOrder,
     Energy: PartialOrd
 {

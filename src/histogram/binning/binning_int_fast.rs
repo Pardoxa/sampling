@@ -123,8 +123,14 @@ macro_rules! impl_binning {
                 todo!()
             }
 
-            fn second_last_border(&self) -> $t{
+            fn last_border(&self) -> $t{
                 todo!()
+            }
+
+            #[inline(always)]
+            fn last_border_is_inclusive(&self) -> bool
+            {
+                true
             }
 
             /// # calculates some sort of absolute distance to the nearest valid bin

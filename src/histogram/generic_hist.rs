@@ -96,8 +96,13 @@ where B: Binning<T>
         self.binning.not_inside(val)
     }
 
-    fn second_last_border(&self) -> T {
-        self.binning.second_last_border()
+    fn last_border(&self) -> T {
+        self.binning.last_border()
+    }
+
+    #[inline]
+    fn last_border_is_inclusive(&self) -> bool {
+        self.binning.last_border_is_inclusive()
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {

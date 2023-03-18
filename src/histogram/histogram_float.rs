@@ -227,8 +227,13 @@ where T: Float + Zero + NumCast{
     }
 
     #[inline]
-    fn second_last_border(&self) -> T {
-        self.bin_borders[self.bin_borders.len() - 2]
+    fn last_border(&self) -> T {
+        self.bin_borders[self.bin_borders.len() - 1]
+    }
+
+    #[inline(always)]
+    fn last_border_is_inclusive(&self) -> bool {
+        false
     }
 
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool {

@@ -118,6 +118,7 @@ pub(crate) fn height_correction(log10_vec: &mut [Vec<f64>], z_vec: &[f64]){
 
 pub(crate) fn calc_z(log10_vec: &[Vec<f64>], left_list: &[usize], right_list: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
+    assert_eq!(left_list.len(), right_list.len());
     let mut z_vec = Vec::with_capacity(left_list.len() - 1);
     for i in 1..left_list.len()
     {

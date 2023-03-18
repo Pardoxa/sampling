@@ -98,7 +98,7 @@ where B: Binning<T>
         self.binning.not_inside(val)
     }
 
-    fn second_last_border(&self) -> T {
-        self.binning.second_last_border()
+    fn last_border(&self) -> T {
+        self.binning.last_border()
     }
 }

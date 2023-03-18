@@ -350,8 +350,13 @@ where T: PrimInt + HasUnsignedVersion,
         self.left
     }
 
-    fn second_last_border(&self) -> T {
+    fn last_border(&self) -> T {
         self.right
+    }
+
+    #[inline(always)]
+    fn last_border_is_inclusive(&self) -> bool {
+        true
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
@@ -632,8 +637,8 @@ mod tests{
                 let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
 
                 assert_eq!(
-                    overlapping.last().unwrap().second_last_border(),
-                    hist_fast.second_last_border()
+                    overlapping.last().unwrap().last_border(),
+                    hist_fast.last_border()
                 );
 
                 assert_eq!(

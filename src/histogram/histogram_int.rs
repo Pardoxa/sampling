@@ -378,8 +378,13 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
         self.bin_borders[0]
     }
 
-    fn second_last_border(&self) -> T {
+    fn last_border(&self) -> T {
         self.bin_borders[self.bin_borders.len() - 1]
+    }
+
+    #[inline(always)]
+    fn last_border_is_inclusive(&self) -> bool {
+        false
     }
 
     #[inline]

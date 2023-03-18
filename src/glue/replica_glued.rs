@@ -41,7 +41,7 @@ impl LogBase{
 /// # Result of the gluing
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct ReplicaGlued<Hist>
+pub struct Glued<Hist>
 {
     /// Histogram that encapsulates that is 
     pub(crate) encapsulating_histogram: Hist,
@@ -51,7 +51,7 @@ pub struct ReplicaGlued<Hist>
     pub(crate) alignment: Vec<usize>
 }
 
-impl<Hist> ReplicaGlued<Hist>
+impl<Hist> Glued<Hist>
 {
     /// Create a new `ReplicaGlued<Hist>` instance without checking anything
     pub fn new_unchecked(
@@ -121,7 +121,7 @@ impl<Hist> ReplicaGlued<Hist>
 
 }
 
-impl<T> ReplicaGlued<HistogramFast<T>>
+impl<T> Glued<HistogramFast<T>>
 where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
     T::Unsigned: num_traits::Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + num_traits::WrappingAdd + num_traits::ToPrimitive + std::ops::Sub<Output=T::Unsigned>
@@ -133,7 +133,7 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         writeln!(writer, "#bin log_merged log_interval0 …")?;
         writeln!(writer, "#log: {:?}", self.base)?;
 
-        let mut alinment_helper = self.alinment_helper();
+        let mut alinment_helper = self.alignment_helper();
 
         for (&log_prob, bin) in self.glued
             .iter()
@@ -158,9 +158,9 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         Ok(())
     }
 }
-impl<T> ReplicaGlued<HistogramFast<T>>
+impl<T> Glued<HistogramFast<T>>
 {
-    fn alinment_helper(&self) -> Vec<isize>
+    fn alignment_helper(&self) -> Vec<isize>
     {
         let mut alinment_helper: Vec<_> = std::iter::once(0)
             .chain(
@@ -204,7 +204,7 @@ impl<T> ReplicaGlued<HistogramFast<T>>
             LogBase::Base10 => bin_size_recip.log10(),
         };
 
-        let mut alinment_helper = self.alinment_helper();
+        let mut alinment_helper = self.alignment_helper();
 
         for (index, log_prob) in self.glued
             .iter()
@@ -280,7 +280,7 @@ pub fn derivative_merged_and_aligned<H, Hist>(
     mut log_prob: Vec<Vec<f64>>,
     hists: Vec<H>,
     log_base: LogBase
-) -> Result<ReplicaGlued<Hist>, HistErrors>
+) -> Result<Glued<Hist>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
 {
@@ -321,7 +321,7 @@ where Hist: HistogramCombine + Histogram,
         
         let merged_prob = log_prob[0].clone();
         let r = 
-            ReplicaGlued::new_unchecked(
+            Glued::new_unchecked(
                 e_hist,
                 merged_prob,
                 log_prob,
@@ -376,7 +376,7 @@ where Hist: HistogramCombine + Histogram,
         );
 
     let glued = 
-        ReplicaGlued::new_unchecked(
+        Glued::new_unchecked(
             e_hist, 
             merged_log_prob, 
             log_prob, 
@@ -450,7 +450,7 @@ pub fn average_merged_and_aligned<Hist, H>(
     mut log_prob: Vec<Vec<f64>>,
     hists: Vec<H>,
     log_base: LogBase
-) -> Result<ReplicaGlued<Hist>, HistErrors>
+) -> Result<Glued<Hist>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
 {
@@ -476,7 +476,7 @@ where Hist: HistogramCombine + Histogram,
         
         let glued = log_prob[0].clone();
         return Ok(
-                ReplicaGlued{
+                Glued{
                 base: LogBase::Base10,
                 encapsulating_histogram: e_hist,
                 aligned: log_prob,
@@ -507,7 +507,7 @@ where Hist: HistogramCombine + Histogram,
         .for_each(|v| *v -= shift);
 
     Ok(
-        ReplicaGlued{
+        Glued{
             base: log_base,
             encapsulating_histogram: e_hist,
             aligned: aligned_intervals,

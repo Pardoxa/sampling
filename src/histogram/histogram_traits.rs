@@ -59,9 +59,17 @@ pub trait HistogramVal<T>{
     /// get the left most border (inclusive)
     fn first_border(&self) -> T;
 
-    /// * get second last border from the right
-    /// * should be the same as `let b = self.borders_clone().expect("overflow"); assert_eq!(self.second_last_border(), b[b.len()-2])`
-    fn second_last_border(&self) -> T;
+    /// # get last border from the right
+    /// * Note: this border might be inclusive or exclusive
+    /// * check `last_border_is_inclusive` for finding it out
+    fn last_border(&self) -> T;
+
+    /// # True if last border is inclusive, false otherwise
+    /// * For most usecases this will return a constant value,
+    /// as this is likely only dependent on the underlying type and not 
+    /// on something that changes dynamically
+    fn last_border_is_inclusive(&self) -> bool;
+
     /// # calculates some sort of absolute distance to the nearest valid bin
     /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
     /// * if a value corresponds to a valid bin, the distance should be zero

@@ -729,44 +729,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         Ok((e_hist, log_prob))
     }
 
-    /// # Results of the simulation
-    /// 
-    /// This is what we do the simulation for!
-    /// 
-    /// It returns histogram, which contains the corresponding bins and
-    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
-    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
-    /// different intervals. This can be used to see, how good the simulation worked,
-    /// e.g., by plotting them to see, if they match
-    ///
-    /// ## Notes
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
-    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
-    #[allow(deprecated)]
-    pub fn merged_log_prob_and_aligned(&self) -> GluedResult<Hist>
-    where Hist: HistogramCombine 
-    {
-        let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
-        
-        let shift = norm_ln_prob(&mut log_prob);
-        
-        aligned.par_iter_mut()
-            .for_each(
-                |aligned|
-                {
-                    aligned.iter_mut()
-                        .for_each(|val| *val -= shift)
-                }
-            );
-        Ok(
-            (
-                e_hist,
-                log_prob,
-                aligned
-            )
-        )
-    }
+
 
     /// # Results of the simulation
     /// 
@@ -781,7 +744,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals
-    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist>, HistErrors>
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -808,7 +771,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals
-    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -832,22 +795,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
-    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
-    #[allow(deprecated)]
-    fn merged_log_probability_and_align(&self) -> GluedResult<Hist>
-    where Hist: HistogramCombine
-    {
-        let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
-        merged_and_aligned(
-            self.walker.iter()
-                    .step_by(self.walkers_per_interval().get())
-                    .map(|v| v.hist()),
-            merge_points,
-            alignment,
-            log_prob,
-            e_hist
-        )
-    }
+
 }
 
 /// # Merge probability density of multiple rees simulations
@@ -912,101 +860,6 @@ where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Ok(res)
 }
 
-/// # Merge probability density of multiple rees simulations
-/// * Will calculate the merged log (base e) probability density (second return parameter). 
-/// * also returns the corresponding histogram (first return parameter)
-/// * also returns aligned probability densities of intervals (base e) (third return parameter). They will be NaN for all entries, which the corresponding interval did not cover
-/// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
-/// * `rees` does not need to be sorted in any way
-/// ## Errors
-/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
-/// * will return other HistErrors if the intervals have no overlap
-pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
-    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    if rees.is_empty() {
-        return Err(HistErrors::EmptySlice);
-    }
-    let merged_prob = merged_probs(rees);
-    let container = combine_container(rees, &merged_prob);
-    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
-    merged_and_aligned(
-        container.iter()
-            .map(|c| c.1),
-        merge_points,
-        alignment,
-        log_prob,
-        e_hist
-    )
-}
-
-/// # Merge probability density of multiple rees simulations
-/// * similar to [merged_log_probability_and_align]
-/// 
-/// The difference is, that this function will ignore the specified walkers,
-/// therefore `ignore` should be a slice of indices, which are to be ignored.
-/// The slice does not have to be sorted in any way, though duplicate indices 
-/// and indices which are out of bounds will be ignored for the ignore list
-pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
-    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
-    ignore: &[usize]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    if rees.is_empty() {
-        return Err(HistErrors::EmptySlice);
-    }
-    let merged_prob = merged_probs(rees);
-    let mut container = combine_container(rees, &merged_prob);
-    ignore_fn(&mut container, ignore);
-
-    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
-    merged_and_aligned(
-        container.iter()
-            .map(|c| c.1),
-        merge_points,
-        alignment,
-        log_prob,
-        e_hist
-    )
-}
-
-/// # Merge probability density of multiple rees simulations
-/// * same as [merged_log_probability_and_align](`crate::rees::merged_log_probability_and_align`)
-/// but all logarithms are now base 10
-pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res, Extra>(
-    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    merged_log10_probability_and_align_ignore(rees, &[])
-}
-
-/// # Merge probability density of multiple rees simulations
-/// * similar to [merged_log10_probability_and_align]
-/// 
-/// The difference is, that this function will ignore the specified walkers,
-/// therefore `ignore` should be a slice of indices, which are to be ignored.
-/// The slice does not have to be sorted in any way, though duplicate indices 
-/// and indices which are out of bounds will be ignored for the ignore list
-pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res, Extra>(
-    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
-    ignore: &[usize]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    let mut res = merged_log_probability_and_align_ignore(rees, ignore)?;
-    ln_to_log10(&mut res.1);
-    res.2.par_iter_mut()
-        .for_each(|slice| ln_to_log10(slice));
-    Ok(res)
-}
 
 fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &'a [Rees<Extra, Ensemble, R, Hist, Energy, S, Res>], merged_probs: &'a [Vec<f64>]) ->  Vec<(&'a [f64], &'a Hist)>
 where Hist: HistogramVal<Energy> + HistogramCombine,

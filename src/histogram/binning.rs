@@ -33,7 +33,13 @@ pub trait Binning<T>{
 
     /// * get last border from the right
     /// * Note: this border might be inclusive or exclusive
-    fn second_last_border(&self) -> T;
+    fn last_border(&self) -> T;
+
+    /// # True if last border is inclusive, false otherwise
+    /// * For most usecases this will return a constant value,
+    /// as this is likely only dependent on the underlying type and not 
+    /// on something that changes dynamically
+    fn last_border_is_inclusive(&self) -> bool;
 
     /// # calculates some sort of absolute distance to the nearest valid bin
     /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
