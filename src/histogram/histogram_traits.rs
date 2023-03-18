@@ -84,13 +84,13 @@ pub trait HistogramIntervalDistance<T> {
     /// # Distance metric for how far a value is from a valid interval
     /// * partitions in more intervals, checks which bin interval a bin corresponds to 
     /// and returns distance of said interval to the target interval
-    /// * used for heuristiks
+    /// * used for heuristics
     /// * overlap should be bigger 0, otherwise it will be set to 1
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize;
 }
 
 
-/// # Your Interval is to large to sample in a resonable amound of time? No problem
+/// # Your Interval is to large to sample in a reasonable amount of time? No problem
 /// In WangLandau or EntropicSampling, you can split your interval
 /// in smaller, overlapping intervals and "glue" them together later on
 pub trait HistogramPartition: Sized
@@ -144,10 +144,10 @@ pub enum HistErrors{
     /// Invalid value
     OutsideHist,
 
-    /// Underflow occured
+    /// Underflow occurred
     Underflow,
 
-    /// Overflow occured,
+    /// Overflow occurred,
     Overflow,
 
     /// Error while casting to usize

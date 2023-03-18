@@ -35,6 +35,14 @@ impl LogBase{
             Self::BaseE => norm_ln_prob(slice)
         }
     }
+
+    pub fn is_base10(self) -> bool {
+        matches!(self, LogBase::Base10)
+    }
+
+    pub fn is_base_e(self) -> bool {
+        matches!(self, LogBase::BaseE)
+    }
 }
 
 // TODO maybe rename struct?
@@ -448,7 +456,7 @@ pub(crate) fn norm_log10_prob(log10_prob: &mut[f64]) -> f64
 /// The [ReplicaGlued] allows you to easily write the probability density function to a file
 pub fn average_merged_and_aligned<Hist, H>(
     mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<H>,
+    hists: &[H],
     log_base: LogBase
 ) -> Result<Glued<Hist>, HistErrors>
 where Hist: HistogramCombine + Histogram,
@@ -463,8 +471,9 @@ where Hist: HistogramCombine + Histogram,
                 subtract_max(v);
             }
         );
-    let e_hist = Hist::encapsulating_hist(&hists)?;
-    let alignment  = hists.iter()
+    let e_hist = Hist::encapsulating_hist(hists)?;
+    let alignment  = hists
+        .iter()
         .zip(hists.iter().skip(1))
         .map(|(left, right)| left.borrow().align(right.borrow()))
         .collect::<Result<Vec<_>, _>>()?;
@@ -487,7 +496,8 @@ where Hist: HistogramCombine + Histogram,
     }
 
     // calc z
-    let z_vec = calc_z(&log_prob, &alignment).expect("Unable to calculate Z in glueing");
+    let z_vec = calc_z(&log_prob, &alignment)
+        .expect("Unable to calculate Z in glueing");
 
     // correct height
     height_correction(&mut log_prob, &z_vec);

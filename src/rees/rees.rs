@@ -750,7 +750,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         let (hists, log_probs) = self.get_log_prob_and_hists();
 
         average_merged_and_aligned(
-            log_probs, hists, LogBase::BaseE
+            log_probs, &hists, LogBase::BaseE
         )
         
     }

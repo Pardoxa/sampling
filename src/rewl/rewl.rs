@@ -413,7 +413,9 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         average_merged_and_aligned(
-            log_probs, hists, LogBase::BaseE
+            log_probs, 
+            &hists, 
+            LogBase::BaseE
         )
     }        
 
@@ -799,180 +801,6 @@ where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     )
 }
 
-/// # Results of the simulation
-/// This is what we do the simulation for!
-/// 
-/// * similar to [merged_log_probability_and_align](merged_log_probability_and_align)
-/// * the difference is, that the logarithms are now calculated to base 10
-pub fn merged_log10_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    merged_log10_probability_and_align_ignore(rewls, &[])
-}
-
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * similar to [merged_log10_probability_and_align](`crate::rewl::merged_log10_probability_and_align`)
-/// * Now, however, we have a slice called `ignore`. It should contain the indices 
-/// of all walkers, that should be ignored for the alignment and merging into the 
-/// final probability density function. The indices do not need to be sorted, though
-/// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn merged_log10_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
-    ignore: &[usize]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    let res = merged_log_probability_and_align_ignore(rewls, ignore)?;
-    assert!(matches!(res.base, LogBase::Base10));
-    Ok(res)
-}
-
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * `rewls` a slice of all replica exchange simulations you which to merge 
-/// to create a final probability density estimate for whatever you sampled. 
-/// Note, that while the slice `rewls` does not need to be ordered,
-/// there should not be no gaps between the intervals that were sampled.
-/// Also, the overlap of adjacent intervals should be large enough. 
-/// 
-/// # Result::Ok
-/// * The Hist is only useful for the interval, i.e., it tells you which bins 
-/// correspond to the entries of the probability density function - it does not count how often the bins were hit.
-/// It is still the encapsulating interval, for which the probability density function was calculated
-/// * The `Vec<f64>` is the logarithm (base e) of the probability density function, 
-/// which you wanted to get!
-///  * `Vec<Vec<f64>>` these are the aligned probability estimates (also logarithm base e)
-/// of the different intervals. 
-/// This can be used to see, how good the simulation worked, e.g., by plotting them to see, if they match
-/// 
-/// # Failures
-/// Failes if the internal histograms (intervals) do not align. 
-/// Might fail if there is no overlap between neighboring intervals
-/// 
-/// # Notes
-/// The difference between this function and 
-/// [log_probability_and_align](`crate::rewl::log_probability_and_align`) is,
-/// that, if there are multiple walkers in the same interval, they **will** be merged by 
-/// averaging their probability estimates in this function, while they are **not** averaged in 
-/// [log_probability_and_align](`crate::rewl::log_probability_and_align`)
-pub fn merged_log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>
-(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    merged_log_probability_and_align_ignore(rewls, &[])
-}
-
-/// # Result of the simulation
-/// This is what you were looking for!
-/// 
-/// * similar to [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`)
-/// * Now, however, we have a slice called `ignore`. It should contain the indices 
-/// of all walkers, that should be ignored for the alignment and merging into the 
-/// final probability density function. The indices do not need to be sorted, though
-/// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn merged_log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>],
-    ignore: &[usize]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    if rewls.is_empty(){
-        return Err(HistErrors::EmptySlice);
-    }
-    let merged_prob = merged_probs(rewls);
-    let mut container = combine_container(rewls, &merged_prob, true);
-    ignore_fn(&mut container, ignore);
-    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
-    merged_and_aligned(
-        container.iter()
-            .map(|c| c.1),
-        merge_points,
-        alignment,
-        log_prob,
-        e_hist
-    )
-}
-
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * `rewls` a slice of all replica exchange simulations you which to merge 
-/// to create a final probability density estimate for whatever you sampled. 
-/// Note, that while the slice `rewls` does not need to be ordered,
-/// there should not be no gaps between the intervals that were sampled.
-/// Also, the overlap of adjacent intervals should be large enough. 
-/// 
-/// # Result::Ok
-/// * The Hist is only useful for the interval, i.e., it tells you which bins 
-/// correspond to the entries of the probability density function - it does not count how often the bins were hit.
-/// It is still the encapsulating interval, for which the probability density function was calculated
-/// * The `Vec<f64>` is the logarithm (base e) of the probability density function, 
-/// which you wanted to get!
-///  * `Vec<Vec<f64>>` these are the aligned probability estimates (also logarithm base e)
-/// of the different intervals. 
-/// This can be used to see, how good the simulation worked, e.g., by plotting them to see, if they match
-/// 
-/// # Failures
-/// Failes if the internal histograms (intervals) do not align. 
-/// Might fail if there is no overlap between neighboring intervals
-/// 
-/// # Notes
-/// The difference between this function and 
-/// [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`) is,
-/// that, if there are multiple walkers in the same interval, they will **not** be merged by 
-/// averaging their probability estimates in this function, while they **are averaged** in 
-/// [merged_log_probability_and_align](`crate::rewl::merged_log_probability_and_align`)
-pub fn log_probability_and_align<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    log_probability_and_align_ignore(rewls, &[])
-}
-
-/// # Results of the simulation
-/// This is what we do the simulations for!
-/// 
-/// * similar to [log_probability_and_align](`crate::rewl::log_probability_and_align`)
-/// * Now, however, we have a slice called `ignore`. It should contain the indices 
-/// of all walkers, that should be ignored for the alignment and merging into the 
-/// final probability density function. The indices do not need to be sorted, though
-/// duplicates will be ignored and indices, which are out of bounds will also be ignored
-pub fn log_probability_and_align_ignore<Ensemble, R, Hist, Energy, S, Res>(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>], ignore: &[usize]
-) -> GluedResult<Hist>
-where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
-    Energy: PartialOrd
-{
-    if rewls.is_empty(){
-        return Err(HistErrors::EmptySlice);
-    }
-    let probs = probs(rewls);
-    let mut container = combine_container(rewls, &probs, false);
-    ignore_fn(&mut container, ignore);
-
-    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
-    merged_and_aligned(
-        container.iter()
-            .map(|c| c.1),
-        merge_points,
-        alignment,
-        log_prob,
-        e_hist
-    )
-}
 
 /// Helper to ignore specific intervals/walkers
 pub(crate) fn ignore_fn<T>(container: &mut Vec<T>, ignore: &[usize])
@@ -1010,25 +838,6 @@ fn merged_probs<Ensemble, R, Hist, Energy, S, Res>
             }
         ).collect();
     merged_probs
-}
-
-fn probs<Ensemble, R, Hist, Energy, S, Res>
-(
-    rewls: &[Rewl<Ensemble, R, Hist, Energy, S, Res>]
-) -> Vec<Vec<f64>>
-{
-    rewls.iter()
-        .flat_map(
-            |rewl| 
-            {
-                rewl.walkers()
-                    .iter()
-                    .map(
-                        |w|
-                            w.log_density().into()
-                    )
-           }
-        ).collect()
 }
 
 fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res>
