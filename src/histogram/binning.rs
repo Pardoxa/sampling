@@ -8,18 +8,18 @@ use std::borrow::Borrow;
 /// in the next breaking release such that one only has to implement Binning 
 /// and can create a histogram from that
 pub trait Binning<T>{
-    /// convert val to the respective binning indes
+    /// convert val to the respective binning index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Option<usize>;
 
-    /// Get the number of underlying bins
+    /// # Get the number of underlying bins
+    /// * note: if more than usize::MAX bins are there, usize::MAX is returned
     fn get_bin_len(&self) -> usize;
 
     /// # binning borders
     /// * the borders used to bin the values
-    /// * any val which fullfills `self.border[i] <= val < self.border[i + 1]` 
+    /// * any val which fulfills `self.border[i] <= val < self.border[i + 1]` 
     /// will get index `i`.
-    /// * **Note** that the last border is exclusive
-    /// TODO Think about this one
+    /// * **Note** that the last border is usually exclusive
     fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
 
     /// Does a value correspond to a valid bin?
@@ -31,8 +31,8 @@ pub trait Binning<T>{
     /// get the left most border (inclusive)
     fn first_border(&self) -> T;
 
-    /// * get second last border from the right
-    /// * should be the same as `let b = self.borders_clone().expect("overflow"); assert_eq!(self.second_last_border(), b[b.len()-2])`
+    /// * get last border from the right
+    /// * Note: this border might be inclusive or exclusive
     fn second_last_border(&self) -> T;
 
     /// # calculates some sort of absolute distance to the nearest valid bin
@@ -40,3 +40,6 @@ pub trait Binning<T>{
     /// * if a value corresponds to a valid bin, the distance should be zero
     fn distance<V: Borrow<T>>(&self, val: V) -> f64;
 }
+
+mod binning_int_fast;
+pub use binning_int_fast::*;

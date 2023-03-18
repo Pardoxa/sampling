@@ -202,11 +202,11 @@ impl<T> HistogramFast<T>
     }
 }
 
-struct HistFastIterHelper<T>
+pub(crate) struct HistFastIterHelper<T>
 {
-    current: T,
-    right: T,
-    invalid: bool,
+    pub(crate) current: T,
+    pub(crate) right: T,
+    pub(crate) invalid: bool,
 }
 
 impl<T> Iterator for HistFastIterHelper<T>

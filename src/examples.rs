@@ -5,7 +5,7 @@
 /// Lets assume we do n Coinflips and want to measure the probability for the number of times,
 /// this results in Head. This means, the number of times the coin flip returned head is the `energy`
 ///
-/// Of cause, for this example there is a analytic solution.
+/// Of course, for this example there is an analytic solution.
 /// 
 /// For the implementation of the coin flip sequence and Markov chain of it, please look in the [source code](../../../src/sampling/examples/coin_flips.rs.html)
 /// 
@@ -31,7 +31,7 @@
 /// // now the overlapping histograms for sampling
 /// // lets create 3 histograms. The parameter Overlap should be larger than 0. Normally, 1 is sufficient
 /// let hist_list = hist.overlapping_partition(interval_count, 1).unwrap();
-/// // alternativly you could also create the histograms in the desired interval. 
+/// // alternatively you could also create the histograms in the desired interval. 
 /// // Just make sure, that they overlap
 /// 
 /// // create rng to seed all other rngs
@@ -172,7 +172,7 @@
 /// // in this case, the max difference of the natural logarithms 
 /// // of the probabilities is smaller than 0.03
 /// assert!(max_ln_dif < 0.03);
-/// // and the max absolut difference is smaller than 0.0009
+/// // and the max absolute difference is smaller than 0.0009
 /// assert!(max_dif < 0.0009);
 /// 
 /// // But we can do better. Lets refine the results with entropic sampling
@@ -184,10 +184,10 @@
 /// 
 /// 
 /// // Now, while doing that, lets also create a heatmap.
-/// // Lets say, we want to see, how the number of times `Head` occured in the sequence 
+/// // Lets say, we want to see, how the number of times `Head` occurred in the sequence 
 /// // correlates to the maximum number of `Heads` in a row in that sequence.
 /// 
-/// // In this case, the heatmap is symetric and we already have a histogram of correct sice
+/// // In this case, the heatmap is symmetric and we already have a histogram of correct sice
 /// let mut heatmap = HeatmapU::new(
 ///     hist.clone(),
 ///     hist.clone()
@@ -265,7 +265,7 @@
 /// // lets normalize coloumwise
 /// // This way, the scale of our heatmap tells us the conditional probability
 /// // P(Number of heads in a rom | number of heads) of how many heads in a row were
-/// // part of that sequence given the total number of heads that occured in the sequence
+/// // part of that sequence given the total number of heads that occurred in the sequence
 /// let heatmap = heatmap.heatmap_normalized_columns();
 /// 
 /// // now create gnuplot file
@@ -490,11 +490,11 @@
 /// // Note: You can now change the sweep size and the step sizes for the different 
 /// // intervals independently.
 /// // Use the `rewl_builder.step_sizes_mut()` and `rewl_builder.sweep_sizes.mut()` respecively
-/// // The indice in the slices corresponds to the interval(index)
+/// // The indices in the slices corresponds to the interval(index)
 /// 
 /// // uses greedy heuristik to find valid starting point.
-/// // (fastest, if the ensembles are already at their respective vaild starting points)
-/// // Note: there are different heuristiks. You have to try them out to see, which works best for your problem
+/// // (fastest, if the ensembles are already at their respective valid starting points)
+/// // Note: there are different heuristics. You have to try them out to see, which works best for your problem
 /// let mut rewl = rewl_builder
 ///     .greedy_build(
 ///         |e| Some(e.head_count()) // energy function. It is a logical error to use a different energy function later on
@@ -549,7 +549,7 @@
 /// println!("max frac: {}", frac_difference_max);
 /// println!("min frac: {}", frac_difference_min);
 ///
-/// // at worst the simulated density overetimated the real result by under 1 %
+/// // at worst the simulated density overestimates the real result by under 1 %
 /// assert!((frac_difference_max - 1.0).abs() < 0.01);
 /// // and underestimated the result by under 1 %
 /// assert!((frac_difference_min - 1.0).abs() < 0.01);
