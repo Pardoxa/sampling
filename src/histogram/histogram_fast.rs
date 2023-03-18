@@ -31,6 +31,24 @@ pub struct HistogramFast<T> {
     hist: Vec<usize>,
 }
 
+impl<T> BinIter<T> for HistogramFast<T>
+where 
+T: PrimInt + HasUnsignedVersion + Copy,
+T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
+    + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+{
+    fn bin_type(&self) -> BinType {
+        BinType::SingleValued
+    }
+
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=[T;2]> + '_> {
+        let iter = self.bin_iter();
+        Box::new(
+            iter.map(|val| [val, val])
+        )
+    }
+}
+
 impl<T> HistogramFast<T>
 where T: Copy
 {

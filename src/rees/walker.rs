@@ -40,6 +40,19 @@ pub struct ReesWalker<R, Hist, Energy, S, Res>
     duration: Duration
 }
 
+impl<R, Hist, Energy, S, Res> GlueAble<Hist> for ReesWalker<R, Hist, Energy, S, Res>
+where Hist: Clone + Histogram
+{
+    fn glue_entry(&self) -> GlueEntry::<Hist> {
+        let prob = self.log_density_refined();
+        GlueEntry{
+            hist: self.hist.clone(),
+            log_base: LogBase::BaseE,
+            prob
+        }
+    }
+}
+
 impl<R, Hist, Energy, S, Res> From<RewlWalker<R, Hist, Energy, S, Res>> for ReesWalker<R, Hist, Energy, S, Res>
 where Hist: Histogram
 {

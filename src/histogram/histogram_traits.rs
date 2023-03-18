@@ -36,26 +36,45 @@ pub trait Histogram {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum BinType{
+    /// The bin can be defined via a single value
+    SingleValued,
+    /// the bin is defined by a left inclusive and a right exclusive border
+    InclusiveExclusive,
+    /// The bin is defined by a left exclusive and a left inclusive border
+    ExclusiveInclusive
+}
 
 
+pub trait BinIter<T> {
+    fn bin_type(&self) -> BinType;
+
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=[T;2]> + '_>;
+}
 
 /// * trait used for mapping values of arbitrary type `T` to bins
 /// * used to create a histogram
 pub trait HistogramVal<T>{
     /// convert val to the respective histogram index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
+    
     /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>;
+    
     /// # binning borders
     /// * the borders used to bin the values
-    /// * any val which fullfills `self.border[i] <= val < self.border[i + 1]` 
+    /// * any val which fulfills `self.border[i] <= val < self.border[i + 1]` 
     /// will get index `i`.
     /// * **Note** that the last border is exclusive
     fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
+    
     /// does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    
     /// opposite of `is_inside`
     fn not_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    
     /// get the left most border (inclusive)
     fn first_border(&self) -> T;
 

@@ -17,7 +17,7 @@ use serde::{Serialize, Deserialize};
 
 
 /// Result of glueing. See [Glued]
-pub type GluedResult<Hist> = Result<Glued<Hist>, HistErrors>;
+pub type GluedResult<Hist, Energy> = Result<Glued<Hist, Energy>, HistErrors>;
 
 /// # Efficient replica exchange Wang landau
 /// * use this to quickly build your own parallel replica exchange wang landau simulation
@@ -388,7 +388,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist>, HistErrors>
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist, Energy>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -408,7 +408,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
-    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist>, HistErrors>
+    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist, Energy>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();

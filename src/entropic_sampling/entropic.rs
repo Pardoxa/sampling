@@ -40,6 +40,18 @@ pub struct EntropicSampling<Hist, R, E, S, Res, Energy>
     old_bin: usize,
 }
 
+impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for EntropicSampling<Hist, R, E, S, Res, Energy>
+    where Hist: Clone + Histogram
+{
+    fn glue_entry(&self) -> GlueEntry::<Hist> {
+        GlueEntry{ 
+            hist: self.hist.clone(), 
+            prob: self.log_density_refined(), 
+            log_base: LogBase::BaseE
+        }
+    }
+}
+
 impl<Hist, R, E, S, Res, Energy> TryFrom<WangLandau1T<Hist, R, E, S, Res, Energy>>
     for EntropicSampling<Hist, R, E, S, Res, Energy>
     where 
@@ -178,28 +190,10 @@ impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
         &self.hist
     }
 }
+
 impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
-where Hist: Histogram,
-    R: Rng,
-    //E: MarkovChain<S, Res>
+where Hist: Histogram
 {
-
-    /// # Creates Entropic from a `WangLandauAdaptive` state
-    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
-    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
-    pub fn from_wl(wl: WangLandau1T<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
-    {
-        wl.try_into()
-    }
-
-        /// # Creates Entropic from a `WangLandauAdaptive` state
-    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
-    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
-    pub fn from_wl_adaptive(wl: WangLandauAdaptive<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
-    {
-        wl.try_into()
-    }
-
     /// calculates the (non normalized) log_density estimate log(P(E)) according to the [paper](#entropic-sampling-made-easy)
     pub fn log_density_refined(&self) -> Vec<f64> {
         let mut log_density = Vec::with_capacity(self.log_density.len());
@@ -220,7 +214,6 @@ where Hist: Histogram,
         );
         log_density
     }
-
 
     /// # Calculates `self.log_density_refined` and uses that as estimate for a the entropic sampling simulation
     /// * returns old estimate
@@ -262,6 +255,27 @@ where Hist: Histogram,
     {
         (self.log_density[self.old_bin] - self.log_density[new_bin])
                 .exp()
+    }
+}
+
+impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
+where Hist: Histogram,
+    R: Rng
+{
+    /// # Creates Entropic from a `WangLandauAdaptive` state
+    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
+    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
+    pub fn from_wl(wl: WangLandau1T<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
+    {
+        wl.try_into()
+    }
+
+        /// # Creates Entropic from a `WangLandauAdaptive` state
+    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
+    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
+    pub fn from_wl_adaptive(wl: WangLandauAdaptive<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
+    {
+        wl.try_into()
     }
 }
 

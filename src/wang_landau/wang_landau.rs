@@ -13,7 +13,7 @@ use serde::{Serialize, Deserialize};
 /// > “Fast algorithm to calculate density of states,”
 /// > Phys.&nbsp;Rev.&nbsp;E&nbsp;**75**: 046701 (2007), DOI&nbsp;[10.1103/PhysRevE.75.046701](https://doi.org/10.1103/PhysRevE.75.046701)
 /// 
-/// * The original Wang Landau algorithim comes from this paper
+/// * The original Wang Landau algorithm comes from this paper
 /// > F. Wang and D. P. Landau,
 /// > “Efficient, multiple-range random walk algorithm to calculate the density of states,” 
 /// > Phys.&nbsp;Rev.&nbsp;Lett.&nbsp;**86**, 2050–2053 (2001), DOI&nbsp;[10.1103/PhysRevLett.86.2050](https://doi.org/10.1103/PhysRevLett.86.2050)
@@ -38,6 +38,18 @@ pub struct WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>{
     pub(crate) hist: Hist,
     pub(crate) old_energy: Option<Energy>,
     check_refine_every: usize,
+}
+
+impl<Hist, Rng, Ensemble, S, Res, Energy> GlueAble<Hist> for WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>
+where Hist: Clone
+{
+    fn glue_entry(&self) -> GlueEntry::<Hist> {
+        GlueEntry{
+            hist: self.hist.clone(),
+            log_base: LogBase::BaseE,
+            prob: self.log_density.clone()
+        }
+    }
 }
 
 impl<Hist, Rng, Ensemble, S, Res, Energy>WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>

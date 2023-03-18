@@ -13,6 +13,8 @@ use {
     std::borrow::Borrow
 };
 
+use std::{marker::PhantomData, fmt::Display};
+
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
@@ -48,17 +50,18 @@ impl LogBase{
 /// # Result of the gluing
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct Glued<Hist>
+pub struct Glued<Hist, T>
 {
     /// Histogram that encapsulates that is 
     pub(crate) encapsulating_histogram: Hist,
     pub(crate) glued: Vec<f64>,
     pub(crate) aligned: Vec<Vec<f64>>,
     pub(crate) base: LogBase,
-    pub(crate) alignment: Vec<usize>
+    pub(crate) alignment: Vec<usize>,
+    pub(crate) marker: PhantomData<T>
 }
 
-impl<Hist> Glued<Hist>
+impl<Hist, T> Glued<Hist, T>
 {
     /// Create a new `Glued<Hist>` instance without checking anything
     pub fn new_unchecked(
@@ -74,7 +77,8 @@ impl<Hist> Glued<Hist>
             aligned,
             base,
             glued,
-            encapsulating_histogram
+            encapsulating_histogram,
+            marker: PhantomData
         }
     }
 
@@ -128,10 +132,9 @@ impl<Hist> Glued<Hist>
 
 }
 
-impl<T> Glued<HistogramFast<T>>
-where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
-    T::Unsigned: num_traits::Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-    + num_traits::WrappingAdd + num_traits::ToPrimitive + std::ops::Sub<Output=T::Unsigned>
+impl<H, T> Glued<H, T>
+where H: HistogramCombine + BinIter<T>,
+    T: Display
 {
     /// # Write the Glued in a human readable format
     /// * You probably want to use this ;)
@@ -144,8 +147,12 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
 
         for (&log_prob, bin) in self.glued
             .iter()
-            .zip(self.encapsulating_histogram.bin_iter())
+            .zip(self.encapsulating_histogram.display_bin_iter())
         {
+            let bin = match self.encapsulating_histogram.bin_type() {
+                BinType::SingleValued => format!("{}", bin[0]),
+                _ => format!("{} {}", bin[0], bin[1])
+            };
             write!(writer, "{} {:e}", bin, log_prob)?;
             for (i, counter) in alinment_helper.iter_mut().enumerate()
             {
@@ -164,9 +171,7 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         }
         Ok(())
     }
-}
-impl<T> Glued<HistogramFast<T>>
-{
+
     fn alignment_helper(&self) -> Vec<isize>
     {
         let mut alinment_helper: Vec<_> = std::iter::once(0)
@@ -241,7 +246,8 @@ impl<T> Glued<HistogramFast<T>>
         }
         Ok(())
     }
-} 
+}
+
 
 pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -> Vec<usize>
 {
@@ -283,11 +289,11 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
 /// This uses a derivative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
 /// 
 /// The [Glued] allows you to easily write the probability density function to a file
-pub fn derivative_merged_and_aligned<H, Hist>(
+pub fn derivative_merged_and_aligned<H, Hist, T>(
     mut log_prob: Vec<Vec<f64>>,
     hists: &[H],
     log_base: LogBase
-) -> Result<Glued<Hist>, HistErrors>
+) -> Result<Glued<Hist, T>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
 {
@@ -453,11 +459,11 @@ pub(crate) fn norm_log10_prob(log10_prob: &mut[f64]) -> f64
 /// the probability densities by averaging in the logarithmic space
 /// 
 /// The [Glued] allows you to easily write the probability density function to a file
-pub fn average_merged_and_aligned<Hist, H>(
+pub fn average_merged_and_aligned<Hist, H, T>(
     mut log_prob: Vec<Vec<f64>>,
     hists: &[H],
     log_base: LogBase
-) -> Result<Glued<Hist>, HistErrors>
+) -> Result<Glued<Hist, T>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
 {
@@ -489,7 +495,8 @@ where Hist: HistogramCombine + Histogram,
                 encapsulating_histogram: e_hist,
                 aligned: log_prob,
                 glued,
-                alignment
+                alignment,
+                marker: PhantomData
             }
         );
     }
@@ -521,7 +528,8 @@ where Hist: HistogramCombine + Histogram,
             encapsulating_histogram: e_hist,
             aligned: aligned_intervals,
             glued: glued_log_density,
-            alignment
+            alignment,
+            marker: PhantomData
         }
     )
 }

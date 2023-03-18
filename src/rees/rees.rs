@@ -744,7 +744,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals
-    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist>, HistErrors>
+    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist, Energy>, HistErrors>
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
@@ -771,7 +771,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals
-    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist>, HistErrors>
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist, Energy>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();

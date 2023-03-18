@@ -12,28 +12,14 @@ use super::{
     LogBase
 };
 
-pub trait GlueAble<H>
-where H: Clone{
-    fn get_hist(&self) -> &H;
-
-    fn get_prob(&self) -> &[f64];
-
-    fn get_log_base(&self) -> LogBase;
-
-    fn glue_entry(&'_ self) -> GlueEntry::<H>
-    {
-        GlueEntry { 
-            hist: self.get_hist().clone(), 
-            prob: self.get_prob().to_vec(),
-            log_base: self.get_log_base()
-        }
-    }
+pub trait GlueAble<H>{
+    fn glue_entry(&self) -> GlueEntry::<H>;
 }
 
 pub struct GlueEntry<H>{
-    hist: H,
-    prob: Vec<f64>,
-    log_base: LogBase
+    pub(crate) hist: H,
+    pub(crate) prob: Vec<f64>,
+    pub(crate) log_base: LogBase
 }
 
 impl<H> Borrow<H> for GlueEntry<H>
@@ -119,7 +105,7 @@ impl<H> GlueJob<H>
     /// the probability densities by averaging in the logarithmic space
     /// 
     /// The [Glued] allows you to easily write the probability density function to a file
-    pub fn average_merged_and_aligned<T>(&mut self) -> Result<Glued<H>, HistErrors>
+    pub fn average_merged_and_aligned<T>(&mut self) -> Result<Glued<H, T>, HistErrors>
     where H: Histogram + HistogramCombine + HistogramVal<T>,
         T: PartialOrd{
 
@@ -136,7 +122,7 @@ impl<H> GlueJob<H>
     /// This uses a derivative merge
     /// 
     /// The [Glued] allows you to easily write the probability density function to a file
-    pub fn derivative_glue_and_align<T>(&mut self) -> Result<Glued<H>, HistErrors>
+    pub fn derivative_glue_and_align<T>(&mut self) -> Result<Glued<H, T>, HistErrors>
     where H: Histogram + HistogramCombine + HistogramVal<T>,
         T: PartialOrd{
 
@@ -222,16 +208,12 @@ mod tests{
     
     impl GlueAble<HistI64Fast> for TestGlueable
     {
-        fn get_hist(&self) -> &HistI64Fast {
-            &self.hist
-        }
-    
-        fn get_log_base(&self) -> LogBase {
-            LogBase::Base10
-        }
-    
-        fn get_prob(&self) -> &[f64] {
-            &self.prob
+        fn glue_entry(&self) -> GlueEntry::<HistI64Fast> {
+            GlueEntry { 
+                hist: self.hist.clone(), 
+                prob: self.prob.clone(), 
+                log_base: LogBase::Base10
+            }
         }
     }
 

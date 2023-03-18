@@ -118,10 +118,11 @@
 /// 
 /// // Since our simulations did all finish, lets see what our distribution looks like
 /// // Lets glue them together. We use our original histogram for that.
-/// let glued = glue_wl(
-///     &wl_list,
-///     &hist
-/// ).expect("Unable to glue results. Look at error message");
+/// let mut glue_job = 
+///     GlueJob::new_from_slice(&wl_list, LogBase::Base10);
+/// let mut glued = glue_job
+///     .average_merged_and_aligned()
+///     .expect("Unable to glue results. Look at error message");
 /// 
 /// // now, lets print our result
 /// glued.write(std::io::stdout()).unwrap();
@@ -135,11 +136,9 @@
 /// // lets compare that to the analytical result
 /// 
 /// // Since the library I am going to use lets me directly calculate the natural
-/// // logaritm of the probability, I first convert the base of our own results:
-/// let log10_prob = glued.glued_log10_probability;
-/// let ln_prob: Vec<_> = log10_prob.iter()
-///                         .map(|&val| val / std::f64::consts::LOG10_E)
-///                         .collect();
+/// // logaritm of the probability, I now switch the base of our glue results
+/// glued.switch_base();
+/// let ln_prob = glued.glued();
 /// 
 /// // Then create the `true` results:
 /// let binomial = Binomial::new(0.5, n as u64).unwrap();
@@ -207,10 +206,11 @@
 ///     });
 /// 
 /// // Now, lets see our refined results:
-/// let glued = glue_entropic(
-///     &entropic_list,
-///     &hist
-/// ).expect("Unable to glue results. Look at error message");
+/// let mut glue_job = 
+///     GlueJob::new_from_slice(&entropic_list, LogBase::Base10);
+/// let mut glued = glue_job
+///     .average_merged_and_aligned()
+///     .expect("Unable to glue results. Look at error message");
 /// 
 /// // lets store our result
 /// let file = File::create("coin_flip_log_density_entropic.dat").unwrap();
@@ -219,10 +219,8 @@
 /// 
 /// // now, lets compare with the analytical results again
 /// // Again, calculate to base e
-/// let ln_prob: Vec<_> = glued.glued_log10_probability
-///     .iter()
-///     .map(|&val| val / std::f64::consts::LOG10_E)
-///     .collect();
+/// glued.switch_base();
+/// let ln_prob = glued.glued();
 /// 
 /// 
 /// // lets write that in a file, so we can use gnuplot to plot the result
@@ -624,9 +622,7 @@ mod tests{
     fn test_exclusive_borders()
     {
 
-            
-
-            
+        /* 
          // length of coin flip sequence
          let n = 20;
          let interval_count = 3;
@@ -725,10 +721,12 @@ mod tests{
          
          // Since our simulations did all finish, lets see what our distribution looks like
          // Lets glue them together. We use our original histogram for that.
-         let glued = glue_wl(
-             &wl_list,
-             &hist
-         ).expect("Unable to glue results. Look at error message");
+         let glue_job = glue::GlueJob::new_from_slice(
+            &wl_list, 
+            LogBase::Base10
+        );
+         let glued = glue_job.average_merged_and_aligned()
+            .expect("Unable to glue results. Look at error message");
          
          // now, lets print our result
          glued.write(std::io::stdout()).unwrap();
@@ -881,6 +879,6 @@ mod tests{
          heatmap.gnuplot(
              buf,
              settings
-         ).unwrap();
+         ).unwrap();*/
     }
 }

@@ -64,6 +64,17 @@ pub struct WangLandauAdaptive<Hist, R, E, S, Res, Energy>
     pub(crate) check_refine_every: usize,
 }
 
+impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for WangLandauAdaptive<Hist, R, E, S, Res, Energy>
+    where Hist: Clone
+{
+    fn glue_entry(&self) -> GlueEntry::<Hist> {
+        GlueEntry{ 
+            hist: self.hist().clone(), 
+            prob: self.log_density.clone(),
+            log_base: LogBase::BaseE
+        }
+    }
+}
 
 impl<R, E, S, Res, Hist, Energy> WangLandau for WangLandauAdaptive<Hist, R, E, S, Res, Energy>
 {
