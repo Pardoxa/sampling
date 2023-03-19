@@ -211,6 +211,8 @@
 /// let mut glued = glue_job
 ///     .average_merged_and_aligned()
 ///     .expect("Unable to glue results. Look at error message");
+/// // to also write Statistics of the simulation as comments
+/// glued.set_stat_write_verbosity(GlueWriteVerbosity::IntervalStatsAndAccumulatedStats);
 /// 
 /// // lets store our result
 /// let file = File::create("coin_flip_log_density_entropic.dat").unwrap();

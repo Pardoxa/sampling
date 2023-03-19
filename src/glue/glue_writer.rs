@@ -18,13 +18,60 @@ use std::{marker::PhantomData, fmt::Display};
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
-use crate::IntervalSimStats;
+use crate::{IntervalSimStats, AccumulatedIntervalStats};
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GlueStats{
     pub interval_stats: Vec<IntervalSimStats>,
     pub roundtrips: Vec<usize>
+}
+
+impl GlueStats{
+    /// # Write the Glued Stats in a human readable way
+    /// * This is the verbose form
+    /// * every line this writes will be starting with '#', to mark it as comment for 
+    /// gnuplot and co.
+    pub fn write_verbose<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
+    {
+        if !self.interval_stats.is_empty()
+        {
+            writeln!(writer, "#Interval Stats")?;
+
+            for (index, interval) in self.interval_stats.iter().enumerate()
+            {
+                writeln!(writer, "#Stats for Interval {index}")?;
+                interval.write(&mut writer)?;
+                writeln!(writer, "#")?;
+            }
+        }
+
+        if !self.roundtrips.is_empty(){
+            let mut min_roundtrips = usize::MAX;
+            write!(writer, "#Roundtrips (higher is better):")?;
+            for &r in self.roundtrips.iter()
+            {
+                min_roundtrips = min_roundtrips.min(r);
+                write!(writer, " {r}")?;
+            }
+            writeln!(writer)?;
+            writeln!(writer, "#Minimum of performed Roundtrips {min_roundtrips}")?;
+        }
+        Ok(())
+    }
+
+    pub fn write_accumulated<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>{
+        if !self.interval_stats.is_empty(){
+            let acc = AccumulatedIntervalStats::generate_stats(&self.interval_stats);
+            acc.write(&mut writer)?;
+        }
+        if !self.roundtrips.is_empty(){
+            let min_roundtrips = self.roundtrips.iter().min().unwrap();
+            writeln!(writer)?;
+            writeln!(writer, "#Minimum of performed Roundtrips {min_roundtrips}")?;
+        }
+        Ok(())
+    }
 }
 
 /// # Which LogBase is being used/should be used?
@@ -55,6 +102,16 @@ impl LogBase{
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub enum GlueWriteVerbosity
+{
+    NoStats,
+    AccumulatedStats,
+    IntervalStats,
+    IntervalStatsAndAccumulatedStats
+}
+
 /// # Result of the gluing
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
@@ -67,7 +124,8 @@ pub struct Glued<Hist, T>
     pub(crate) base: LogBase,
     pub(crate) alignment: Vec<usize>,
     pub(crate) marker: PhantomData<T>,
-    pub(crate) stats: Option<GlueStats>
+    pub(crate) stats: Option<GlueStats>,
+    pub(crate) write_verbosity: GlueWriteVerbosity
 }
 
 impl<Hist, T> Glued<Hist, T>
@@ -89,10 +147,21 @@ impl<Hist, T> Glued<Hist, T>
             glued,
             encapsulating_histogram,
             marker: PhantomData,
-            stats
+            stats,
+            write_verbosity: GlueWriteVerbosity::NoStats
         }
     }
 
+    /// # Set the verbosity
+    /// * this decides on how and how many Statistics will be written by the write functions
+    pub fn set_stat_write_verbosity(&mut self, verbosity: GlueWriteVerbosity)
+    {
+        self.write_verbosity = verbosity;
+    }
+
+    /// # Set stats
+    /// * Set [GlueStats] - depending on the verbosity, which you can set via set_stat_write_verbosity
+    /// these stats will be written on the write commands 
     pub fn set_stats(&mut self, stats: GlueStats)
     {
         self.stats = Some(stats);
@@ -156,8 +225,20 @@ where H: HistogramCombine + BinIter<T>,
     /// * You probably want to use this ;)
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
-        writeln!(writer, "#bin log_merged log_interval0 …")?;
+        match self.encapsulating_histogram.bin_type()
+        {
+            BinType::SingleValued => {
+                writeln!(writer, "#bin log_merged log_interval0 …")?;
+            },
+            BinType::ExclusiveInclusive => {
+                writeln!(writer, "#bin_border_exclusive bin_border_inclusive log_merged log_interval0 …")?;
+            },
+            BinType::InclusiveExclusive => {
+                writeln!(writer, "#bin_border_inclusive bin_border_exclusive log_merged log_interval0 …")?;
+            }
+        }
         writeln!(writer, "#log: {:?}", self.base)?;
+        self.write_stats(&mut writer)?;
 
         let mut alinment_helper = self.alignment_helper();
 
@@ -209,6 +290,32 @@ where H: HistogramCombine + BinIter<T>,
         alinment_helper
     }
 
+    fn write_stats<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
+    {
+        if let Some(stats) = self.stats.as_ref()
+        {
+            match self.write_verbosity
+            {
+                GlueWriteVerbosity::NoStats => {
+                    Ok(())
+                },
+                GlueWriteVerbosity::AccumulatedStats => {
+                    stats.write_accumulated(writer)
+                },
+                GlueWriteVerbosity::IntervalStats => {
+                    stats.write_verbose(writer)
+                },
+                GlueWriteVerbosity::IntervalStatsAndAccumulatedStats => {
+                    stats.write_verbose(&mut writer)?;
+                    stats.write_accumulated(writer)
+                }
+            }
+        } else {
+            Ok(())
+        }
+        
+    }
+
     /// # Write the normalized probability density function
     /// The function will be normalized by using the binsize 
     /// you specify (uniform binsize is assumed).
@@ -224,7 +331,7 @@ where H: HistogramCombine + BinIter<T>,
     {
         writeln!(writer, "#bin log_merged log_interval0 …")?;
         writeln!(writer, "#log: {:?}", self.base)?;
-
+        self.write_stats(&mut writer)?;
         let bin_size_recip = bin_size.recip();
 
         let rescale = match self.base {
@@ -515,7 +622,8 @@ where Hist: HistogramCombine + Histogram,
                 glued,
                 alignment,
                 marker: PhantomData,
-                stats: None
+                stats: None,
+                write_verbosity: GlueWriteVerbosity::NoStats
             }
         );
     }
@@ -549,7 +657,8 @@ where Hist: HistogramCombine + Histogram,
             glued: glued_log_density,
             alignment,
             marker: PhantomData,
-            stats: None
+            stats: None,
+            write_verbosity: GlueWriteVerbosity::NoStats
         }
     )
 }
