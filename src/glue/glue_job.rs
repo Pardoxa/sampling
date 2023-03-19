@@ -141,8 +141,6 @@ impl AccumulatedIntervalStats{
                 writeln!(writer, "#rate of accepting replica exchanges: {rate}")?;
             }
         }
-
-
         Ok(())
     }
 

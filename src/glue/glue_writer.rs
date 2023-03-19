@@ -67,7 +67,6 @@ impl GlueStats{
         }
         if !self.roundtrips.is_empty(){
             let min_roundtrips = self.roundtrips.iter().min().unwrap();
-            writeln!(writer)?;
             writeln!(writer, "#Minimum of performed Roundtrips {min_roundtrips}")?;
         }
         Ok(())
@@ -154,6 +153,7 @@ impl<Hist, T> Glued<Hist, T>
 
     /// # Set the verbosity
     /// * this decides on how and how many Statistics will be written by the write functions
+    /// * The default is `GlueWriteVerbosity::NoStats`
     pub fn set_stat_write_verbosity(&mut self, verbosity: GlueWriteVerbosity)
     {
         self.write_verbosity = verbosity;
@@ -228,15 +228,21 @@ where H: HistogramCombine + BinIter<T>,
         match self.encapsulating_histogram.bin_type()
         {
             BinType::SingleValued => {
-                writeln!(writer, "#bin log_merged log_interval0 …")?;
+                write!(writer, "#bin log_merged")?;
             },
             BinType::ExclusiveInclusive => {
-                writeln!(writer, "#bin_border_exclusive bin_border_inclusive log_merged log_interval0 …")?;
+                write!(writer, "#bin_border_exclusive bin_border_inclusive log_merged")?;
             },
             BinType::InclusiveExclusive => {
-                writeln!(writer, "#bin_border_inclusive bin_border_exclusive log_merged log_interval0 …")?;
+                write!(writer, "#bin_border_inclusive bin_border_exclusive log_merged")?;
             }
         }
+        for i in 0..self.aligned.len()
+        {
+            write!(writer, " interval_{i}")?;
+        }
+        writeln!(writer)?;
+
         writeln!(writer, "#log: {:?}", self.base)?;
         self.write_stats(&mut writer)?;
 
@@ -329,7 +335,12 @@ where H: HistogramCombine + BinIter<T>,
         starting_point: f64
     ) -> std::io::Result<()>
     {
-        writeln!(writer, "#bin log_merged log_interval0 …")?;
+        write!(writer, "#bin log_merged")?;
+        for i in 0..self.aligned.len()
+        {
+            write!(writer, " interval_{i}")?;
+        }
+        writeln!(writer)?;
         writeln!(writer, "#log: {:?}", self.base)?;
         self.write_stats(&mut writer)?;
         let bin_size_recip = bin_size.recip();
