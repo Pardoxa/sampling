@@ -34,6 +34,83 @@ pub struct ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, 
     pub(crate) rees_last_extreme_interval_visited: Vec<ExtremeInterval>
 }
 
+impl<Extra, Ensemble, R, Hist, Energy, S, Res> GlueAble<Hist> for ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>
+where Hist: Clone + Histogram
+{
+
+    fn push_glue_entry_ignoring(
+        &self, 
+        job: &mut GlueJob<Hist>,
+        ignore_idx: &[usize]
+    ) {
+
+        job.round_trips
+            .extend(self.rees_roundtrip_iter());
+
+        let (hists, probs) = self.get_log_prob_and_hists();
+
+        self.walker
+            .chunks(self.chunk_size.get())
+            .zip(hists)
+            .zip(probs)
+            .enumerate()
+            .filter_map(|(index, ((walker, hist), prob))|
+                {
+                    if ignore_idx.contains(&index){
+                        None
+                    } else {
+                        Some(((walker, hist), prob))
+                    }
+                }
+            )
+            .for_each(
+                |((walker, hist), prob)|
+                {
+                    let mut missing_steps = 0;
+                    let mut accepted = 0;
+                    let mut rejected = 0;
+                    let mut replica_exchanges = 0;
+                    let mut proposed_replica_exchanges = 0;
+                    for w in walker{
+                        
+                        if !w.is_finished(){
+                            let missing = w.step_threshold() - w.step_count();
+                            if missing > missing_steps{
+                                missing_steps = missing;
+                            }
+                        }
+
+                        let r = w.rejected_markov_steps();
+                        let a = w.step_count() - r;
+                        rejected += r;
+                        accepted += a;
+                        replica_exchanges += w.replica_exchanges();
+                        proposed_replica_exchanges += w.proposed_replica_exchanges();
+                    }
+
+                    let stats = IntervalSimStats{
+                        sim_progress: SimProgress::MissingSteps(missing_steps),
+                        interval_sim_type: SimulationType::REES,
+                        rejected_steps: rejected,
+                        accepted_steps: accepted,
+                        replica_exchanges: Some(replica_exchanges),
+                        proposed_replica_exchanges: Some(proposed_replica_exchanges),
+                        merged_over_walkers: self.chunk_size
+                    };
+
+                    job.collection.push(
+                        GlueEntry{ 
+                            hist: hist.clone(), 
+                            prob, 
+                            log_base: LogBase::BaseE, 
+                            interval_stats: stats
+                        }
+                    );
+                }
+            )
+    }
+}
+
 /// # Short for [ReplicaExchangeEntropicSampling]
 pub type Rees<Extra, Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>;
 

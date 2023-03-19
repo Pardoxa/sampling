@@ -58,6 +58,79 @@ pub struct ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>{
     pub(crate) last_extreme_interval_visited: Vec<ExtremeInterval>
 }
 
+impl<Ensemble, R, Hist, Energy, S, Res> GlueAble<Hist> for ReplicaExchangeWangLandau<Ensemble, R, Hist, Energy, S, Res>
+where Hist: Clone
+{
+
+    fn push_glue_entry_ignoring(
+        &self, 
+        job: &mut GlueJob<Hist>,
+        ignore_idx: &[usize]
+    ) {
+
+        job.round_trips
+            .extend(self.roundtrip_iter());
+
+        let (hists, probs) = self.get_log_prob_and_hists();
+
+        self.walker
+            .chunks(self.chunk_size.get())
+            .zip(hists)
+            .zip(probs)
+            .enumerate()
+            .filter_map(|(index, ((walker, hist), prob))|
+                {
+                    if ignore_idx.contains(&index){
+                        None
+                    } else {
+                        Some(((walker, hist), prob))
+                    }
+                }
+            )
+            .for_each(
+                |((walker, hist), prob)|
+                {
+                    let mut progress = f64::NEG_INFINITY;
+                    let mut accepted = 0;
+                    let mut rejected = 0;
+                    let mut replica_exchanges = 0_u64;
+                    let mut proposed_replica_exchanges = 0;
+                    for w in walker{
+                        let log_f = w.log_f();
+                        if log_f > progress {
+                            progress = log_f;
+                        }
+                        let r = w.rejected_markov_steps();
+                        let a = w.step_count() - r;
+                        rejected += r;
+                        accepted += a;
+                        replica_exchanges += w.replica_exchanges() as u64;
+                        proposed_replica_exchanges += w.proposed_replica_exchanges();
+                    }
+
+                    let stats = IntervalSimStats{
+                        sim_progress: SimProgress::LogF(progress),
+                        interval_sim_type: SimulationType::REWL,
+                        rejected_steps: rejected,
+                        accepted_steps: accepted,
+                        replica_exchanges: Some(replica_exchanges),
+                        proposed_replica_exchanges: Some(proposed_replica_exchanges),
+                        merged_over_walkers: self.chunk_size
+                    };
+
+                    job.collection.push(
+                        GlueEntry{ 
+                            hist: hist.clone(), 
+                            prob, 
+                            log_base: LogBase::BaseE, 
+                            interval_stats: stats
+                        }
+                    );
+                }
+            )
+    }
+}
+
 /// # Enum used internally
 /// It will save if the corresponding interval is the leftest one, the rightes one
 /// or none of that

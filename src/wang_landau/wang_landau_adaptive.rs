@@ -67,11 +67,34 @@ pub struct WangLandauAdaptive<Hist, R, E, S, Res, Energy>
 impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for WangLandauAdaptive<Hist, R, E, S, Res, Energy>
     where Hist: Clone
 {
-    fn glue_entry(&self) -> GlueEntry::<Hist> {
-        GlueEntry{ 
-            hist: self.hist().clone(), 
-            prob: self.log_density.clone(),
-            log_base: LogBase::BaseE
+    fn push_glue_entry_ignoring(
+            &self, 
+            job: &mut GlueJob<Hist>,
+            ignore_idx: &[usize]
+        ) {
+        if !ignore_idx.contains(&0)
+        {
+            let sim_progress = SimProgress::LogF(self.log_f);
+            let rejected = self.total_steps_rejected() as u64;
+            let accepted = self.total_steps_accepted() as u64;
+
+            let stats = IntervalSimStats{
+                sim_progress,
+                interval_sim_type: SimulationType::WangLandau1TAdaptive,
+                rejected_steps: rejected,
+                accepted_steps: accepted,
+                replica_exchanges: None,
+                proposed_replica_exchanges: None,
+                merged_over_walkers: NonZeroUsize::new(1).unwrap()
+            };
+
+            let glue_entry = GlueEntry{
+                hist: self.histogram.clone(),
+                prob: self.log_density.clone(),
+                log_base: LogBase::BaseE,
+                interval_stats: stats
+            };
+            job.collection.push(glue_entry);
         }
     }
 }

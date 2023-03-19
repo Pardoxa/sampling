@@ -6,7 +6,8 @@ use{
         marker::PhantomData,
         io::Write,
         iter::*,
-        convert::*
+        convert::*,
+        num::*
     }
 };
 
@@ -43,11 +44,38 @@ pub struct EntropicSampling<Hist, R, E, S, Res, Energy>
 impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for EntropicSampling<Hist, R, E, S, Res, Energy>
     where Hist: Clone + Histogram
 {
-    fn glue_entry(&self) -> GlueEntry::<Hist> {
-        GlueEntry{ 
-            hist: self.hist.clone(), 
-            prob: self.log_density_refined(), 
-            log_base: LogBase::BaseE
+    fn push_glue_entry_ignoring(
+            &self, 
+            job: &mut GlueJob<Hist>,
+            ignore_idx: &[usize]
+        ) {
+        if !ignore_idx.contains(&0)
+        {
+            let mut missing_steps = 0;
+            if self.step_count >= self.step_goal
+            {
+                missing_steps = (self.step_goal - self.step_count) as u64;
+            }
+            let rejected = self.total_steps_rejected as u64;
+            let accepted = self.total_steps_accepted as u64;
+
+            let stats = IntervalSimStats{
+                sim_progress: SimProgress::MissingSteps(missing_steps),
+                interval_sim_type: SimulationType::Entropic,
+                rejected_steps: rejected,
+                accepted_steps: accepted,
+                replica_exchanges: None,
+                proposed_replica_exchanges: None,
+                merged_over_walkers: NonZeroUsize::new(1).unwrap()
+            };
+
+            let glue_entry = GlueEntry{
+                hist: self.hist.clone(),
+                prob: self.log_density_refined(),
+                log_base: LogBase::BaseE,
+                interval_stats: stats
+            };
+            job.collection.push(glue_entry);
         }
     }
 }

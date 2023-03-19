@@ -1,8 +1,6 @@
 
-use std::borrow::Borrow;
-
+use std::{borrow::Borrow, num::NonZeroUsize};
 use crate::histogram::*;
-
 use super::{
     replica_glued::*,
     glue_helper::{
@@ -12,14 +10,74 @@ use super::{
     LogBase
 };
 
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
+
 pub trait GlueAble<H>{
-    fn glue_entry(&self) -> GlueEntry::<H>;
+    fn push_glue_entry(&self, job: &mut GlueJob<H>)
+    {
+        self.push_glue_entry_ignoring(job, &[])
+    }
+
+    fn push_glue_entry_ignoring(
+        &self, 
+        job: &mut GlueJob<H>,
+        ignore_idx: &[usize]
+    );
 }
 
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub enum SimulationType{
+    WangLandau1T = 0,
+    WangLandau1TAdaptive = 1,
+    Entropic = 2,
+    EntropicAdaptive = 3,
+    REWL = 4,
+    REES = 5,
+    Unknown = 6
+}
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub enum SimProgress{
+    LogF(f64),
+    MissingSteps(u64),
+    Unknown
+}
+
+/// Statistics of one interval, used to gauge how well
+/// the simulation works etc.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct IntervalSimStats{
+    /// the progress of the Interval
+    pub sim_progress: SimProgress,
+    /// Which type of simulation did the interval come from
+    pub interval_sim_type: SimulationType,
+    /// How many steps were rejected in total in the interval
+    pub rejected_steps: u64,
+    /// How many steps were accepted in total in the interval
+    pub accepted_steps: u64,
+    /// How many replica exchanges were performed?
+    /// None for Simulations that don't do replica exchanges
+    pub replica_exchanges: Option<u64>,
+    /// How many replica exchanges were proposed?
+    /// None for simulations that do not perform replica exchanges
+    pub proposed_replica_exchanges: Option<u64>,
+    /// The number of walkers used to generate this sim.
+    /// In Replica exchange sims you can have more than one walker 
+    /// per interval, which is where this comes from
+    pub merged_over_walkers: NonZeroUsize
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GlueEntry<H>{
-    pub(crate) hist: H,
-    pub(crate) prob: Vec<f64>,
-    pub(crate) log_base: LogBase
+    pub hist: H,
+    pub prob: Vec<f64>,
+    pub log_base: LogBase,
+    pub interval_stats: IntervalSimStats
 }
 
 impl<H> Borrow<H> for GlueEntry<H>
@@ -31,10 +89,13 @@ impl<H> Borrow<H> for GlueEntry<H>
 
 /// # Used to merge probability densities from WL, REWL, Entropic or REES simulations
 /// * You can also mix those methods and still glue them
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GlueJob<H>
 {
-    collection: Vec<GlueEntry<H>>,
-    desired_logbase: LogBase
+    pub collection: Vec<GlueEntry<H>>,
+    pub round_trips: Vec<usize>,
+    pub desired_logbase: LogBase
 }
 
 impl<H> GlueJob<H>
@@ -46,10 +107,14 @@ impl<H> GlueJob<H>
     ) -> Self
     where B: GlueAble<H>
     {
-        Self { 
-            collection: vec![to_glue.glue_entry()],
+        let mut job = Self { 
+            collection: Vec::new(),
+            round_trips: Vec::new(),
             desired_logbase
-        }
+        };
+
+        to_glue.push_glue_entry(&mut job);
+        job
     }
 
     pub fn new_from_slice<B>(to_glue: &[B], desired_logbase: LogBase) -> Self
@@ -65,22 +130,14 @@ impl<H> GlueJob<H>
     where B: GlueAble<H> + 'a,
     I: Iterator<Item=&'a B> 
     {
-        let collection = to_glue
-            .map(GlueAble::glue_entry)
-            .collect();
-        Self{
-            collection,
+        let mut job = Self { 
+            collection: Vec::new(),
+            round_trips: Vec::new(),
             desired_logbase
-        }
-    }
+        };
 
-    pub fn add<B>(&mut self, to_glue: &B)
-    where B: GlueAble<H>
-    {
-        self.collection
-            .push(
-                to_glue.glue_entry()
-            )
+        job.add_iter(to_glue);
+        job
     }
 
     pub fn add_slice<B>(&mut self, to_glue: &[B])
@@ -93,10 +150,9 @@ impl<H> GlueJob<H>
     where B: GlueAble<H> + 'a,
         I: Iterator<Item=&'a B> 
     {
-        self.collection
-            .extend(
-                to_glue.map(|e| e.glue_entry())
-            );
+        for entry in to_glue {
+            entry.push_glue_entry(self);
+        }
     }
 
     /// # Calculate the probability density function from overlapping intervals
@@ -193,36 +249,5 @@ impl<H> GlueJob<H>
                 }
             }
         }
-    }
-}
-
-
-
-#[cfg(test)]
-mod tests{
-    use super::*;
-    pub struct TestGlueable {
-        pub hist: HistI64Fast,
-        pub prob: Vec<f64>
-    }
-    
-    impl GlueAble<HistI64Fast> for TestGlueable
-    {
-        fn glue_entry(&self) -> GlueEntry::<HistI64Fast> {
-            GlueEntry { 
-                hist: self.hist.clone(), 
-                prob: self.prob.clone(), 
-                log_base: LogBase::Base10
-            }
-        }
-    }
-
-    #[test]
-    fn glue_test()
-    {
-        let gl = TestGlueable{
-            hist: HistI64Fast::new_inclusive(1, 10).unwrap(),
-            prob: vec![0.0;10]
-        };
     }
 }

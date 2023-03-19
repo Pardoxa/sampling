@@ -86,21 +86,6 @@ pub struct RewlWalker<R, Hist, Energy, S, Res>
     pub(crate) sweep_stats: SweepStats,
 }
 
-impl<R, Hist, Energy, S, Res> GlueAble<Hist> for RewlWalker<R, Hist, Energy, S, Res>
-where Hist: Clone
-{
-
-    fn glue_entry(&'_ self) -> GlueEntry::<Hist> {
-        
-        GlueEntry { 
-            hist: self.hist().clone(), 
-            prob: self.log_density.clone(),
-            log_base: LogBase::BaseE
-        }
-        
-    }
-}
-
 impl<R, Hist, Energy, S, Res> RewlWalker<R, Hist, Energy, S, Res>{
     /// # Returns id of walker
     /// * important for mapping the ensemble to the walker
