@@ -2,7 +2,7 @@
 use std::{borrow::Borrow, num::NonZeroUsize};
 use crate::histogram::*;
 use super::{
-    replica_glued::*,
+    glue::*,
     glue_helper::{
         ln_to_log10,
         log10_to_ln
@@ -155,6 +155,19 @@ impl<H> GlueJob<H>
         }
     }
 
+    pub fn get_stats(&self) -> GlueStats
+    {
+        let interval_stats = self
+            .collection
+            .iter()
+            .map(|e| e.interval_stats.clone())
+            .collect();
+        GlueStats{
+            interval_stats,
+            roundtrips: self.round_trips.clone()
+        }
+    }
+
     /// # Calculate the probability density function from overlapping intervals
     /// 
     /// This uses a average merge, which first align all intervals and then merges 
@@ -166,11 +179,14 @@ impl<H> GlueJob<H>
         T: PartialOrd{
 
         let log_prob = self.prepare_for_merge()?;
-        average_merged_and_aligned(
+        let mut res = average_merged_and_aligned(
             log_prob, 
             &self.collection, 
             self.desired_logbase
-        )
+        )?;
+        let stats = self.get_stats();
+        res.set_stats(stats);
+        Ok(res)
     }
 
     /// # Calculate the probability density function from overlapping intervals
@@ -183,11 +199,14 @@ impl<H> GlueJob<H>
         T: PartialOrd{
 
         let log_prob = self.prepare_for_merge()?;
-        derivative_merged_and_aligned(
+        let mut res = derivative_merged_and_aligned(
             log_prob, 
             &self.collection, 
             self.desired_logbase
-        )
+        )?;
+        let stats = self.get_stats();
+        res.set_stats(stats);
+        Ok(res)
     }
 
     fn prepare_for_merge<T>(

@@ -43,7 +43,6 @@ where Hist: Clone + Histogram
         job: &mut GlueJob<Hist>,
         ignore_idx: &[usize]
     ) {
-
         job.round_trips
             .extend(self.rees_roundtrip_iter());
 
@@ -806,7 +805,49 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         Ok((e_hist, log_prob))
     }
 
+    fn get_glue_stats(&self) -> GlueStats
+    {
+        let stats = self.walker
+            .chunks(self.chunk_size.get())
+            .map(
+                |walker|
+                {
+                    let mut missing_steps = 0;
+                    let mut accepted = 0;
+                    let mut rejected = 0;
+                    let mut replica_exchanges = 0;
+                    let mut proposed_replica_exchanges = 0;
+                    for w in walker{
+                        
+                        if !w.is_finished(){
+                            let missing = w.step_threshold() - w.step_count();
+                            if missing > missing_steps{
+                                missing_steps = missing;
+                            }
+                        }
 
+                        let r = w.rejected_markov_steps();
+                        let a = w.step_count() - r;
+                        rejected += r;
+                        accepted += a;
+                        replica_exchanges += w.replica_exchanges();
+                        proposed_replica_exchanges += w.proposed_replica_exchanges();
+                    }
+
+                    IntervalSimStats{
+                        sim_progress: SimProgress::MissingSteps(missing_steps),
+                        interval_sim_type: SimulationType::REES,
+                        rejected_steps: rejected,
+                        accepted_steps: accepted,
+                        replica_exchanges: Some(replica_exchanges),
+                        proposed_replica_exchanges: Some(proposed_replica_exchanges),
+                        merged_over_walkers: self.chunk_size
+                    }
+                }
+            ).collect();
+        let roundtrips = self.rees_roundtrip_iter().collect();
+        GlueStats { interval_stats: stats, roundtrips }
+    }
 
     /// # Results of the simulation
     /// 
@@ -826,10 +867,12 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
 
-        average_merged_and_aligned(
+        let mut res = average_merged_and_aligned(
             log_probs, &hists, LogBase::BaseE
-        )
-        
+        )?;
+        let stats = self.get_glue_stats();
+        res.set_stats(stats);
+        Ok(res)
     }
 
     /// # Results of the simulation
@@ -853,7 +896,10 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         
-        derivative_merged_and_aligned(log_probs, &hists, LogBase::BaseE)
+        let mut res = derivative_merged_and_aligned(log_probs, &hists, LogBase::BaseE)?;
+        let stats = self.get_glue_stats();
+        res.set_stats(stats);
+        Ok(res)
     }
 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]

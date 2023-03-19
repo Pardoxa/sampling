@@ -18,8 +18,16 @@ use std::{marker::PhantomData, fmt::Display};
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+use crate::IntervalSimStats;
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct GlueStats{
+    pub interval_stats: Vec<IntervalSimStats>,
+    pub roundtrips: Vec<usize>
+}
+
 /// # Which LogBase is being used/should be used?
-/// 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum LogBase{
@@ -58,7 +66,8 @@ pub struct Glued<Hist, T>
     pub(crate) aligned: Vec<Vec<f64>>,
     pub(crate) base: LogBase,
     pub(crate) alignment: Vec<usize>,
-    pub(crate) marker: PhantomData<T>
+    pub(crate) marker: PhantomData<T>,
+    pub(crate) stats: Option<GlueStats>
 }
 
 impl<Hist, T> Glued<Hist, T>
@@ -69,7 +78,8 @@ impl<Hist, T> Glued<Hist, T>
         glued: Vec<f64>, 
         aligned: Vec<Vec<f64>>, 
         base: LogBase, 
-        alignment: Vec<usize>
+        alignment: Vec<usize>,
+        stats: Option<GlueStats>
     ) -> Self
     {
         Self{
@@ -78,8 +88,14 @@ impl<Hist, T> Glued<Hist, T>
             base,
             glued,
             encapsulating_histogram,
-            marker: PhantomData
+            marker: PhantomData,
+            stats
         }
+    }
+
+    pub fn set_stats(&mut self, stats: GlueStats)
+    {
+        self.stats = Some(stats);
     }
 
     /// # Returns Slice which represents the glued logarithmic probability density
@@ -339,7 +355,8 @@ where Hist: HistogramCombine + Histogram,
                 merged_prob,
                 log_prob,
                 log_base,
-                alignment
+                alignment,
+                None
             );
         return Ok(r);
     }
@@ -394,7 +411,8 @@ where Hist: HistogramCombine + Histogram,
             merged_log_prob, 
             log_prob, 
             LogBase::BaseE, 
-            alignment
+            alignment,
+            None
         );
         
     Ok(
@@ -496,7 +514,8 @@ where Hist: HistogramCombine + Histogram,
                 aligned: log_prob,
                 glued,
                 alignment,
-                marker: PhantomData
+                marker: PhantomData,
+                stats: None
             }
         );
     }
@@ -529,7 +548,8 @@ where Hist: HistogramCombine + Histogram,
             aligned: aligned_intervals,
             glued: glued_log_density,
             alignment,
-            marker: PhantomData
+            marker: PhantomData,
+            stats: None
         }
     )
 }

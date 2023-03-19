@@ -2,7 +2,7 @@
 //! Use this, if it makes sense to split the range, you are interested in, into multiple intervals
 
 pub(crate) mod glue_helper;
-mod replica_glued;
+mod glue;
 mod glue_anything;
 
 /// # Module for numeric derivatives
@@ -10,5 +10,5 @@ mod glue_anything;
 pub mod derivative;
 
 pub use glue_helper::{GlueErrors, norm_log10_sum_to_1};
-pub use replica_glued::*;
+pub use glue::*;
 pub use glue_anything::*;

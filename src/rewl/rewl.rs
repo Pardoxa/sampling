@@ -465,9 +465,55 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
-        derivative_merged_and_aligned(
+        let mut res = derivative_merged_and_aligned(
             log_probs, &hists, LogBase::BaseE
-        )
+        )?;
+        let stats = self.get_glue_stats();
+        res.set_stats(stats);
+        Ok(res)
+    }
+
+    fn get_glue_stats(&self) -> GlueStats
+    {
+        let stats = self.walker
+            .chunks(self.chunk_size.get())
+            .map(
+                |walker|
+                {
+                    let mut progress = f64::NEG_INFINITY;
+                    let mut accepted = 0;
+                    let mut rejected = 0;
+                    let mut replica_exchanges = 0_u64;
+                    let mut proposed_replica_exchanges = 0;
+                    for w in walker{
+                        let log_f = w.log_f();
+                        if log_f > progress {
+                            progress = log_f;
+                        }
+                        let r = w.rejected_markov_steps();
+                        let a = w.step_count() - r;
+                        rejected += r;
+                        accepted += a;
+                        replica_exchanges += w.replica_exchanges() as u64;
+                        proposed_replica_exchanges += w.proposed_replica_exchanges();
+                    }
+
+                    IntervalSimStats{
+                        sim_progress: SimProgress::LogF(progress),
+                        interval_sim_type: SimulationType::REWL,
+                        rejected_steps: rejected,
+                        accepted_steps: accepted,
+                        replica_exchanges: Some(replica_exchanges),
+                        proposed_replica_exchanges: Some(proposed_replica_exchanges),
+                        merged_over_walkers: self.chunk_size
+                    }
+                }
+            ).collect();
+        let roundtrips = self.roundtrip_iter().collect();
+        GlueStats{
+            roundtrips,
+            interval_stats: stats
+        }
     }
 
     /// # Results of the simulation
@@ -485,11 +531,14 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
-        average_merged_and_aligned(
+        let mut res = average_merged_and_aligned(
             log_probs, 
             &hists, 
             LogBase::BaseE
-        )
+        )?;
+        let stats = self.get_glue_stats();
+        res.set_stats(stats);
+        Ok(res)
     }        
 
     /// # Get Ids
