@@ -662,6 +662,9 @@
 /// ```
 pub mod coin_flips;
 
+
+// TODO Include this test and make it work!
+/* 
 #[cfg(test)]
 mod tests{
     use rand::SeedableRng;
@@ -674,7 +677,7 @@ mod tests{
     fn test_exclusive_borders()
     {
 
-        /* 
+        
          // length of coin flip sequence
          let n = 20;
          let interval_count = 3;
@@ -931,6 +934,6 @@ mod tests{
          heatmap.gnuplot(
              buf,
              settings
-         ).unwrap();*/
+         ).unwrap();
     }
-}
+}*/
