@@ -9,11 +9,18 @@ use super::{
     Binning,
     HasUnsignedVersion,
     to_u,
-    HistErrors
+    from_u,
+    Bin,
+    BinModIterHelper
 };
 
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
+
 /// Generic binning meant for any integer type
-pub struct FastIntBinning<T>{
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct FastSingleIntBinning<T>{
     /// left bin border, inclusive
     start: T,
     /// right bin border, inclusive
@@ -27,7 +34,7 @@ macro_rules! impl_binning {
         
         paste!{
             #[doc = "Efficient binning for `" $t "` with bins of width 1"]
-            pub type [<FastBinning $t:upper>] = FastIntBinning<$t>;
+            pub type [<FastBinning $t:upper>] = FastSingleIntBinning<$t>;
         }
 
         impl paste!{[<FastBinning $t:upper>]}{
@@ -70,11 +77,12 @@ macro_rules! impl_binning {
                 ```\n\
                 use sampling::histogram::" [<FastBinning $t:upper>] ";\n\
                 let binning = " [<FastBinning $t:upper>] "::new_inclusive(2,5);\n\
-                let vec: Vec<_> = binning.bin_iter().collect();\n\
+                let vec: Vec<_> = binning.single_valued_bin_iter().collect();\n\
                 assert_eq!(&vec, &[2, 3, 4, 5]);\n\
                 ```"]
-                pub fn bin_iter(&self) -> impl Iterator<Item=$t>
+                pub fn single_valued_bin_iter(&self) -> impl Iterator<Item=$t>
                 {
+                    // TODO: check if I can replace this by range_inclusive
                     HistFastIterHelper{
                         current: self.start,
                         right: self.end_inclusive,
@@ -167,11 +175,16 @@ macro_rules! impl_binning {
                 }
             }
 
-            fn borders_clone(&self) -> Result<Vec<$t>, HistErrors>{
-                Ok(
+            /// # Iterates over all bins
+            /// * Note: This implementation use more efficient representations of the bins underneath,
+            /// but are capable of returning the bins in this representation on request
+            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `single_valued_bin_iter`.
+            /// Consider using that instead, as it is more efficient
+            fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
+                Box::new(
                     self.range_inclusive()
-                        .collect()
-                )
+                        .map(|val| Bin::SingleValued(val))
+                    )
             }
         }
     };
@@ -198,7 +211,215 @@ impl_binning!(
     isize
 );
 
+/// Generic binning meant for any integer type
+pub struct FastBinning<T>
+where T: HasUnsignedVersion
+{
+    /// left bin border, inclusive
+    start: T,
+    /// right bin border, inclusive
+    end_inclusive: T,
+    /// how many numbers are in one bin?
+    bin_width: <T as HasUnsignedVersion>::Unsigned
+}
 
+macro_rules! other_binning {
+    (
+        $t:ty
+    ) => {
+        
+        paste!{
+            #[doc = "Efficient binning for `" $t "` with bins of width 1"]
+            pub type [<Binning $t:upper>] = FastBinning<$t>;
+        }
+        
+        impl paste!{[<Binning $t:upper>]}{
+            /// # Create a new Binning
+            /// * both borders are inclusive
+            /// * each bin has width 1
+            /// # Panics
+            /// * if `start` is smaller than `end_inclusive`
+            /// * if bin_width <= 0
+            #[inline(always)]
+            pub fn new_inclusive(start: $t, end_inclusive: $t, bin_width: $t) -> Result<Self, <$t as HasUnsignedVersion>::Unsigned>{
+                assert!(start <= end_inclusive);
+                assert!(bin_width > 0);
+                let u_width = bin_width as <$t as HasUnsignedVersion>::Unsigned;
+                let this = Self{
+                    start, 
+                    end_inclusive,
+                    bin_width: u_width
+                };
+                let res = (this.bins_m1() % u_width) + 1;
+                if res != u_width{
+                    Err(res)
+                } else {
+                    Ok(this)
+                }
+            }
+
+            /// Get left border, inclusive
+            #[inline(always)]
+            pub const fn left(&self) -> $t {
+                self.start
+            }
+
+            /// Get right border, inclusive
+            #[inline(always)]
+            pub const fn right(&self) -> $t
+            {
+                self.end_inclusive
+            }
+
+            /// # Returns the range covered by the bins as a `RangeInclusive<T>`
+            #[inline(always)]
+            pub const fn range_inclusive(&self) -> RangeInclusive<$t>
+            {
+                self.start..=self.end_inclusive
+            }
+
+            paste!{
+                #[doc = "# Iterator over all the bins\
+                \nSince the bins have width 1, a bin can be defined by its corresponding value \
+                which we can iterate over.\n\
+                # Example\n\
+                ```\n\
+                use sampling::histogram::" [<Binning $t:upper>] ";\n\
+                let binning = " [<Binning $t:upper>] "::new_inclusive(2,5);\n\
+                let vec: Vec<_> = binning.single_valued_bin_iter().collect();\n\
+                assert_eq!(&vec, &[2, 3, 4, 5]);\n\
+                ```"]
+                pub fn single_valued_bin_iter(&self) -> impl Iterator<Item=$t>
+                {
+                    BinModIterHelper::new_unchecked(
+                        self.start,
+                        self.end_inclusive,
+                        from_u(self.bin_width)
+                    )
+                
+                }
+            }
+
+            /// # The amount of bins -1
+            /// * minus 1 because if the bins are going over the entire range of the type,
+            /// then I cannot represent the number of bins as this type
+            /// 
+            /// # Example
+            /// If we look at an u8 and the range from 0 to 255, then this is 256 bins, which 
+            /// cannot be represented as u8. To combat this, I return bins - 1.
+            /// This works, because we always have at least 1 bin
+            pub fn bins_m1(&self) -> <$t as HasUnsignedVersion>::Unsigned{
+                let left = to_u(self.start);
+                let right = to_u(self.end_inclusive);
+
+                right - left
+            }
+        }
+
+ 
+        impl Binning<$t> for paste!{[<Binning $t:upper>]} {
+            fn get_bin_len(&self) -> usize 
+            {
+                (self.bins_m1() as usize).saturating_add(1)
+            }
+
+            /// # Get the respective bin index
+            /// * Note: Obviously this breaks when the bin index cannot be represented as 
+            /// `usize`
+            fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
+                let val = *val.borrow();
+                if self.is_inside(val)
+                {
+                    let index = (to_u(val) - to_u(self.start)) / self.bin_width;
+                    Some(index as usize)
+                } else{
+                    None
+                }
+            }
+
+            /// Does a value correspond to a valid bin?
+            #[inline(always)]
+            fn is_inside<V: Borrow<$t>>(&self, val: V) -> bool{
+                (self.start..=self.end_inclusive).contains(val.borrow())
+            }
+
+            /// # Opposite of `is_inside`
+            /// * I could also have called this `is_outside`, but I didn't
+            #[inline(always)]
+            fn not_inside<V: Borrow<$t>>(&self, val: V) -> bool{
+                !self.is_inside(val)
+            }
+
+            /// get the left most border (inclusive)
+            fn first_border(&self) -> $t{
+                self.start
+            }
+
+            fn last_border(&self) -> $t{
+                self.end_inclusive
+            }
+
+            #[inline(always)]
+            fn last_border_is_inclusive(&self) -> bool
+            {
+                true
+            }
+
+            /// # calculates some sort of absolute distance to the nearest valid bin
+            /// * if a value corresponds to a valid bin, the distance is zero
+            fn distance<V: Borrow<$t>>(&self, v: V) -> f64{
+                let val = v.borrow();
+                if self.is_inside(val){
+                    0.0
+                } else {
+                    let dist = if *val < self.start {
+                        to_u(self.start) - to_u(*val)
+                    } else {
+                        // TODO Unit tests have to check if this is correct,
+                        // before it was  val.saturating_sub(self.end_inclusive)
+                        // but I think this here is better
+                        to_u(*val) - to_u(self.end_inclusive)
+                    };
+                    dist as f64
+                }
+            }
+
+            /// # Iterates over all bins
+            /// * Note: This implementation use more efficient representations of the bins underneath,
+            /// but are capable of returning the bins in this representation on request
+            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `single_valued_bin_iter`.
+            /// Consider using that instead, as it is more efficient
+            fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
+                Box::new(
+                    self.single_valued_bin_iter()
+                        .map(|val| Bin::SingleValued(val))
+                )   
+            }
+        }
+    };
+    (
+        $($t:ty),* $(,)?
+    ) => {
+        $(
+            other_binning!($t);
+        )*
+    }
+}
+
+other_binning!(
+    u8, 
+    i8,
+    u16,
+    i16,
+    u32,
+    i32,
+    u64,
+    i64,
+    u128,
+    i128,
+    usize,
+    isize
+);
 
 #[cfg(test)]
 mod tests{
@@ -211,14 +432,14 @@ mod tests{
     use num_traits::{PrimInt, AsPrimitive};
 
     fn hist_test_generic_all_inside<T>(left: T, right: T)
-    where FastIntBinning::<T>: Binning::<T>,
-        GenericHist::<FastIntBinning::<T>, T>: Histogram,
+    where FastSingleIntBinning::<T>: Binning::<T>,
+        GenericHist::<FastSingleIntBinning::<T>, T>: Histogram,
         T: PrimInt,
         std::ops::RangeInclusive<T>: Iterator<Item=T>,
     {
-        let binning = FastIntBinning::<T>{start: left, end_inclusive: right};
+        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: right};
         let mut hist = 
-            GenericHist::<FastIntBinning::<T>, T>::new(binning);
+            GenericHist::<FastSingleIntBinning::<T>, T>::new(binning);
          
         for (id, i) in (left..=right).enumerate() {
             assert!(hist.is_inside(i));
@@ -245,15 +466,15 @@ mod tests{
     }
 
     fn hist_test_generic_all_outside_extensive<T>(left: T, right: T)
-    where FastIntBinning::<T>: Binning::<T>,
-        GenericHist::<FastIntBinning::<T>, T>: Histogram,
+    where FastSingleIntBinning::<T>: Binning::<T>,
+        GenericHist::<FastSingleIntBinning::<T>, T>: Histogram,
         T: PrimInt,
         std::ops::Range<T>: Iterator<Item=T>,
         std::ops::RangeInclusive<T>: Iterator<Item=T>,
     {
-        let binning = FastIntBinning::<T>{start: left, end_inclusive: right};
+        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: right};
         let hist = 
-            GenericHist::<FastIntBinning::<T>, T>::new(binning);
+            GenericHist::<FastSingleIntBinning::<T>, T>::new(binning);
          
         for i in T::min_value()..left {
             assert!(hist.not_inside(i));
@@ -271,13 +492,13 @@ mod tests{
     }
 
     fn binning_all_outside_extensive<T>(left: T, right: T)
-    where FastIntBinning::<T>: Binning::<T>,
+    where FastSingleIntBinning::<T>: Binning::<T>,
         T: PrimInt + Display,
         std::ops::Range<T>: Iterator<Item=T>,
         std::ops::RangeInclusive<T>: Iterator<Item=T> + Debug,
         std::ops::RangeFrom<T>: Iterator<Item=T>,
     {
-        let binning = FastIntBinning::<T>{start: left, end_inclusive: right};
+        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: right};
          
         let mut last_dist = None; 
         for i in T::min_value()..left {

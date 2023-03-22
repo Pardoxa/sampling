@@ -255,6 +255,55 @@ where
     }
 }
 
+pub(crate) struct BinModIterHelper<T>
+{
+    pub(crate) current: T,
+    pub(crate) right: T,
+    pub(crate) step_by: T,
+    pub(crate) invalid: bool,
+}
+
+impl<T> BinModIterHelper<T>
+{
+    pub(crate) fn new_unchecked(left: T, right: T, step_by: T) -> Self
+    {
+        Self{
+            current: left,
+            right,
+            step_by,
+            invalid: false
+        }
+    }
+}
+
+impl<T> Iterator for BinModIterHelper<T>
+where 
+    T: Add::<T, Output=T> + Ord + Copy,
+{
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<T>
+    {
+        if self.invalid {
+            return None;
+        }
+
+        let is_iterating = self.current < self.right;
+        Some(
+            if is_iterating
+            {
+                let next = self.current + self.step_by;
+                std::mem::replace(&mut self.current, next)
+            } else {
+                self.invalid = true;
+                self.current
+            }
+        )
+
+    }
+}
+
 impl<T> HistogramPartition for HistogramFast<T> 
 where T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
     + HasUnsignedVersion + Bounded,

@@ -1,5 +1,35 @@
 use super::*;
 use std::borrow::Borrow;
+
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
+
+
+
+/// # Definition of a Bin
+/// * Note: Most (currently all) implementations use more efficient representations of the bins underneath,
+/// but are capable of returning the bins in this representation on request
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub enum Bin<T>
+{
+    /// The bin consists of a single value. A value is inside the bin if it equals this value
+    SingleValued(T),
+    /// The bin is defined by two inclusive borders (left, right).
+    /// a value is inside the bin, if left <= value <= right
+    InclusiveInclusive(T, T),
+    /// The bin is defined by an inclusive and an exclusive border (left, right).
+    /// a value is inside the bin, if left <= value < right
+    InclusiveExclusive(T, T),
+    /// The bin is defined by an exclusive and an inclusive border (left, right).
+    /// a value is inside the bin, if left < value <= right
+    ExclusiveInclusive(T, T),
+    /// The bin is defined by two exclusive borders (left, right).
+    /// a value is inside the bin, if left < value < right
+    ExclusiveExclusive(T, T)
+}
+
+
 /// # Implements Binning
 /// * Part of a histogram, but without the capability of counting stuff
 /// 
@@ -15,12 +45,12 @@ pub trait Binning<T>{
     /// * note: if more than usize::MAX bins are there, usize::MAX is returned
     fn get_bin_len(&self) -> usize;
 
-    /// # binning borders
-    /// * the borders used to bin the values
-    /// * any val which fulfills `self.border[i] <= val < self.border[i + 1]` 
-    /// will get index `i`.
-    /// * **Note** that the last border is usually exclusive
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
+    /// # Iterates over all bins
+    /// * Note: Most (currently all) implementations use more efficient representations of the bins underneath,
+    /// but are capable of returning the bins in this representation on request
+    /// * Also look if the Binning you use implements another method for the bin borders, e.g., `single_valued_bin_iter`,
+    /// as that is more efficient
+    fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<T>>>;
 
     /// Does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;

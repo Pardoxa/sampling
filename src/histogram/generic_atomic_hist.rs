@@ -79,7 +79,8 @@ where B: Binning<T>
     }
 
     fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        self.binning.borders_clone()
+        // remove this function
+        unimplemented!()
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
