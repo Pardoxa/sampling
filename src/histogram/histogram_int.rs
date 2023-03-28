@@ -415,8 +415,14 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
             .or_else(|index_m1| Ok(index_m1 - 1))
     }
 
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        Ok(self.bin_borders.clone())
+    /// # consider using `self.bin_iter()` instead
+    /// * this will return an iterater over the bins for displaying purposes
+    /// * all bins are defined via an inclusive and an exclusive border
+    /// * It is more efficient to use `self.bin_iter()`instead
+    fn bin_enum_iter(&'_ self) -> Box<dyn Iterator<Item=Bin<T>> + '_> {
+        let iter = self.bin_iter()
+            .map(|[left, right]| Bin::InclusiveExclusive(*left, *right));
+        Box::new(iter)
     }
 }
 
@@ -578,7 +584,17 @@ mod tests{
         let one = unsafe{NonZeroUsize::new_unchecked(1)};
         assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
         assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
-        assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
+        let borders: Vec<_> = hist.bin_enum_iter()
+            .map(
+                |bin|
+                {
+                    match bin {
+                        Bin::InclusiveExclusive(left, right) => (left, right),
+                        _ => unreachable!()
+                    }
+                }
+            ).collect();
+        assert_eq!(borders.len(), hist.bin_count());
         assert_eq!(
             HistogramInt::<T>::new_inclusive(left, T::max_value(), bin_count).expect_err("err"),
             HistErrors::Overflow
@@ -656,32 +672,55 @@ mod tests{
                 let overlapping_f = overlapping_f.unwrap();
 
                 let len = overlapping_i.len();
-        
-                for (index,(a, b)) in overlapping_f.into_iter().zip(overlapping_i).enumerate()
+
+                for (index,(a, b)) in overlapping_f
+                    .into_iter()
+                    .zip(overlapping_i)
+                    .enumerate()
                 {
-                    let border_clone_a = a.borders_clone().unwrap();
+                    let bins_a: Vec<_> = a
+                        .bin_enum_iter()
+                        .map(
+                            |bin|
+                            {
+                                match bin{
+                                    Bin::SingleValued(val) => val,
+                                    _ => unreachable!()
+                                }
+                            }
+                        ).collect();
 
-                    assert_eq!(border_clone_a.len(), a.hist().len() + 1);
+                    assert_eq!(bins_a.len(), a.hist().len());
                     
-                    let border_clone_b = b.borders_clone().unwrap();
+                    let bins_b: Vec<_> = b
+                        .bin_enum_iter()
+                        .map(
+                            |bin|
+                            {
+                                match bin{
+                                    Bin::InclusiveExclusive(left, right) => (left, right),
+                                    _ => unreachable!()
+                                }
+                            }
+                        ).collect();
 
-                    assert_eq!(border_clone_b.len(), b.hist().len() + 1);
+                    assert_eq!(bins_b.len(), b.hist().len());
 
-                    if border_clone_a.len() != border_clone_b.len()
+                    if bins_a.len() != bins_b.len()
                     {
                         println!("Fast: {} SLOW {}", a.bin_count(), b.bin_count());
                         dbg!(left, right, overlap);
                         dbg!(hist_i.bin_count(), hist_fast.bin_count());
-                        dbg!(&border_clone_b, &border_clone_a);
+                        dbg!(&bins_b, &bins_a);
                         eprintln!("index: {} of {}", index, len);
                     }
 
-                    assert_eq!(border_clone_a.len(), border_clone_b.len());
+                    assert_eq!(bins_a.len(), bins_b.len());
                     assert_eq!(a.bin_count(), b.bin_count());
         
-                    for (b_a, b_b) in border_clone_a.into_iter().zip(border_clone_b)
+                    for (b_a, b_b) in bins_a.into_iter().zip(bins_b)
                     {
-                        assert_eq!(b_a, b_b);
+                        assert_eq!((b_a, b_a + 1), b_b);
                     }
                 }
             }

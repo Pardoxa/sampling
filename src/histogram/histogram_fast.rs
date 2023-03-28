@@ -16,6 +16,7 @@ use{
         num::*
     }
 };
+use super::binning::BinDisplay;
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -31,21 +32,26 @@ pub struct HistogramFast<T> {
     hist: Vec<usize>,
 }
 
-impl<T> BinIter<T> for HistogramFast<T>
+impl<T> BinDisplay for HistogramFast<T>
 where 
-T: PrimInt + HasUnsignedVersion + Copy,
+T: PrimInt + HasUnsignedVersion + Copy + std::fmt::Display,
 T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
-    fn bin_type(&self) -> BinType {
-        BinType::SingleValued
+    type BinEntry = T;
+
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=Self::BinEntry> + '_>{
+        Box::new(
+            self.bin_iter()
+        )
     }
 
-    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=[T;2]> + '_> {
-        let iter = self.bin_iter();
-        Box::new(
-            iter.map(|val| [val, val])
-        )
+    fn write_bin<W: std::io::Write>(entry: &Self::BinEntry, mut writer: W) -> std::io::Result<()> {
+        write!(writer, "{entry}")
+    }
+
+    fn write_header<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        write!(writer, "Bin")
     }
 }
 
@@ -466,27 +472,15 @@ where T: PrimInt + HasUnsignedVersion,
         }
     }
 
-    /// # Creates a vector containing borders
-    /// How to understand the borders?
-    /// 
-    /// Lets say we have a Vector containing `[a,b,c]`,
-    /// then the first bin contains all values `T` for which 
-    /// `a <= T < b`, the second bin all values `T` for which 
-    /// `b <= T < c`. In this case, there are only two bins.
-    /// # Errors
-    /// * returns `Err(Overflow)` if right border is `T::MAX`
-    /// * creates and returns borders otherwise
-    /// * Note: even if `Err(Overflow)` is returned, this does not 
-    ///  provide any problems for the rest of the implementation,
-    ///  as the border vector is not used internally for `HistogramFast`
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        let right = self.right.checked_add(&T::one())
-            .ok_or(HistErrors::Overflow)?;
-        Ok(
-            self.bin_iter()
-                .chain(std::iter::once(right))
-                .collect()
-        )
+    /// # Iterator over the bins
+    /// * This iterator will always return SingleValued bins
+    /// * Consider using `self.bin_iter()` instead, its more efficient
+    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>> + '_>{
+        
+        let iter = self
+            .bin_iter()
+            .map(|bin| Bin::SingleValued(bin));
+        Box::new(iter)
     }
 
     #[inline]
@@ -631,7 +625,7 @@ mod tests{
         let one = unsafe{NonZeroUsize::new_unchecked(1)};
         assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
         assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
-        assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
+        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());
     }
 
     #[test]

@@ -79,3 +79,38 @@ pub trait Binning<T>{
 
 mod binning_int_fast;
 pub use binning_int_fast::*;
+
+#[derive(Clone, Copy, Debug)]
+pub enum BinType{
+    /// The bin can be defined via a single value
+    SingleValued,
+    /// the bin is defined by a left inclusive and a right exclusive border
+    InclusiveExclusive,
+    /// The bin is defined by a left exclusive and a left inclusive border
+    ExclusiveInclusive
+}
+
+
+/// # Trait used to display bins
+/// * This is, e.g., used by the glue writers to write the bins of the merged results
+pub trait BinDisplay {
+    type BinEntry;
+
+    /// # Iterator over all the bins
+    /// * you might require to use this if you are working with generics
+    /// * if you are working with a specific type there is usually a more efficient implementation
+    /// that did not require the usage of dynamic traits (`dyn`) and that are thus more efficient,
+    /// consider using those instead
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=Self::BinEntry> + '_>;
+
+    /// # For writing a bin
+    /// * How to write a bin to a file? If a bin consists, e.g., of an exclusive and inclusive border this 
+    /// might require the writing of two values. It could also be a single value instead.
+    /// It should be something the user expects from your binning, see write header
+    fn write_bin<W: std::io::Write>(entry: &Self::BinEntry, writer: W) -> std::io::Result<()>;
+
+    /// # Writing the header of the bin
+    /// * This is intended to name, e.g., a column in a file. Output could be "SingleBin" or "BinBorderExclusive BinBorderInclusive"
+    /// and so on
+    fn write_header<W: std::io::Write>(&self, writer: W) -> std::io::Result<()>;
+}

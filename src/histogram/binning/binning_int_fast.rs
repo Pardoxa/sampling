@@ -448,7 +448,7 @@ mod tests{
             assert_eq!(hist.distance(i), 0.0);
             hist.count_val(i).unwrap();
         }
-        assert_eq!(hist.borders_clone().unwrap().len(), hist.bin_count());   
+        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());   
     }
 
     #[test]
@@ -488,7 +488,7 @@ mod tests{
             assert!(matches!(hist.get_bin_index(i), Err(HistErrors::OutsideHist)));
             assert!(hist.distance(i) > 0.0);
         }
-        assert_eq!(hist.borders_clone().unwrap().len(), hist.bin_count()); 
+        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count()); 
     }
 
     fn binning_all_outside_extensive<T>(left: T, right: T)

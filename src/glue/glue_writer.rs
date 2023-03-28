@@ -218,25 +218,17 @@ impl<Hist, T> Glued<Hist, T>
 }
 
 impl<H, T> Glued<H, T>
-where H: HistogramCombine + BinIter<T>,
+where H: HistogramCombine + BinDisplay,
     T: Display
 {
     /// # Write the Glued in a human readable format
     /// * You probably want to use this ;)
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
-        match self.encapsulating_histogram.bin_type()
-        {
-            BinType::SingleValued => {
-                write!(writer, "#bin log_merged")?;
-            },
-            BinType::ExclusiveInclusive => {
-                write!(writer, "#bin_border_exclusive bin_border_inclusive log_merged")?;
-            },
-            BinType::InclusiveExclusive => {
-                write!(writer, "#bin_border_inclusive bin_border_exclusive log_merged")?;
-            }
-        }
+        write!(writer, "#")?;
+        self.encapsulating_histogram.write_header(&mut writer)?;
+        write!(writer, " log_merged")?;
+        
         for i in 0..self.aligned.len()
         {
             write!(writer, " interval_{i}")?;
@@ -252,11 +244,8 @@ where H: HistogramCombine + BinIter<T>,
             .iter()
             .zip(self.encapsulating_histogram.display_bin_iter())
         {
-            let bin = match self.encapsulating_histogram.bin_type() {
-                BinType::SingleValued => format!("{}", bin[0]),
-                _ => format!("{} {}", bin[0], bin[1])
-            };
-            write!(writer, "{} {:e}", bin, log_prob)?;
+            H::write_bin(&bin, &mut writer)?;
+            write!(writer, " {:e}", log_prob)?;
             for (i, counter) in alinment_helper.iter_mut().enumerate()
             {
                 if *counter < 0 {

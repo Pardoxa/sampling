@@ -1,8 +1,9 @@
 use std::{borrow::*,num::NonZeroUsize, cmp::Ordering};
 
-
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
+
+use crate::Bin;
 
 /// # Implements histogram
 /// * anything that implements `Histogram` should also implement the trait `HistogramVal`
@@ -36,22 +37,7 @@ pub trait Histogram {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum BinType{
-    /// The bin can be defined via a single value
-    SingleValued,
-    /// the bin is defined by a left inclusive and a right exclusive border
-    InclusiveExclusive,
-    /// The bin is defined by a left exclusive and a left inclusive border
-    ExclusiveInclusive
-}
 
-
-pub trait BinIter<T> {
-    fn bin_type(&self) -> BinType;
-
-    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=[T;2]> + '_>;
-}
 
 /// * trait used for mapping values of arbitrary type `T` to bins
 /// * used to create a histogram
@@ -64,10 +50,7 @@ pub trait HistogramVal<T>{
     
     /// # binning borders
     /// * the borders used to bin the values
-    /// * any val which fulfills `self.border[i] <= val < self.border[i + 1]` 
-    /// will get index `i`.
-    /// * **Note** that the last border is exclusive
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
+    fn bin_enum_iter(&'_ self) -> Box<dyn Iterator<Item=Bin<T>> + '_>;
     
     /// does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;

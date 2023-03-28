@@ -109,9 +109,8 @@ where B: Binning<T>
         self.binning.distance(val)
     }
 
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        // remove this function from the trait
-        unimplemented!()
+    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>>> {
+        self.binning().bin_iter()
     }
 }
 
