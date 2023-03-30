@@ -34,7 +34,7 @@ pub struct HistogramFast<T> {
 
 impl<T> BinDisplay for HistogramFast<T>
 where 
-T: PrimInt + HasUnsignedVersion + Copy + std::fmt::Display,
+T: PrimInt + HasUnsignedVersion + Copy + std::fmt::Display + WrappingAdd,
 T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -79,7 +79,7 @@ where T: Copy
 
 impl<T> HistogramFast<T> 
     where 
-    T: PrimInt + HasUnsignedVersion,
+    T: PrimInt + HasUnsignedVersion + WrappingAdd,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -235,7 +235,7 @@ pub(crate) struct HistFastIterHelper<T>
 
 impl<T> Iterator for HistFastIterHelper<T>
 where 
-    T: PrimInt,
+    T: PrimInt + WrappingAdd,
 {
     type Item = T;
 
@@ -246,7 +246,7 @@ where
             return None;
         }
 
-        let next = self.current + T::one();
+        let next = self.current.wrapping_add(&T::one());
         let current = std::mem::replace(&mut self.current, next);
         self.invalid = current == self.right;
         Some(
@@ -306,7 +306,7 @@ where
 
 impl<T> HistogramPartition for HistogramFast<T> 
 where T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
-    + HasUnsignedVersion + Bounded,
+    + HasUnsignedVersion + Bounded + WrappingAdd,
 T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes, Unsigned=T::Unsigned> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned> + FromPrimitive + WrappingSub,
 {
@@ -408,7 +408,7 @@ impl<T> Histogram for HistogramFast<T>
 } 
 
 impl<T> HistogramVal<T> for HistogramFast<T>
-where T: PrimInt + HasUnsignedVersion,
+where T: PrimInt + HasUnsignedVersion + WrappingAdd,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -520,7 +520,7 @@ where Self: HistogramVal<T>,
 
 impl<T> HistogramCombine for HistogramFast<T>
     where   Self: HistogramVal<T>,
-    T: PrimInt + HasUnsignedVersion,
+    T: PrimInt + HasUnsignedVersion + WrappingAdd,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -591,7 +591,7 @@ mod tests{
 
     fn hist_test_fast<T>(left: T, right: T)
     where T: PrimInt + num_traits::Bounded + PartialOrd + CheckedSub + One 
-        + NumCast + Copy + FromPrimitive + HasUnsignedVersion,
+        + NumCast + Copy + FromPrimitive + HasUnsignedVersion + WrappingAdd,
     std::ops::RangeInclusive<T>: Iterator<Item=T>,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
