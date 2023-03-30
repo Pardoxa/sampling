@@ -7,9 +7,9 @@ use rand::prelude::*;
 pub fn bench_hist(c: &mut Criterion){
     let mut rng = Pcg64::seed_from_u64(black_box(23));
     
-    let mut hist = HistU32Fast::new_inclusive(20, 200)
+    let mut hist = HistU32Fast::new_inclusive(20, 20000)
         .unwrap();
-    let sampler = rand::distributions::Uniform::new_inclusive(0, 220);
+    let sampler = rand::distributions::Uniform::new_inclusive(0, 22000);
     c.bench_function(
         "old_hist",
         |b| b.iter(|| {
@@ -22,9 +22,9 @@ pub fn bench_hist(c: &mut Criterion){
 
 pub fn bench_hist_new(c: &mut Criterion){
     let mut rng = Pcg64::seed_from_u64(black_box(23));
-    let binning = FastBinningU32::new_inclusive(20, 200);
+    let binning = FastBinningU32::new_inclusive(20, 20000);
     let mut hist = GenericHist::new(binning);
-    let sampler = rand::distributions::Uniform::new_inclusive(0, 220);
+    let sampler = rand::distributions::Uniform::new_inclusive(0, 22000);
     c.bench_function(
         "new_hist",
         |b| b.iter(|| {
