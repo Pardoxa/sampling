@@ -312,6 +312,7 @@ macro_rules! other_binning {
 
  
         impl Binning<$t> for paste!{[<Binning $t:upper>]} {
+            #[inline(always)]
             fn get_bin_len(&self) -> usize 
             {
                 (self.bins_m1() as usize).saturating_add(1)
@@ -320,6 +321,7 @@ macro_rules! other_binning {
             /// # Get the respective bin index
             /// * Note: Obviously this breaks when the bin index cannot be represented as 
             /// `usize`
+            #[inline(always)]
             fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
                 let val = *val.borrow();
                 if self.is_inside(val)

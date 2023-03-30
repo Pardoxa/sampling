@@ -35,5 +35,36 @@ pub fn bench_hist_new(c: &mut Criterion){
     );
 }
 
-criterion_group!(benches, bench_hist, bench_hist_new);
+pub fn bench_hist_new_multi(c: &mut Criterion){
+    let mut rng = Pcg64::seed_from_u64(black_box(23));
+    let binning = BinningU32::new_inclusive(21, 200, 2)
+        .unwrap();
+    let mut hist = GenericHist::new(binning);
+    let sampler = rand::distributions::Uniform::new_inclusive(0, 220);
+    c.bench_function(
+        "new_hist_multi",
+        |b| b.iter(|| {
+            for _ in 0..1000{
+                let _ = hist.count_val(sampler.sample(&mut rng));
+            }
+        })
+    );
+}
+
+pub fn bench_hist_old_multi(c: &mut Criterion){
+    let mut rng = Pcg64::seed_from_u64(black_box(23));
+    let mut hist = HistU32::new_inclusive(21,200, 90)
+        .unwrap();
+    let sampler = rand::distributions::Uniform::new_inclusive(0, 220);
+    c.bench_function(
+        "old_hist_multi",
+        |b| b.iter(|| {
+            for _ in 0..1000{
+                let _ = hist.count_val(sampler.sample(&mut rng));
+            }
+        })
+    );
+}
+
+criterion_group!(benches, bench_hist_old_multi, bench_hist_new_multi, bench_hist, bench_hist_new);
 criterion_main!(benches);

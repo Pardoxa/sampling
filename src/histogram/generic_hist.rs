@@ -76,6 +76,7 @@ where B: Binning<T> {
 impl<T,B> HistogramVal<T> for GenericHist<B, T>
 where B: Binning<T>
 {
+    #[inline(always)]
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         self.binning.get_bin_index(val)
             .ok_or(HistErrors::OutsideHist)
