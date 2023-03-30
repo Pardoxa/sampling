@@ -246,16 +246,11 @@ where
             return None;
         }
 
-        let is_iterating = self.current < self.right;
+        let next = self.current + T::one();
+        let current = std::mem::replace(&mut self.current, next);
+        self.invalid = current == self.right;
         Some(
-            if is_iterating
-            {
-                let next = self.current + T::one();
-                std::mem::replace(&mut self.current, next)
-            } else {
-                self.invalid = true;
-                self.current
-            }
+            current
         )
 
     }
