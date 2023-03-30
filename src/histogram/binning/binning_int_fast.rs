@@ -554,6 +554,15 @@ mod tests{
         binning_all_outside_extensive(123, 299u16);
         binning_all_outside_extensive(1, usize::MAX -100);
     }
+
+    #[test]
+    fn extreme_vals()
+    {
+        
+        let binning = BinningU8::new_inclusive(250,255,2).unwrap();
+        let vec: Vec<_> = binning.multi_valued_bin_iter().collect();
+        assert_eq!(&vec, &[(250, 251), (252, 253), (254, 255)]);
+    }
      /* Below tests test a functionality that is not yet implemented
     #[test]
     fn partion_test()

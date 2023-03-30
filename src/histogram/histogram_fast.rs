@@ -299,19 +299,11 @@ where
         }
 
         let next = self.current.wrapping_add(&self.step_by);
-        let is_iterating = next < self.right;
+        let right = next.wrapping_sub(&T::one());
+        self.invalid = right == self.right;
+        let left = std::mem::replace(&mut self.current, next);
         Some(
-            if is_iterating
-            {
-                
-                let right = next.wrapping_sub(&T::one());
-                let left = std::mem::replace(&mut self.current, next);
-                (left, right)
-            } else {
-                self.invalid = true;
-                let right = next.wrapping_sub(&T::one());
-                (self.current, right)
-            }
+            (left, right)
         )
 
     }
