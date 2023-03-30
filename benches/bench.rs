@@ -27,6 +27,7 @@ pub fn benchmark2(c: &mut Criterion){
         "markov",
         |b| b.iter(|| {
             sequence.m_steps(black_box(128), &mut step);
+            sequence.steps_rejected(&step);
             sequence.undo_steps_quiet(&step);
         })
     );

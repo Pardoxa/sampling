@@ -5,7 +5,6 @@ use std::{
 };
 use paste::paste;
 use super::{
-    HistFastIterHelper,
     Binning,
     HasUnsignedVersion,
     to_u,
@@ -81,12 +80,7 @@ macro_rules! impl_binning {
                 ```"]
                 pub fn single_valued_bin_iter(&self) -> impl Iterator<Item=$t>
                 {
-                    // TODO: check if I can replace this by range_inclusive
-                    HistFastIterHelper{
-                        current: self.start,
-                        right: self.end_inclusive,
-                        invalid: false
-                    }
+                    self.range_inclusive()
                 
                 }
             }
