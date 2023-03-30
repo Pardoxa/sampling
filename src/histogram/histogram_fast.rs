@@ -441,6 +441,7 @@ where T: PrimInt + HasUnsignedVersion + WrappingAdd,
         }
     }
 
+    #[inline(always)]
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         let val = *val.borrow();
         if val <= self.right{

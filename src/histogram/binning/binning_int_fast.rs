@@ -103,6 +103,7 @@ macro_rules! impl_binning {
 
  
         impl Binning<$t> for paste!{[<FastBinning $t:upper>]} {
+            #[inline(always)]
             fn get_bin_len(&self) -> usize 
             {
                 (self.bins_m1() as usize).saturating_add(1)
@@ -111,6 +112,7 @@ macro_rules! impl_binning {
             /// # Get the respective bin index
             /// * Note: Obviously this breaks when the bin index cannot be represented as 
             /// `usize`
+            #[inline(always)]
             fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
                 let val = *val.borrow();
                 if self.is_inside(val)
@@ -135,10 +137,12 @@ macro_rules! impl_binning {
             }
 
             /// get the left most border (inclusive)
+            #[inline(always)]
             fn first_border(&self) -> $t{
                 self.start
             }
 
+            #[inline(always)]
             fn last_border(&self) -> $t{
                 self.end_inclusive
             }
@@ -151,6 +155,7 @@ macro_rules! impl_binning {
 
             /// # calculates some sort of absolute distance to the nearest valid bin
             /// * if a value corresponds to a valid bin, the distance is zero
+            #[inline(always)]
             fn distance<V: Borrow<$t>>(&self, v: V) -> f64{
                 let val = v.borrow();
                 if self.is_inside(val){
