@@ -9,7 +9,6 @@ use super::{
     Binning,
     HasUnsignedVersion,
     to_u,
-    from_u,
     Bin,
     BinModIterHelper
 };
@@ -212,7 +211,7 @@ impl_binning!(
 );
 
 /// Generic binning meant for any integer type
-pub struct FastBinning<T>
+pub struct BinningWithWidth<T>
 where T: HasUnsignedVersion
 {
     /// left bin border, inclusive
@@ -230,7 +229,7 @@ macro_rules! other_binning {
         
         paste!{
             #[doc = "Efficient binning for `" $t "` with bins of width 1"]
-            pub type [<Binning $t:upper>] = FastBinning<$t>;
+            pub type [<Binning $t:upper>] = BinningWithWidth<$t>;
         }
         
         impl paste!{[<Binning $t:upper>]}{
@@ -285,18 +284,14 @@ macro_rules! other_binning {
                 # Example\n\
                 ```\n\
                 use sampling::histogram::" [<Binning $t:upper>] ";\n\
-                let binning = " [<Binning $t:upper>] "::new_inclusive(2,5);\n\
-                let vec: Vec<_> = binning.single_valued_bin_iter().collect();\n\
-                assert_eq!(&vec, &[2, 3, 4, 5]);\n\
+                let binning = " [<Binning $t:upper>] "::new_inclusive(2,7,2).unwrap();\n\
+                let vec: Vec<_> = binning.multi_valued_bin_iter().collect();\n\
+                assert_eq!(&vec, &[(2, 3), (4, 5), (6, 7)]);\n\
                 ```"]
-                pub fn single_valued_bin_iter(&self) -> impl Iterator<Item=$t>
+                pub fn multi_valued_bin_iter(&self) -> impl Iterator<Item=($t, $t)>
                 {
-                    BinModIterHelper::new_unchecked(
-                        self.start,
-                        self.end_inclusive,
-                        from_u(self.bin_width)
-                    )
-                
+                    let width = self.bin_width as $t;
+                    BinModIterHelper::new_unchecked(self.start, self.end_inclusive, width)
                 }
             }
 
@@ -390,10 +385,7 @@ macro_rules! other_binning {
             /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `single_valued_bin_iter`.
             /// Consider using that instead, as it is more efficient
             fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
-                Box::new(
-                    self.single_valued_bin_iter()
-                        .map(|val| Bin::SingleValued(val))
-                )   
+                todo!() 
             }
         }
     };

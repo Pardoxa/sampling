@@ -284,26 +284,33 @@ impl<T> BinModIterHelper<T>
 
 impl<T> Iterator for BinModIterHelper<T>
 where 
-    T: Add::<T, Output=T> + Ord + Copy,
+    T: Add::<T, Output=T> 
+        + Ord + Copy + WrappingAdd
+        + WrappingSub
+        + One,
 {
-    type Item = T;
+    type Item = (T, T);
 
     #[inline]
-    fn next(&mut self) -> Option<T>
+    fn next(&mut self) -> Option<(T, T)>
     {
         if self.invalid {
             return None;
         }
 
-        let is_iterating = self.current < self.right;
+        let next = self.current.wrapping_add(&self.step_by);
+        let is_iterating = next < self.right;
         Some(
             if is_iterating
             {
-                let next = self.current + self.step_by;
-                std::mem::replace(&mut self.current, next)
+                
+                let right = next.wrapping_sub(&T::one());
+                let left = std::mem::replace(&mut self.current, next);
+                (left, right)
             } else {
                 self.invalid = true;
-                self.current
+                let right = next.wrapping_sub(&T::one());
+                (self.current, right)
             }
         )
 
