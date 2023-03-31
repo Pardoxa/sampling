@@ -5,6 +5,10 @@ use std::borrow::Borrow;
 use serde::{Serialize, Deserialize};
 
 
+mod binning_int_fast;
+pub use binning_int_fast::*;
+mod binning_int_multi;
+pub use binning_int_multi::*;
 
 /// # Definition of a Bin
 /// * Note: Most (currently all) implementations use more efficient representations of the bins underneath,
@@ -77,8 +81,7 @@ pub trait Binning<T>{
     fn distance<V: Borrow<T>>(&self, val: V) -> f64;
 }
 
-mod binning_int_fast;
-pub use binning_int_fast::*;
+
 
 #[derive(Clone, Copy, Debug)]
 pub enum BinType{
