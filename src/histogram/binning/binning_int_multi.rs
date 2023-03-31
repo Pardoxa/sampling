@@ -96,9 +96,10 @@ macro_rules! other_binning {
                 let vec: Vec<_> = binning.multi_valued_bin_iter().collect();\n\
                 assert_eq!(&vec, &[(2, 3), (4, 5), (6, 7)]);\n\
                 ```"]
+                #[inline]
                 pub fn multi_valued_bin_iter(&self) -> impl Iterator<Item=($t, $t)>
                 {
-                    let width = self.bin_width as $t;
+                    let width = self.bin_width;
                     BinModIterHelper::new_unchecked(self.start, self.end_inclusive, width)
                 }
             }
@@ -111,11 +112,26 @@ macro_rules! other_binning {
             /// If we look at an u8 and the range from 0 to 255, then this is 256 bins, which 
             /// cannot be represented as u8. To combat this, I return bins - 1.
             /// This works, because we always have at least 1 bin
+            #[inline(always)]
             pub fn bins_m1(&self) -> <$t as HasUnsignedVersion>::Unsigned{
                 let left = to_u(self.start);
                 let right = to_u(self.end_inclusive);
 
                 right - left
+            }
+
+            /// # Get the respective bin in native unsigned
+            #[inline(always)]
+            pub fn get_bin_index_native<V: Borrow<$t>>(&self, val: V) -> Option<<$t as HasUnsignedVersion>::Unsigned>{
+                let val = *val.borrow();
+                if self.is_inside(val)
+                {
+                    let bin_width = self.bin_width as <$t as HasUnsignedVersion>::Unsigned;
+                    let index = (to_u(val) - to_u(self.start)) / bin_width;
+                    Some(index)
+                } else {
+                    None
+                }
             }
         }
 
@@ -132,15 +148,8 @@ macro_rules! other_binning {
             /// `usize`
             #[inline(always)]
             fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
-                let val = *val.borrow();
-                if self.is_inside(val)
-                {
-                    let bin_width = self.bin_width as <$t as HasUnsignedVersion>::Unsigned;
-                    let index = (to_u(val) - to_u(self.start)) / bin_width;
-                    Some(index as usize)
-                } else{
-                    None
-                }
+                self.get_bin_index_native(val)
+                    .map(|v| v as usize)
             }
 
             /// Does a value correspond to a valid bin?
@@ -191,12 +200,17 @@ macro_rules! other_binning {
             }
 
             /// # Iterates over all bins
-            /// * Note: This implementation use more efficient representations of the bins underneath,
-            /// but are capable of returning the bins in this representation on request
-            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `single_valued_bin_iter`.
+            /// * Note: This implementation usees a more efficient representations of the bins underneath,
+            /// but is capable of returning the bins in this representation on request
+            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `multi_valued_bin_iter`.
             /// Consider using that instead, as it is more efficient
             fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
-                todo!() 
+                let iter = self
+                    .multi_valued_bin_iter()
+                    .map(
+                        |(left, right)| Bin::InclusiveInclusive(left, right)
+                    );
+                Box::new(iter)
             }
         }
     };
@@ -223,3 +237,16 @@ other_binning!(
     usize,
     isize
 );
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn extreme_vals()
+    { 
+        let binning = BinningU8::new_inclusive(250,255,2).unwrap();
+        let vec: Vec<_> = binning.multi_valued_bin_iter().collect();
+        assert_eq!(&vec, &[(250, 251), (252, 253), (254, 255)]);
+    }
+}
