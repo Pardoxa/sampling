@@ -42,6 +42,7 @@ macro_rules! impl_binning {
                 {
                     (0, res)
                 } else{
+                    #[inline]
                     fn check_bit_at(input: <$t as HasUnsignedVersion>::Unsigned, bit: <$t as HasUnsignedVersion>::Unsigned) -> bool {
                     
                         input & bit != 0
