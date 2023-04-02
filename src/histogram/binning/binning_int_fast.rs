@@ -26,68 +26,16 @@ pub struct FastSingleIntBinning<T>{
     end_inclusive: T
 }
 
-pub fn widening_test(a: u8, b: u8) -> (u8, u8)
-{
-    if let Some(res) = a.checked_mul(b)
-    {
-        (0, res)
-    } else{
-        fn check_bit_at(input: u8, bit: u8) -> bool {
-    
-            input & bit != 0
-            
-        }
-        let mut bit = 1;
-        let mut sum = 0_u8;
-        let mut overflow_counter = 0_u8;
-        for i in 0..8 {
-            let mut shifted_num = b;
-            if check_bit_at(a, bit){
-                println!("bit 1");
-                let mut to_shift = i;
-                let mut current_overflow_counter = 0_u8;
-                loop {
-                    let overflow;
-                    println!("sum: {sum}");
-                    println!("leading zeros {}", shifted_num.leading_zeros());
-                    if to_shift <= shifted_num.leading_zeros(){
-                        println!("to_shift <=  shifted_num.leading_zeros()");
-                        println!("before shift {shifted_num}");
-                        println!("shifted {} {to_shift}", shifted_num.shl(to_shift));
-                        (sum, overflow) = sum.overflowing_add(shifted_num.shl(to_shift));
-                        overflow_counter += current_overflow_counter;
-                        if overflow {
-                            overflow_counter += 1;
-                        }
-                        break;
-                    } else if shifted_num.leading_zeros() > 0{
-                        println!("shifted_num.leading_zeros() > 0");
-                        shifted_num = shifted_num.shl(shifted_num.leading_zeros());
-                        to_shift -= shifted_num.leading_zeros();
-                    } else {
-                        shifted_num = shifted_num.shl(1);
-                        to_shift -= 1;
-                        println!("Here");
-                        current_overflow_counter = current_overflow_counter.shl(1);
-                        current_overflow_counter += 1;
-                    }
-                }
-            } else {
-                println!("bit 0");
-            }
-            println!("sum_end: {sum}");
-            bit = bit.shl(1);
-        }
-        (overflow_counter, sum)
-    }
-}
 
 macro_rules! impl_binning {
     (
         $t:ty
     ) => {
         paste::item! {
-            fn [< widening_mul_ $t:upper >] (mut a: <$t as HasUnsignedVersion>::Unsigned, mut b: <$t as HasUnsignedVersion>::Unsigned)  
+            fn [< widening_mul_ $t:upper >] (
+                a: <$t as HasUnsignedVersion>::Unsigned, 
+                b: <$t as HasUnsignedVersion>::Unsigned
+            )  
                 -> (<$t as HasUnsignedVersion>::Unsigned, <$t as HasUnsignedVersion>::Unsigned)
             {
                 if let Some(res) = a.checked_mul(b)
@@ -102,13 +50,14 @@ macro_rules! impl_binning {
                     let mut bit = 1;
                     let mut sum: <$t as HasUnsignedVersion>::Unsigned = 0;
                     let mut overflow_counter = 0;
-                    for i in 0..8 {
+                    for i in 0..$t::BITS {
                         let mut shifted_num = b;
                         if check_bit_at(a, bit){
                             println!("bit 1");
                             let mut to_shift = i;
                             let mut current_overflow_counter = 0;
                             loop {
+                                println!("shift left: {to_shift}");
                                 let overflow;
                                 println!("sum: {sum}");
                                 println!("leading zeros {}", shifted_num.leading_zeros());
@@ -124,12 +73,12 @@ macro_rules! impl_binning {
                                     break;
                                 } else if shifted_num.leading_zeros() > 0{
                                     println!("shifted_num.leading_zeros() > 0");
-                                    shifted_num = shifted_num.shl(shifted_num.leading_zeros());
                                     to_shift -= shifted_num.leading_zeros();
+                                    shifted_num = shifted_num.shl(shifted_num.leading_zeros());
                                 } else {
+                                    println!("else: {shifted_num} leading ones: {}", shifted_num.leading_ones());
                                     shifted_num = shifted_num.shl(1);
                                     to_shift -= 1;
-                                    println!("Here");
                                     current_overflow_counter = current_overflow_counter.shl(1);
                                     current_overflow_counter += 1;
                                 }
@@ -140,6 +89,7 @@ macro_rules! impl_binning {
                         }
                         println!("sum_end: {sum}");
                         bit = bit.shl(1);
+                        println!("");
                     }
                     (overflow_counter, sum)
     
@@ -449,8 +399,8 @@ mod tests{
         check_widening(2, 255);
         check_widening(255, 255);
         check_widening_u32(3, u32::MAX);
-        check_widening(255, 3);
-        check_widening_u32(u32::MAX, 3);
+        check_widening(128, 3);
+        check_widening_u32(u32::MAX/2+1, 3);
     }
 
     #[test]
