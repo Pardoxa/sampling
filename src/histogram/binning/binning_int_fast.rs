@@ -54,18 +54,11 @@ macro_rules! impl_binning {
                     for i in 0..$t::BITS {
                         let mut shifted_num = b;
                         if check_bit_at(a, bit){
-                            println!("bit 1");
                             let mut to_shift = i;
                             let mut current_overflow_counter = 0;
                             loop {
-                                println!("shift left: {to_shift}");
                                 let overflow;
-                                println!("sum: {sum}");
-                                println!("leading zeros {}", shifted_num.leading_zeros());
                                 if to_shift <= shifted_num.leading_zeros(){
-                                    println!("to_shift <=  shifted_num.leading_zeros()");
-                                    println!("before shift {shifted_num}");
-                                    println!("shifted {} {to_shift}", shifted_num.shl(to_shift));
                                     (sum, overflow) = sum.overflowing_add(shifted_num.shl(to_shift));
                                     overflow_counter += current_overflow_counter;
                                     if overflow {
@@ -73,24 +66,17 @@ macro_rules! impl_binning {
                                     }
                                     break;
                                 } else if shifted_num.leading_zeros() > 0{
-                                    println!("shifted_num.leading_zeros() > 0");
                                     to_shift -= shifted_num.leading_zeros();
                                     shifted_num = shifted_num.shl(shifted_num.leading_zeros());
                                 } else {
-                                    println!("else: {shifted_num} leading ones: {}", shifted_num.leading_ones());
                                     shifted_num = shifted_num.shl(1);
                                     to_shift -= 1;
                                     current_overflow_counter = current_overflow_counter.shl(1);
                                     current_overflow_counter += 1;
                                 }
-                                println!("overflow counter: {current_overflow_counter}");
                             }
-                        } else {
-                            println!("bit 0");
                         }
-                        println!("sum_end: {sum}");
                         bit = bit.shl(1);
-                        println!("");
                     }
                     (overflow_counter, sum)
     
