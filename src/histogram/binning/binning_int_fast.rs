@@ -1,6 +1,5 @@
-
 use std::{
-    ops::RangeInclusive,
+    ops::{RangeInclusive, Shl},
     borrow::Borrow
 };
 use paste::paste;
@@ -8,7 +7,10 @@ use super::{
     Binning,
     HasUnsignedVersion,
     to_u,
-    Bin
+    from_u,
+    Bin,
+    HistogramPartition,
+    HistErrors
 };
 
 #[cfg(feature = "serde_support")]
@@ -24,10 +26,126 @@ pub struct FastSingleIntBinning<T>{
     end_inclusive: T
 }
 
+pub fn widening_test(a: u8, b: u8) -> (u8, u8)
+{
+    if let Some(res) = a.checked_mul(b)
+    {
+        (0, res)
+    } else{
+        fn check_bit_at(input: u8, bit: u8) -> bool {
+    
+            input & bit != 0
+            
+        }
+        let mut bit = 1;
+        let mut sum = 0_u8;
+        let mut overflow_counter = 0_u8;
+        for i in 0..8 {
+            let mut shifted_num = b;
+            if check_bit_at(a, bit){
+                println!("bit 1");
+                let mut to_shift = i;
+                let mut current_overflow_counter = 0_u8;
+                loop {
+                    let overflow;
+                    println!("sum: {sum}");
+                    println!("leading zeros {}", shifted_num.leading_zeros());
+                    if to_shift <= shifted_num.leading_zeros(){
+                        println!("to_shift <=  shifted_num.leading_zeros()");
+                        println!("before shift {shifted_num}");
+                        println!("shifted {} {to_shift}", shifted_num.shl(to_shift));
+                        (sum, overflow) = sum.overflowing_add(shifted_num.shl(to_shift));
+                        overflow_counter += current_overflow_counter;
+                        if overflow {
+                            overflow_counter += 1;
+                        }
+                        break;
+                    } else if shifted_num.leading_zeros() > 0{
+                        println!("shifted_num.leading_zeros() > 0");
+                        shifted_num = shifted_num.shl(shifted_num.leading_zeros());
+                        to_shift -= shifted_num.leading_zeros();
+                    } else {
+                        shifted_num = shifted_num.shl(1);
+                        to_shift -= 1;
+                        println!("Here");
+                        current_overflow_counter = current_overflow_counter.shl(1);
+                        current_overflow_counter += 1;
+                    }
+                }
+            } else {
+                println!("bit 0");
+            }
+            println!("sum_end: {sum}");
+            bit = bit.shl(1);
+        }
+        (overflow_counter, sum)
+    }
+}
+
 macro_rules! impl_binning {
     (
         $t:ty
     ) => {
+        paste::item! {
+            fn [< widening_mul_ $t:upper >] (mut a: <$t as HasUnsignedVersion>::Unsigned, mut b: <$t as HasUnsignedVersion>::Unsigned)  
+                -> (<$t as HasUnsignedVersion>::Unsigned, <$t as HasUnsignedVersion>::Unsigned)
+            {
+                if let Some(res) = a.checked_mul(b)
+                {
+                    (0, res)
+                } else{
+                    fn check_bit_at(input: <$t as HasUnsignedVersion>::Unsigned, bit: <$t as HasUnsignedVersion>::Unsigned) -> bool {
+                    
+                        input & bit != 0
+
+                    }
+                    let mut bit = 1;
+                    let mut sum: <$t as HasUnsignedVersion>::Unsigned = 0;
+                    let mut overflow_counter = 0;
+                    for i in 0..8 {
+                        let mut shifted_num = b;
+                        if check_bit_at(a, bit){
+                            println!("bit 1");
+                            let mut to_shift = i;
+                            let mut current_overflow_counter = 0;
+                            loop {
+                                let overflow;
+                                println!("sum: {sum}");
+                                println!("leading zeros {}", shifted_num.leading_zeros());
+                                if to_shift <= shifted_num.leading_zeros(){
+                                    println!("to_shift <=  shifted_num.leading_zeros()");
+                                    println!("before shift {shifted_num}");
+                                    println!("shifted {} {to_shift}", shifted_num.shl(to_shift));
+                                    (sum, overflow) = sum.overflowing_add(shifted_num.shl(to_shift));
+                                    overflow_counter += current_overflow_counter;
+                                    if overflow {
+                                        overflow_counter += 1;
+                                    }
+                                    break;
+                                } else if shifted_num.leading_zeros() > 0{
+                                    println!("shifted_num.leading_zeros() > 0");
+                                    shifted_num = shifted_num.shl(shifted_num.leading_zeros());
+                                    to_shift -= shifted_num.leading_zeros();
+                                } else {
+                                    shifted_num = shifted_num.shl(1);
+                                    to_shift -= 1;
+                                    println!("Here");
+                                    current_overflow_counter = current_overflow_counter.shl(1);
+                                    current_overflow_counter += 1;
+                                }
+                                println!("overflow counter: {current_overflow_counter}");
+                            }
+                        } else {
+                            println!("bit 0");
+                        }
+                        println!("sum_end: {sum}");
+                        bit = bit.shl(1);
+                    }
+                    (overflow_counter, sum)
+    
+                }
+            }
+        }
         
         paste!{
             #[doc = "Efficient binning for `" $t "` with bins of width 1"]
@@ -40,6 +158,7 @@ macro_rules! impl_binning {
             /// * each bin has width 1
             /// # Panics
             /// * if `start` is smaller than `end_inclusive`
+            /// TODO Think about if this should actually panic or return None
             #[inline(always)]
             pub const fn new_inclusive(start: $t, end_inclusive: $t) -> Self{
                 assert!(start <= end_inclusive);
@@ -184,6 +303,63 @@ macro_rules! impl_binning {
                     )
             }
         }
+
+        impl HistogramPartition for paste!{[<FastBinning $t:upper>]}
+        {
+           
+            /// # partition the interval
+            /// * returns Vector of `n` Binnings that  
+            /// ## parameter
+            /// * `n` number of resulting intervals
+            /// * `overlap` How much overlap should there be?
+            /// ## What is it for?
+            /// * This is intended to create multiple overlapping intervals, e.g.,
+            /// for a Wang-Landau simulation
+            fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
+            {
+                let mut result = Vec::with_capacity(n);
+                // TODO maybe change n: usize to n: Unsigned?
+                let size = self.bins_m1();
+                let n_native = n as <$t as HasUnsignedVersion>::Unsigned;
+                let denominator = (n + overlap) as <$t as HasUnsignedVersion>::Unsigned;
+                let overlap_native = overlap as <$t as HasUnsignedVersion>::Unsigned;
+                for c in 0..n_native {
+                    println!("1");
+                    let left_distance = c.checked_mul(size)
+                        .ok_or(HistErrors::Overflow)?
+                        / denominator;
+                        println!("2");
+                    let left = to_u(self.start) + left_distance;
+                    println!("3");
+                    /*
+                        Idea: I can calculate the number of overflows beforehand?
+                        Maybe.
+                        But how?
+                        I do not want to use something other than u8- otherwise it would be simple.
+                        a*b/256…~ (128*2)*(128*2) --- need to know power of two…
+                        bits: 2^0+2^1 usw.
+                        (2^0+2^3)(2^0+2^3)-> (2^0+2^3+2^3+2^(3+3))/(2^7)
+                        alles kleiner 2^7 ist also erstmal egal… aber das wird viel zu lang…
+
+
+                        Neuer ansatz
+                        (a*b)/256 -> log(a*b/256) ) log(a)+log(b)-log(256)
+                     */
+                    let right_distance = (c + overlap_native + 1)
+                        .checked_mul(size)
+                        .ok_or(HistErrors::Overflow)?
+                        / denominator;
+                        println!("4");
+                    let right = to_u(self.start) + right_distance;
+
+                    let left = from_u(left);
+                    let right = from_u(right);
+                
+                    result.push(Self::new_inclusive(left, right));
+                }
+                Ok(result)
+            }
+        }
     };
     (
         $($t:ty),* $(,)?
@@ -215,7 +391,10 @@ mod tests{
     use std::fmt::{Display, Debug};
 
     use crate::GenericHist;
-
+    use rand_pcg::Pcg64Mcg;
+    use rand::SeedableRng;
+    use rand::distributions::Uniform;
+    use rand::prelude::*;
     use super::*;
     use crate::histogram::*;
     use num_traits::{PrimInt, AsPrimitive};
@@ -238,6 +417,40 @@ mod tests{
             hist.count_val(i).unwrap();
         }
         assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());   
+    }
+
+    fn check_widening(a: u8, b: u8) 
+    {
+        let actual = (a as usize * b as usize) / 256;
+        let rest = (a as usize * b as usize) % 256;
+        let (m_a, m_r) = widening_mul_U8(a, b);
+        println!("actual overflow {actual} my {m_a}");
+        println!("actual rest {rest} mine {m_r}");
+        assert_eq!(actual as u8, m_a);
+        assert_eq!(rest as u8, m_r);
+    }
+
+    fn check_widening_u32(a: u32, b: u32) 
+    {
+        let actual = (a as u128 * b as u128) / (u32::MAX as u128 + 1);
+        let rest = (a as u128 * b as u128) % (u32::MAX as u128 + 1);
+        let (m_a, m_r) = widening_mul_U32(a, b);
+        println!("actual overflow {actual} my {m_a}");
+        println!("actual rest {rest} mine {m_r}");
+        assert_eq!(actual as u32, m_a);
+        assert_eq!(rest as u32, m_r);
+    }
+
+    #[test]
+    fn widening_testing()
+    {
+        check_widening(1, 255);
+        check_widening(3, 128);
+        check_widening(2, 255);
+        check_widening(255, 255);
+        check_widening_u32(3, u32::MAX);
+        check_widening(255, 3);
+        check_widening_u32(u32::MAX, 3);
     }
 
     #[test]
@@ -357,25 +570,25 @@ mod tests{
     }
 
     
-     /* Below tests test a functionality that is not yet implemented
+      
     #[test]
     fn partion_test()
     {
-        let h = HistU8Fast::new_inclusive(0, u8::MAX).unwrap();
+        let h = FastBinningU8::new_inclusive(0, u8::MAX);
         let h_part = h.overlapping_partition(2, 0).unwrap();
-        assert_eq!(h.left, h_part[0].left);
-        assert_eq!(h.right, h_part.last().unwrap().right);
+        assert_eq!(h.first_border(), h_part[0].first_border());
+        assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
 
-        let h = HistI8Fast::new_inclusive(i8::MIN, i8::MAX).unwrap();
+        let h = FastBinningI8::new_inclusive(i8::MIN, i8::MAX);
         let h_part = h.overlapping_partition(2, 0).unwrap();
-        assert_eq!(h.left, h_part[0].left);
-        assert_eq!(h.right, h_part.last().unwrap().right);
+        assert_eq!(h.first_border(), h_part[0].first_border());
+        assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
-        let h = HistI16Fast::new_inclusive(i16::MIN, i16::MAX).unwrap();
+        let h = FastBinningI16::new_inclusive(i16::MIN, i16::MAX);
         let h_part = h.overlapping_partition(2, 2).unwrap();
-        assert_eq!(h.left, h_part[0].left);
-        assert_eq!(h.right, h_part.last().unwrap().right);
+        assert_eq!(h.first_border(), h_part[0].first_border());
+        assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
 
         let _ = h.overlapping_partition(2000, 0).unwrap();
@@ -402,7 +615,7 @@ mod tests{
                         break (num_1, num_2)
                     }
                 };
-                let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
+                let hist_fast = FastBinningI8::new_inclusive(left, right);
                 let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
 
                 assert_eq!(
@@ -417,7 +630,7 @@ mod tests{
             }
         }
     }
-
+/*Below tests test a functionality that is not yet implemented
     #[test]
     fn hist_combine()
     {
