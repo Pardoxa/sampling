@@ -32,7 +32,62 @@ macro_rules! impl_binning {
         $t:ty
     ) => {
         paste::item! {
-            fn [< widening_mul_ $t:upper >] (
+            fn [< checked_mul_div_ $t >] (
+                mut a: <$t as HasUnsignedVersion>::Unsigned, 
+                mut b: <$t as HasUnsignedVersion>::Unsigned,
+                denominator: <$t as HasUnsignedVersion>::Unsigned
+            ) -> Option<<$t as HasUnsignedVersion>::Unsigned>
+            {
+                println!("");
+                if let Some(val) = a.checked_mul(b){
+                    return Some(val / denominator);
+                }
+                if a < b {
+                    std::mem::swap(&mut a, &mut b);
+                }
+                // a >= b is now true
+                let mut sum_rest = 0;
+                if a >= denominator{
+                    sum_rest += a / denominator;
+                    a %= denominator;
+                }
+                println!("sum_rest {sum_rest} a: {a} b: {b} denominator {denominator}");
+                let (overflows, rest) = paste::item! { [< overflow_counting_mul_ $t >] }(a, b);
+                // (overflows * (num + 1) + rest) / denominator;
+                // -> overflows * (num / denominator + 1/ denominator) + rest / denominator
+                let mut num_den = <$t as HasUnsignedVersion>::Unsigned::MAX / denominator;
+                let mut num_res = <$t as HasUnsignedVersion>::Unsigned::MAX % denominator;
+                let num_res_p1 = num_res.checked_add(1)?;
+                println!("here 1");
+                num_den = num_den.checked_add(num_res_p1 / denominator)?;
+                println!("here 2");
+                num_res = num_res_p1 % denominator;
+                println!("here 3");
+                num_den = num_den.checked_mul(overflows)?;
+                println!("here 4 num_den {num_den} overflows {overflows} num_res");
+                let (new_overflows, res) = paste::item! { [< overflow_counting_mul_ $t >] }(num_res, overflows);
+                num_res = res;
+                // ich muss den overflow noch irgendwie einbeziehen -> new_overflow / denominator…
+                // in der zeile hier drunter ist wahrscheinlich noch der wurm drin
+                let overflow_rest = ((<$t as HasUnsignedVersion>::Unsigned::MAX % denominator) + 1) / denominator;
+                num_den += new_overflows.checked_mul((<$t as HasUnsignedVersion>::Unsigned::MAX / denominator))?;
+                num_den += overflow_rest;
+                println!("here 5");
+                num_den = num_den.checked_add(num_res / denominator)?;
+                println!("here 6");
+                num_res %= denominator;
+                println!("here 7");
+                num_res = num_res.checked_add(rest)?;
+                println!("here 8");
+                let result = num_den.checked_add(num_res / denominator)?;
+                println!("result: {result}");
+                result.checked_add(sum_rest.checked_mul(b)?)
+
+            }
+        }
+
+        paste::item! {
+            fn [< overflow_counting_mul_ $t >] (
                 a: <$t as HasUnsignedVersion>::Unsigned, 
                 b: <$t as HasUnsignedVersion>::Unsigned
             )  
@@ -262,37 +317,43 @@ macro_rules! impl_binning {
                 let overlap_native = overlap as <$t as HasUnsignedVersion>::Unsigned;
                 for c in 0..n_native {
                     println!("1");
-                    let left_distance = c.checked_mul(size)
-                        .ok_or(HistErrors::Overflow)?
-                        / denominator;
+                    let left_distance = match paste::item! { [< checked_mul_div_ $t >] }(c, size, denominator)
+                    {
+                        Some(mul_res) => mul_res ,
+                        None => { return Err(HistErrors::Overflow)}
+                    };
                         println!("2");
                     let left = to_u(self.start) + left_distance;
                     println!("3");
-                    /*
-                        Idea: I can calculate the number of overflows beforehand?
-                        Maybe.
-                        But how?
-                        I do not want to use something other than u8- otherwise it would be simple.
-                        a*b/256…~ (128*2)*(128*2) --- need to know power of two…
-                        bits: 2^0+2^1 usw.
-                        (2^0+2^3)(2^0+2^3)-> (2^0+2^3+2^3+2^(3+3))/(2^7)
-                        alles kleiner 2^7 ist also erstmal egal… aber das wird viel zu lang…
+                    
+                    let right_sum = c.saturating_add(overlap_native)
+                        .checked_add(1)
+                        .ok_or(HistErrors::Overflow)?;
 
-
-                        Neuer ansatz
-                        (a*b)/256 -> log(a*b/256) ) log(a)+log(b)-log(256)
-                     */
-                    let right_distance = (c + overlap_native + 1)
-                        .checked_mul(size)
-                        .ok_or(HistErrors::Overflow)?
-                        / denominator;
-                        println!("4");
+                    let right_distance = match  paste::item! { [< checked_mul_div_ $t >] }(right_sum, size, denominator)
+                    {
+                        Some(mul_res) => mul_res ,
+                        None => { return Err(HistErrors::Overflow)}
+                    };
                     let right = to_u(self.start) + right_distance;
 
                     let left = from_u(left);
                     let right = from_u(right);
+                    println!("left {left} right {right}");
+                    println!("goal: {} {}", self.start, self.end_inclusive);
                 
                     result.push(Self::new_inclusive(left, right));
+                }
+                assert_eq!(self.start, result[0].start, "eq1");
+                assert_eq!(self.end_inclusive, result.last().unwrap().end_inclusive, "eq2");
+                for (entry_old, entry_new) in result.iter().zip(result.iter().skip(1))
+                {
+                    assert!(entry_old.start < entry_old.end_inclusive);
+                    println!("entry_old.start {} <= {} entry_new.start", entry_old.end_inclusive, entry_new.start);
+                    assert!(entry_old.start < entry_new.start);
+                    println!("entry_old.end_inclusive {} <= {} entry_new.end_inclusive", entry_old.end_inclusive, entry_new.end_inclusive);
+                    assert!(entry_old.end_inclusive < entry_new.end_inclusive);
+                    assert!(entry_new.start < entry_new.end_inclusive);
                 }
                 Ok(result)
             }
@@ -360,7 +421,7 @@ mod tests{
     {
         let actual = (a as usize * b as usize) / 256;
         let rest = (a as usize * b as usize) % 256;
-        let (m_a, m_r) = widening_mul_U8(a, b);
+        let (m_a, m_r) = overflow_counting_mul_u8(a, b);
         println!("actual overflow {actual} my {m_a}");
         println!("actual rest {rest} mine {m_r}");
         assert_eq!(actual as u8, m_a);
@@ -371,7 +432,7 @@ mod tests{
     {
         let actual = (a as u128 * b as u128) / (u32::MAX as u128 + 1);
         let rest = (a as u128 * b as u128) % (u32::MAX as u128 + 1);
-        let (m_a, m_r) = widening_mul_U32(a, b);
+        let (m_a, m_r) = overflow_counting_mul_u32(a, b);
         println!("actual overflow {actual} my {m_a}");
         println!("actual rest {rest} mine {m_r}");
         assert_eq!(actual as u32, m_a);
@@ -506,6 +567,43 @@ mod tests{
         binning_all_outside_extensive(1, usize::MAX -100);
     }
 
+    macro_rules! mul_t {
+        (
+            $t:ty, $o:ty
+        ) => {
+            
+            paste::item!{ fn [< mul_tests_ $t >]()
+                {
+                    let mut rng = Pcg64Mcg::seed_from_u64(314668);
+                    let uni_one = Uniform::new_inclusive(1, $t::max_value());
+                    for _ in 0..100 {
+                        let a = uni_one.sample(&mut rng);
+                        let b = uni_one.sample(&mut rng);
+                        let c = uni_one.sample(&mut rng);
+                        let result: $o = a as $o * b as $o / c as $o;
+                        let max = $t::max_value().into();
+                        let mul = paste::item! { [< checked_mul_div_ $t >]}(a,b,c);
+                        if result <= max {
+                            println!("{a} {b} {c}");
+                            println!("{mul:?} {result}");
+                            assert!(mul.is_some());
+                        } else {
+                            assert!(mul.is_none());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn mul_testing()
+    {
+        mul_t!(u8, u16);
+        mul_tests_u8();
+        
+    }  
+    
     
       
     #[test]
@@ -537,7 +635,7 @@ mod tests{
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
         let uni = Uniform::new_inclusive(-100, 100);
         for overlap in 0..=3 {
-            for _ in 0..100 {
+            for i in 0..100 {
                 let (left, right) = loop {
                     let mut num_1 = uni.sample(&mut rng);
                     let mut num_2 = uni.sample(&mut rng);
@@ -552,6 +650,7 @@ mod tests{
                         break (num_1, num_2)
                     }
                 };
+                println!("iteration {i}");
                 let hist_fast = FastBinningI8::new_inclusive(left, right);
                 let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
 
