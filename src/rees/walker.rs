@@ -452,7 +452,7 @@ where Hist: Histogram
                 |log_density|
                 {
                     averaged_log_density.iter_mut()
-                        .zip(log_density.into_iter())
+                        .zip(log_density)
                         .for_each(
                             |(average, other)|
                             {

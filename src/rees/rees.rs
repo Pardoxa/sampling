@@ -1026,7 +1026,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
     assert_eq!(hists.len(), merged_probs.len());
 
     let mut container: Vec<_> = merged_probs.iter()
-        .zip(hists.into_iter())
+        .zip(hists)
         .map(|(prob, hist)| (prob.as_slice(), hist))
         .collect();
 

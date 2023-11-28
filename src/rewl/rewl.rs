@@ -2,8 +2,9 @@ use{
     crate::{
         *,
         rewl::*,
-        glue_helper::*
+        glue_helper::*,
     },
+    super::walker::replica_exchange,
     rayon::{iter::ParallelIterator, prelude::*},
     rand::{Rng, SeedableRng, prelude::SliceRandom},
     std::{num::NonZeroUsize, sync::*, cmp::*}
@@ -1068,7 +1069,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
 
     let mut container: Vec<_> = log_probabilities
         .iter()
-        .zip(hists.into_iter())
+        .zip(hists)
         .map(|(prob, hist)| (prob.as_slice(), hist))
         .collect();
 
@@ -1133,7 +1134,7 @@ where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync + 
     let mut container: Vec<(&Hist, Vec<f64>)> = combined_probs_and_hists_iter
         .flat_map(
             |entry| 
-            entry.0.into_iter().zip(entry.1.into_iter())
+            entry.0.into_iter().zip(entry.1)
         ).collect();
 
     container
