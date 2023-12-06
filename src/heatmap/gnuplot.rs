@@ -12,7 +12,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// For labeling the gnuplot plots axis
-pub enum GnuplotAxis{
+pub enum Labels{
     /// construct the labels
     FromValues{
         /// minimum value for axis labels
@@ -23,17 +23,31 @@ pub enum GnuplotAxis{
         tics: usize,
     },
     /// use labels 
-    Labels{
+    FromStrings{
         /// this are the labels
         labels: Vec<String>
     }
 }
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// For labeling the gnuplot plots axis
+pub struct GnuplotAxis{
+    labels: Labels,
+    rotation: f32
+}
 
 impl GnuplotAxis{
+    /// Set the rotation value. 
+    /// Tics will be displayed rotaded to the right by the requested amount
+    pub fn set_rotation(&mut self, rotation_degrees: f32)
+    {
+        self.rotation = rotation_degrees;
+    }
+
     pub(crate) fn write_tics<W: Write>(&self, mut w: W, num_bins: usize, axis: &str) -> std::io::Result<()>
     {
-        match self {
-            Self::FromValues{min, max, tics} => {
+        match &self.labels {
+            Labels::FromValues{min, max, tics} => {
                 if min.is_nan() || max.is_nan() || *tics < 2 || num_bins < 2 {
                     Ok(())
                 } else {
@@ -48,10 +62,10 @@ impl GnuplotAxis{
                         let pos = i as f64 * bin_dif;
                         write!(w, "\"{:#}\" {:e}, ", val, pos)?; 
                     }
-                    writeln!(w, "\"{:#}\" {:e} )", max,  num_bins - 1)
+                    writeln!(w, "\"{:#}\" {:e} ) rotate by {} right", max,  num_bins - 1, self.rotation)
                 }
             }, 
-            Self::Labels{labels} => {
+            Labels::FromStrings{labels} => {
                 let tics = labels.len();
                 match tics {
                     0 => Ok(()),
@@ -66,7 +80,7 @@ impl GnuplotAxis{
                             let pos = i as f64 * bin_dif;
                             write!(w, "\"{}\" {:e}, ", lab, pos)?; 
                         }
-                        writeln!(w, " )")
+                        writeln!(w, " ) rotate by {} right", self.rotation)
                     }
                 }
             }
@@ -76,20 +90,20 @@ impl GnuplotAxis{
 
     /// Create new GnuplotAxis::FromValues
     pub fn new(min: f64, max: f64, tics: usize) -> Self {
-        Self::FromValues{
+        let labels = Labels::FromValues{
             min,
             max,
             tics
-        }
+        };
+        Self { labels, rotation: 0.0 }
     }
 
     /// Create new GnuplotAxis::Labels
     /// - Vector contains labels used for axis
     pub fn from_labels(labels: Vec<String>) -> Self
     {
-        Self::Labels{
-            labels
-        }
+        let labels = Labels::FromStrings { labels };
+        Self{labels, rotation: 0.0}
     }
 
     /// Similar to `from_labels`
