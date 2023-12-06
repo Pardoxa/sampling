@@ -240,7 +240,7 @@ impl<R> HasRng<R> for CoinFlipSequence<R>
 }
 
 #[cfg(test)]
-#[cfg(features="replica_exchange")]
+#[cfg(feature="replica_exchange")]
 mod tests{
     use super::*;
     use rand::SeedableRng;
@@ -274,7 +274,7 @@ mod tests{
             1,
             NonZeroUsize::new(1999).unwrap(),
             NonZeroUsize::new(2).unwrap(),
-            0.000003
+            0.000001
         ).unwrap();
 
         let rewl1 = rewl_builder1.greedy_build(|e| Some(e.head_count()));
@@ -296,7 +296,7 @@ mod tests{
             1,
             NonZeroUsize::new(1999).unwrap(),
             NonZeroUsize::new(2).unwrap(),
-            0.000003
+            0.000001
         ).unwrap();
 
         let mut rewl2 = rewl_builder2.greedy_build(|e| Some(e.head_count()));
@@ -307,6 +307,7 @@ mod tests{
         rewl_slice.par_iter_mut()
             .for_each(|rewl| rewl.simulate_until_convergence(|e| Some(e.head_count())));
         
+
         rewl_slice.iter()
             .for_each(
                 |r| 
@@ -315,7 +316,7 @@ mod tests{
                             .for_each(|w| println!("rewl replica_frac {}", w.replica_exchange_frac()));
                     }
                 );
-        let steps: usize = rewl_slice
+        let steps: u64 = rewl_slice
                 .iter()
                 .flat_map(|r| 
                     r.walkers()
@@ -336,10 +337,10 @@ mod tests{
         let mut rees_slice: Vec<_> = rewl_slice.into_iter()
             .map(|r| r.into_rees())
             .collect();
-        
         rees_slice.par_iter_mut()
             .for_each(|rees| rees.simulate_until_convergence(|e| Some(e.head_count()), |_,_, _|{}));
-        let steps: usize = rees_slice
+
+        let steps: u64 = rees_slice
             .iter()
             .flat_map(|r| 
                 r.walkers()
@@ -348,7 +349,7 @@ mod tests{
             ).sum();
         println!("Ges steps rees {}", steps);
 
-        let prob_rees = rees::merged_log_prob(&rees_slice).unwrap();
+        let prob_rees = rees::merged_log_prob_rees(&rees_slice).unwrap();
 
         let mut max_ln_difference_rewl = f64::NEG_INFINITY;
         let mut max_difference_rewl = f64::NEG_INFINITY;
@@ -360,7 +361,14 @@ mod tests{
         let mut max_difference_rees = f64::NEG_INFINITY;
         let mut frac_difference_max_rees = f64::NEG_INFINITY;
         let mut frac_difference_min_rees = f64::INFINITY;
-        for (index, ((val_sim1, val_sim2), val_true)) in prob.0.into_iter().zip(prob_rees.0).zip(ln_prob_true).enumerate()
+
+        let iter = prob.0.
+            into_iter()
+            .zip(prob_rees.0)
+            .zip(ln_prob_true)
+            .enumerate();
+
+        for (index, ((val_sim1, val_sim2), val_true)) in iter
         {
             println!("{} {} {} {}", index, val_sim1, val_sim2, val_true);
 

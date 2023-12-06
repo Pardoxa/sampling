@@ -1,11 +1,10 @@
-use{
-    std::{
+use std::{
         fmt,
         io::Write,
         convert::From,
-        borrow::*
-    }
-};
+        borrow::*,
+        path::Path
+    };
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -290,6 +289,34 @@ impl GnuplotSettings {
         writeln!(writer, "EOD")?;
 
         writeln!(writer, "splot $data matrix with image t \"{}\" ", &self.title)?;
+
+        self.terminal.finish(&mut writer)
+    }
+
+    /// Same as write_heatmap but it assumes that the heatmap 
+    /// matrix is available in the file "heatmap"
+    pub fn write_heatmap_external_matrix<W, P>(
+        &self,
+        mut writer: W,
+        matrix_width: usize,
+        matrix_height: usize,
+        matrix_path: P
+    ) -> std::io::Result<()> 
+    where W: Write,
+        P: AsRef<Path>
+    {
+        self.write_heatmap_helper1(
+            &mut writer,
+            matrix_width,
+            matrix_height
+        )?;
+
+        writeln!(
+            writer, 
+            "splot \"{}\" matrix with image t \"{}\" ", 
+            matrix_path.as_ref().to_string_lossy(),
+            &self.title
+        )?;
 
         self.terminal.finish(&mut writer)
     }

@@ -100,21 +100,21 @@ macro_rules! impl_binning {
         impl Binning<$t> for paste!{[<FastBinning $t:upper>]} {
             fn get_bin_len(&self) -> usize 
             {
-                let len = self.bins_m1();
+                let _len = self.bins_m1();
                 todo!()
             }
 
-            fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
+            fn get_bin_index<V: Borrow<$t>>(&self, _val: V) -> Option<usize>{
                 todo!()
             }
 
             /// Does a value correspond to a valid bin?
-            fn is_inside<V: Borrow<$t>>(&self, val: V) -> bool{
+            fn is_inside<V: Borrow<$t>>(&self, _val: V) -> bool{
                 todo!()
             }
 
             /// Opposite of `is_inside`
-            fn not_inside<V: Borrow<$t>>(&self, val: V) -> bool{
+            fn not_inside<V: Borrow<$t>>(&self, _val: V) -> bool{
                 todo!()
             }
 
@@ -130,7 +130,7 @@ macro_rules! impl_binning {
             /// # calculates some sort of absolute distance to the nearest valid bin
             /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
             /// * if a value corresponds to a valid bin, the distance should be zero
-            fn distance<V: Borrow<$t>>(&self, val: V) -> f64{
+            fn distance<V: Borrow<$t>>(&self, _val: V) -> f64{
                 todo!{}
             }
 

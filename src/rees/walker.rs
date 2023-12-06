@@ -366,8 +366,8 @@ where Hist: HistogramVal<Energy>,
                 },
                 _ => {
                     self.count_rejected();
-                    e.undo_steps_quiet(&self.markov_steps);
                     e.steps_rejected(&self.markov_steps);
+                    e.undo_steps_quiet(&self.markov_steps);
                 }
             }
 
@@ -377,6 +377,7 @@ where Hist: HistogramVal<Energy>,
             extra_fn(self, &mut e, extra);
 
         }
+
         #[cfg(feature = "sweep_time_optimization")]
             {
                 self.duration = start.elapsed();
