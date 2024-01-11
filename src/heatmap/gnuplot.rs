@@ -138,6 +138,10 @@ pub struct GnuplotSettings{
 
     /// Color palette for heatmap
     pub palette: GnuplotPalette,
+
+    /// Define the cb range if this option is set
+    pub cb_range: Option<(f64, f64)>,
+
     /// # Size of the terminal
     /// * Anything gnuplot accepts (e.g. "2cm, 2.9cm") is acceptable
     /// # Note
@@ -153,6 +157,20 @@ impl GnuplotSettings {
     pub fn size<S: Into<String>>(&'_ mut self, size: S) -> &'_ mut Self
     {
         self.size = size.into();
+        self
+    }
+
+    /// # Builder pattern - set cb_range
+    pub fn cb_range(&'_ mut self, range_start: f64, range_end: f64) -> &'_ mut Self
+    {
+        self.cb_range = Some((range_start, range_end));
+        self
+    }
+
+    /// # Builder pattern - remove cb_range
+    pub fn remove_cb_range(&'_ mut self) -> &'_ mut Self
+    {
+        self.cb_range = None;
         self
     }
 
@@ -229,10 +247,24 @@ impl GnuplotSettings {
         self
     }
 
+    /// Remove x_axis
+    pub fn remove_x_axis(&'_ mut self) -> &'_ mut Self
+    {
+        self.x_axis = None;
+        self
+    }
+
     /// Set y_axis - See GnuplotAxis or try it out
     pub fn y_axis(&'_ mut self, axis: GnuplotAxis) -> &'_ mut Self
     {
         self.y_axis = Some(axis);
+        self
+    }
+
+    /// Remove y_axis
+    pub fn remove_y_axis(&'_ mut self) -> &'_ mut Self
+    {
+        self.y_axis = None;
         self
     }
 
@@ -261,6 +293,9 @@ impl GnuplotSettings {
 
         writeln!(writer, "set xrange[-0.5:{}]", x_len as f64 - 0.5)?;
         writeln!(writer, "set yrange[-0.5:{}]", y_len as f64 - 0.5)?;
+        if let Some((range_start, range_end)) = self.cb_range{
+            writeln!(writer, "set cbrange [{range_start:e}:{range_end:e}]")?;
+        }
         if !self.title.is_empty(){
             writeln!(writer, "set title '{}'", self.title)?;
         }
@@ -346,7 +381,8 @@ impl Default for GnuplotSettings{
             palette: GnuplotPalette::PresetHSV,
             x_axis: None,
             y_axis: None,
-            size: "7.4cm, 5cm".into()
+            size: "7.4cm, 5cm".into(),
+            cb_range: None
         }
     }
 }
