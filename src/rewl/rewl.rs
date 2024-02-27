@@ -5,6 +5,7 @@ use{
         rewl::replica_exchange,
         glue_helper::*
     },
+    super::walker::replica_exchange,
     rayon::{iter::ParallelIterator, prelude::*},
     rand::{Rng, SeedableRng, prelude::SliceRandom},
     std::{num::NonZeroUsize, sync::*, cmp::*}

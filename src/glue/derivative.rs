@@ -12,7 +12,9 @@ pub fn five_point_derivitive(data: &[f64]) -> Vec<f64>
     d
 }
 
-fn derivative(data: &[f64]) -> Vec<f64>
+/// # Calculates the derivative of a Vector
+/// * will return a Vector of NaN if `data.len() < 2`
+pub fn derivative(data: &[f64]) -> Vec<f64>
 {
     let mut d = vec![f64::NAN; data.len()];
     if data.len() >= 3 {
@@ -21,9 +23,9 @@ fn derivative(data: &[f64]) -> Vec<f64>
         }
     }
     if data.len() >= 2 {
-        d[0] = (data[1] - data[0]) / 2.0;
+        d[0] = data[1] - data[0];
 
-        d[data.len() - 1] = (data[data.len() - 1] - data[data.len() - 2]) / 2.0;
+        d[data.len() - 1] = data[data.len() - 1] - data[data.len() - 2];
     }
     d
 }
@@ -41,9 +43,9 @@ pub fn derivative_merged(data: &[f64]) -> Vec<f64>
     d[1] = (data[2] - data[0]) / 2.0;
     d[data.len() - 2] = (data[data.len() - 1] - data[data.len() - 3]) / 2.0;
 
-    d[0] = (data[1] - data[0]) / 2.0;
+    d[0] = data[1] - data[0];
 
-    d[data.len() - 1] = (data[data.len() - 1] - data[data.len() - 2]) / 2.0;
+    d[data.len() - 1] = data[data.len() - 1] - data[data.len() - 2];
 
     d
 }

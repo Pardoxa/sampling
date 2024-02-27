@@ -377,6 +377,7 @@ where Hist: HistogramVal<Energy>,
             extra_fn(self, &mut e, extra);
 
         }
+
         #[cfg(feature = "sweep_time_optimization")]
             {
                 self.duration = start.elapsed();

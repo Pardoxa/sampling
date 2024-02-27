@@ -1,11 +1,10 @@
-use{
-    std::{
+use std::{
         fmt,
         io::Write,
         convert::From,
-        borrow::*
-    }
-};
+        borrow::*,
+        path::Path
+    };
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -13,7 +12,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// For labeling the gnuplot plots axis
-pub enum GnuplotAxis{
+pub enum Labels{
     /// construct the labels
     FromValues{
         /// minimum value for axis labels
@@ -24,17 +23,31 @@ pub enum GnuplotAxis{
         tics: usize,
     },
     /// use labels 
-    Labels{
+    FromStrings{
         /// this are the labels
         labels: Vec<String>
     }
 }
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// For labeling the gnuplot plots axis
+pub struct GnuplotAxis{
+    labels: Labels,
+    rotation: f32
+}
 
 impl GnuplotAxis{
+    /// Set the rotation value. 
+    /// Tics will be displayed rotaded to the right by the requested amount
+    pub fn set_rotation(&mut self, rotation_degrees: f32)
+    {
+        self.rotation = rotation_degrees;
+    }
+
     pub(crate) fn write_tics<W: Write>(&self, mut w: W, num_bins: usize, axis: &str) -> std::io::Result<()>
     {
-        match self {
-            Self::FromValues{min, max, tics} => {
+        match &self.labels {
+            Labels::FromValues{min, max, tics} => {
                 if min.is_nan() || max.is_nan() || *tics < 2 || num_bins < 2 {
                     Ok(())
                 } else {
@@ -49,10 +62,10 @@ impl GnuplotAxis{
                         let pos = i as f64 * bin_dif;
                         write!(w, "\"{:#}\" {:e}, ", val, pos)?; 
                     }
-                    writeln!(w, "\"{:#}\" {:e} )", max,  num_bins - 1)
+                    writeln!(w, "\"{:#}\" {:e} ) rotate by {} right", max,  num_bins - 1, self.rotation)
                 }
             }, 
-            Self::Labels{labels} => {
+            Labels::FromStrings{labels} => {
                 let tics = labels.len();
                 match tics {
                     0 => Ok(()),
@@ -67,7 +80,7 @@ impl GnuplotAxis{
                             let pos = i as f64 * bin_dif;
                             write!(w, "\"{}\" {:e}, ", lab, pos)?; 
                         }
-                        writeln!(w, " )")
+                        writeln!(w, " ) rotate by {} right", self.rotation)
                     }
                 }
             }
@@ -77,20 +90,20 @@ impl GnuplotAxis{
 
     /// Create new GnuplotAxis::FromValues
     pub fn new(min: f64, max: f64, tics: usize) -> Self {
-        Self::FromValues{
+        let labels = Labels::FromValues{
             min,
             max,
             tics
-        }
+        };
+        Self { labels, rotation: 0.0 }
     }
 
     /// Create new GnuplotAxis::Labels
     /// - Vector contains labels used for axis
     pub fn from_labels(labels: Vec<String>) -> Self
     {
-        Self::Labels{
-            labels
-        }
+        let labels = Labels::FromStrings { labels };
+        Self{labels, rotation: 0.0}
     }
 
     /// Similar to `from_labels`
@@ -125,6 +138,10 @@ pub struct GnuplotSettings{
 
     /// Color palette for heatmap
     pub palette: GnuplotPalette,
+
+    /// Define the cb range if this option is set
+    pub cb_range: Option<(f64, f64)>,
+
     /// # Size of the terminal
     /// * Anything gnuplot accepts (e.g. "2cm, 2.9cm") is acceptable
     /// # Note
@@ -140,6 +157,20 @@ impl GnuplotSettings {
     pub fn size<S: Into<String>>(&'_ mut self, size: S) -> &'_ mut Self
     {
         self.size = size.into();
+        self
+    }
+
+    /// # Builder pattern - set cb_range
+    pub fn cb_range(&'_ mut self, range_start: f64, range_end: f64) -> &'_ mut Self
+    {
+        self.cb_range = Some((range_start, range_end));
+        self
+    }
+
+    /// # Builder pattern - remove cb_range
+    pub fn remove_cb_range(&'_ mut self) -> &'_ mut Self
+    {
+        self.cb_range = None;
         self
     }
 
@@ -216,10 +247,24 @@ impl GnuplotSettings {
         self
     }
 
+    /// Remove x_axis
+    pub fn remove_x_axis(&'_ mut self) -> &'_ mut Self
+    {
+        self.x_axis = None;
+        self
+    }
+
     /// Set y_axis - See GnuplotAxis or try it out
     pub fn y_axis(&'_ mut self, axis: GnuplotAxis) -> &'_ mut Self
     {
         self.y_axis = Some(axis);
+        self
+    }
+
+    /// Remove y_axis
+    pub fn remove_y_axis(&'_ mut self) -> &'_ mut Self
+    {
+        self.y_axis = None;
         self
     }
 
@@ -248,6 +293,9 @@ impl GnuplotSettings {
 
         writeln!(writer, "set xrange[-0.5:{}]", x_len as f64 - 0.5)?;
         writeln!(writer, "set yrange[-0.5:{}]", y_len as f64 - 0.5)?;
+        if let Some((range_start, range_end)) = self.cb_range{
+            writeln!(writer, "set cbrange [{range_start:e}:{range_end:e}]")?;
+        }
         if !self.title.is_empty(){
             writeln!(writer, "set title '{}'", self.title)?;
         }
@@ -293,6 +341,34 @@ impl GnuplotSettings {
 
         self.terminal.finish(&mut writer)
     }
+
+    /// Same as write_heatmap but it assumes that the heatmap 
+    /// matrix is available in the file "heatmap"
+    pub fn write_heatmap_external_matrix<W, P>(
+        &self,
+        mut writer: W,
+        matrix_width: usize,
+        matrix_height: usize,
+        matrix_path: P
+    ) -> std::io::Result<()> 
+    where W: Write,
+        P: AsRef<Path>
+    {
+        self.write_heatmap_helper1(
+            &mut writer,
+            matrix_width,
+            matrix_height
+        )?;
+
+        writeln!(
+            writer, 
+            "splot \"{}\" matrix with image t \"{}\" ", 
+            matrix_path.as_ref().to_string_lossy(),
+            &self.title
+        )?;
+
+        self.terminal.finish(&mut writer)
+    }
 }
 
 impl Default for GnuplotSettings{
@@ -305,7 +381,8 @@ impl Default for GnuplotSettings{
             palette: GnuplotPalette::PresetHSV,
             x_axis: None,
             y_axis: None,
-            size: "7.4cm, 5cm".into()
+            size: "7.4cm, 5cm".into(),
+            cb_range: None
         }
     }
 }

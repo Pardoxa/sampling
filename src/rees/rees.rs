@@ -600,7 +600,6 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
             walker
         };
 
-
         walker
             .par_iter_mut()
             .zip(self.extra.par_iter_mut())
@@ -795,10 +794,10 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// there is no overlap between neighboring intervals 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
     #[allow(deprecated)]
-    pub fn merged_log_prob(&self) -> Result<(Hist, Vec<f64>), HistErrors>
+    pub fn merged_log_prob_rees(&self) -> Result<(Hist, Vec<f64>), HistErrors>
     where Hist: HistogramCombine
     {
-        let (mut log_prob, e_hist) = self.merged_log_probability()?;
+        let (mut log_prob, e_hist) = self.merged_log_probability_rees()?;
 
         norm_ln_prob(&mut log_prob);
         
@@ -904,7 +903,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
     #[allow(deprecated)]
-    fn merged_log_probability(&self) -> Result<(Vec<f64>, Hist), HistErrors>
+    fn merged_log_probability_rees(&self) -> Result<(Vec<f64>, Hist), HistErrors>
     where Hist: HistogramCombine
     {
         let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
@@ -927,7 +926,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
 /// ## Errors
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
-pub fn merged_log_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(
+pub fn merged_log_prob_rees<Extra, Ensemble, R, Hist, Energy, S, Res>(
     rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
 ) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
@@ -974,15 +973,112 @@ where Hist: HistogramVal<Energy> + HistogramCombine + Histogram + Send + Sync,
 /// ## Errors
 /// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
 /// * will return other HistErrors if the intervals have no overlap
-pub fn merged_log10_prob<Extra, Ensemble, R, Hist, Energy, S, Res>(rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]) -> Result<(Vec<f64>, Hist), HistErrors>
+pub fn merged_log10_prob_rees<Extra, Ensemble, R, Hist, Energy, S, Res>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
+) -> Result<(Vec<f64>, Hist), HistErrors>
 where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
     Energy: PartialOrd
 {
-    let mut res = merged_log_prob(rees)?;
+    let mut res = merged_log_prob_rees(rees)?;
     ln_to_log10(&mut res.0);
     Ok(res)
 }
 
+/// # Merge probability density of multiple rees simulations
+/// * Will calculate the merged log (base e) probability density (second return parameter). 
+/// * also returns the corresponding histogram (first return parameter)
+/// * also returns aligned probability densities of intervals (base e) (third return parameter). They will be NaN for all entries, which the corresponding interval did not cover
+/// * If an interval has multiple walkers, their probability will be merged before all probabilities are aligned
+/// * `rees` does not need to be sorted in any way
+/// ## Errors
+/// * will return `HistErrors::EmptySlice` if the `rees` slice is empty
+/// * will return other HistErrors if the intervals have no overlap
+pub fn merged_log_probability_and_align_rees<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
+) -> GluedResult<Hist>
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    if rees.is_empty() {
+        return Err(HistErrors::EmptySlice);
+    }
+    let merged_prob = merged_probs(rees);
+    let container = combine_container(rees, &merged_prob);
+    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
+    merged_and_aligned(
+        container.iter()
+            .map(|c| c.1),
+        merge_points,
+        alignment,
+        log_prob,
+        e_hist
+    )
+}
+
+/// # Merge probability density of multiple rees simulations
+/// * similar to [merged_log_probability_and_align_rees]
+/// 
+/// The difference is, that this function will ignore the specified walkers,
+/// therefore `ignore` should be a slice of indices, which are to be ignored.
+/// The slice does not have to be sorted in any way, though duplicate indices 
+/// and indices which are out of bounds will be ignored for the ignore list
+pub fn merged_log_probability_and_align_ignore_rees<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> GluedResult<Hist>
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    if rees.is_empty() {
+        return Err(HistErrors::EmptySlice);
+    }
+    let merged_prob = merged_probs(rees);
+    let mut container = combine_container(rees, &merged_prob);
+    ignore_fn(&mut container, ignore);
+
+    let (merge_points, alignment, log_prob, e_hist) = align(&container)?;
+    merged_and_aligned(
+        container.iter()
+            .map(|c| c.1),
+        merge_points,
+        alignment,
+        log_prob,
+        e_hist
+    )
+}
+
+/// # Merge probability density of multiple rees simulations
+/// * same as [merged_log_probability_and_align_rees](`crate::rees::merged_log_probability_and_align_rees`)
+/// but all logarithms are now base 10
+pub fn merged_log10_probability_and_align_rees<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>]
+) -> GluedResult<Hist>
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    merged_log10_probability_and_align_ignore_rees(rees, &[])
+}
+
+/// # Merge probability density of multiple rees simulations
+/// * similar to [merged_log10_probability_and_align_rees]
+/// 
+/// The difference is, that this function will ignore the specified walkers,
+/// therefore `ignore` should be a slice of indices, which are to be ignored.
+/// The slice does not have to be sorted in any way, though duplicate indices 
+/// and indices which are out of bounds will be ignored for the ignore list
+pub fn merged_log10_probability_and_align_ignore_rees<Ensemble, R, Hist, Energy, S, Res, Extra>(
+    rees: &[Rees<Extra, Ensemble, R, Hist, Energy, S, Res>],
+    ignore: &[usize]
+) -> GluedResult<Hist>
+where Hist: Histogram + HistogramCombine + HistogramVal<Energy> + Send + Sync,
+    Energy: PartialOrd
+{
+    let mut res = merged_log_probability_and_align_ignore_rees(rees, ignore)?;
+    ln_to_log10(&mut res.1);
+    res.2.par_iter_mut()
+        .for_each(|slice| ln_to_log10(slice));
+    Ok(res)
+}
 
 fn combine_container<'a, Ensemble, R, Hist, Energy, S, Res, Extra>(rees: &'a [Rees<Extra, Ensemble, R, Hist, Energy, S, Res>], merged_probs: &'a [Vec<f64>]) ->  Vec<(&'a [f64], &'a Hist)>
 where Hist: HistogramVal<Energy> + HistogramCombine,
