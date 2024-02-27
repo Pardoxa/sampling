@@ -1,8 +1,9 @@
 use std::{borrow::*,num::NonZeroUsize, cmp::Ordering};
 
-
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
+
+use crate::Bin;
 
 /// # Implements histogram
 /// * anything that implements `Histogram` should also implement the trait `HistogramVal`
@@ -38,30 +39,39 @@ pub trait Histogram {
 
 
 
-
 /// * trait used for mapping values of arbitrary type `T` to bins
 /// * used to create a histogram
 pub trait HistogramVal<T>{
     /// convert val to the respective histogram index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
+    
     /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>;
+    
     /// # binning borders
     /// * the borders used to bin the values
-    /// * any val which fullfills `self.border[i] <= val < self.border[i + 1]` 
-    /// will get index `i`.
-    /// * **Note** that the last border is exclusive
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
+    fn bin_enum_iter(&'_ self) -> Box<dyn Iterator<Item=Bin<T>> + '_>;
+    
     /// does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    
     /// opposite of `is_inside`
     fn not_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    
     /// get the left most border (inclusive)
     fn first_border(&self) -> T;
 
-    /// * get second last border from the right
-    /// * should be the same as `let b = self.borders_clone().expect("overflow"); assert_eq!(self.second_last_border(), b[b.len()-2])`
-    fn second_last_border(&self) -> T;
+    /// # get last border from the right
+    /// * Note: this border might be inclusive or exclusive
+    /// * check `last_border_is_inclusive` for finding it out
+    fn last_border(&self) -> T;
+
+    /// # True if last border is inclusive, false otherwise
+    /// * For most usecases this will return a constant value,
+    /// as this is likely only dependent on the underlying type and not 
+    /// on something that changes dynamically
+    fn last_border_is_inclusive(&self) -> bool;
+
     /// # calculates some sort of absolute distance to the nearest valid bin
     /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
     /// * if a value corresponds to a valid bin, the distance should be zero
@@ -76,13 +86,13 @@ pub trait HistogramIntervalDistance<T> {
     /// # Distance metric for how far a value is from a valid interval
     /// * partitions in more intervals, checks which bin interval a bin corresponds to 
     /// and returns distance of said interval to the target interval
-    /// * used for heuristiks
+    /// * used for heuristics
     /// * overlap should be bigger 0, otherwise it will be set to 1
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize;
 }
 
 
-/// # Your Interval is to large to sample in a resonable amound of time? No problem
+/// # Your Interval is to large to sample in a reasonable amount of time? No problem
 /// In WangLandau or EntropicSampling, you can split your interval
 /// in smaller, overlapping intervals and "glue" them together later on
 pub trait HistogramPartition: Sized
@@ -136,10 +146,10 @@ pub enum HistErrors{
     /// Invalid value
     OutsideHist,
 
-    /// Underflow occured
+    /// Underflow occurred
     Underflow,
 
-    /// Overflow occured,
+    /// Overflow occurred,
     Overflow,
 
     /// Error while casting to usize

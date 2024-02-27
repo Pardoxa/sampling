@@ -34,6 +34,82 @@ pub struct ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, 
     pub(crate) rees_last_extreme_interval_visited: Vec<ExtremeInterval>
 }
 
+impl<Extra, Ensemble, R, Hist, Energy, S, Res> GlueAble<Hist> for ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>
+where Hist: Clone + Histogram
+{
+
+    fn push_glue_entry_ignoring(
+        &self, 
+        job: &mut GlueJob<Hist>,
+        ignore_idx: &[usize]
+    ) {
+        job.round_trips
+            .extend(self.rees_roundtrip_iter());
+
+        let (hists, probs) = self.get_log_prob_and_hists();
+
+        self.walker
+            .chunks(self.chunk_size.get())
+            .zip(hists)
+            .zip(probs)
+            .enumerate()
+            .filter_map(|(index, ((walker, hist), prob))|
+                {
+                    if ignore_idx.contains(&index){
+                        None
+                    } else {
+                        Some(((walker, hist), prob))
+                    }
+                }
+            )
+            .for_each(
+                |((walker, hist), prob)|
+                {
+                    let mut missing_steps = 0;
+                    let mut accepted = 0;
+                    let mut rejected = 0;
+                    let mut replica_exchanges = 0;
+                    let mut proposed_replica_exchanges = 0;
+                    for w in walker{
+                        
+                        if !w.is_finished(){
+                            let missing = w.step_threshold() - w.step_count();
+                            if missing > missing_steps{
+                                missing_steps = missing;
+                            }
+                        }
+
+                        let r = w.rejected_markov_steps();
+                        let a = w.step_count() - r;
+                        rejected += r;
+                        accepted += a;
+                        replica_exchanges += w.replica_exchanges();
+                        proposed_replica_exchanges += w.proposed_replica_exchanges();
+                    }
+
+                    let stats = IntervalSimStats{
+                        sim_progress: SimProgress::MissingSteps(missing_steps),
+                        interval_sim_type: SimulationType::REES,
+                        rejected_steps: rejected,
+                        accepted_steps: accepted,
+                        replica_exchanges: Some(replica_exchanges),
+                        proposed_replica_exchanges: Some(proposed_replica_exchanges),
+                        merged_over_walkers: self.chunk_size
+                    };
+
+                    job.collection.push(
+                        GlueEntry{ 
+                            hist: hist.clone(), 
+                            prob, 
+                            log_base: LogBase::BaseE, 
+                            interval_stats: stats
+                        }
+                    );
+                }
+            )
+    }
+}
+
 /// # Short for [ReplicaExchangeEntropicSampling]
 pub type Rees<Extra, Ensemble, R, Hist, Energy, S, Res> = ReplicaExchangeEntropicSampling<Extra, Ensemble, R, Hist, Energy, S, Res>;
 
@@ -528,7 +604,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
             .par_iter_mut()
             .zip(self.extra.par_iter_mut())
             .for_each(|(w, extra)| w.sweep(slice, extra, extra_fn, energy_fn));
-
+        
         // replica exchange
         if self.walkers_per_interval().get() > 1 {
             let exchange_m = self.replica_exchange_mode;
@@ -714,7 +790,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// It returns the natural logarithm of the normalized (i.e. sum=1 within numerical precision) probability density and the 
     /// histogram, which contains the corresponding bins.
     ///
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
+    /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
     #[allow(deprecated)]
@@ -728,77 +804,84 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         Ok((e_hist, log_prob))
     }
 
-    /// # Results of the simulation
-    /// 
-    /// This is what we do the simulation for!
-    /// 
-    /// It returns histogram, which contains the corresponding bins and
-    /// the natural logarithm of the normalized (i.e. sum=1 within numerical precision) 
-    /// probability density. Lastly it returns the vector of the aligned probability estimates (also ln) of the
-    /// different intervals. This can be used to see, how good the simulation worked,
-    /// e.g., by plotting them to see, if they match
-    ///
-    /// ## Notes
-    /// Failes if the internal histograms (invervals) do not align. Might fail if 
-    /// there is no overlap between neighboring intervals 
-    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
-    #[allow(deprecated)]
-    pub fn merged_log_prob_and_aligned(&self) -> GluedResult<Hist>
-    where Hist: HistogramCombine 
+    fn get_glue_stats(&self) -> GlueStats
     {
-        let (e_hist, mut log_prob, mut aligned) = self.merged_log_probability_and_align()?;
-        
-        let shift = norm_ln_prob(&mut log_prob);
-        
-        aligned.par_iter_mut()
-            .for_each(
-                |aligned|
+        let stats = self.walker
+            .chunks(self.chunk_size.get())
+            .map(
+                |walker|
                 {
-                    aligned.iter_mut()
-                        .for_each(|val| *val -= shift)
+                    let mut missing_steps = 0;
+                    let mut accepted = 0;
+                    let mut rejected = 0;
+                    let mut replica_exchanges = 0;
+                    let mut proposed_replica_exchanges = 0;
+                    for w in walker{
+                        
+                        if !w.is_finished(){
+                            let missing = w.step_threshold() - w.step_count();
+                            if missing > missing_steps{
+                                missing_steps = missing;
+                            }
+                        }
+
+                        let r = w.rejected_markov_steps();
+                        let a = w.step_count() - r;
+                        rejected += r;
+                        accepted += a;
+                        replica_exchanges += w.replica_exchanges();
+                        proposed_replica_exchanges += w.proposed_replica_exchanges();
+                    }
+
+                    IntervalSimStats{
+                        sim_progress: SimProgress::MissingSteps(missing_steps),
+                        interval_sim_type: SimulationType::REES,
+                        rejected_steps: rejected,
+                        accepted_steps: accepted,
+                        replica_exchanges: Some(replica_exchanges),
+                        proposed_replica_exchanges: Some(proposed_replica_exchanges),
+                        merged_over_walkers: self.chunk_size
+                    }
                 }
-            );
-        Ok(
-            (
-                e_hist,
-                log_prob,
-                aligned
-            )
-        )
+            ).collect();
+        let roundtrips = self.rees_roundtrip_iter().collect();
+        GlueStats { interval_stats: stats, roundtrips }
     }
 
     /// # Results of the simulation
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It returns `ReplicaGlued` which allows you to print out the merged probability density function.
+    /// It returns [Glued] which allows you to print out the merged probability density function.
     /// It also allows you to switch the base of the logarithm and so on, have a look!
     /// 
-    /// It will use an average based merging algorthim, i.e., it will try to align the intervals
+    /// It will use an average based merging algorithm, i.e., it will try to align the intervals
     /// and merge them by using the values obtained by averaging in log-space 
     /// 
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals
-    pub fn average_merged_log_probability_and_align(&self)-> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn average_merged_log_probability_and_align(&self)-> Result<Glued<Hist, Energy>, HistErrors>
     where Hist: HistogramCombine
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
 
-        average_merged_and_aligned(
-            log_probs, hists, LogBase::BaseE
-        )
-        
+        let mut res = average_merged_and_aligned(
+            log_probs, &hists, LogBase::BaseE
+        )?;
+        let stats = self.get_glue_stats();
+        res.set_stats(stats);
+        Ok(res)
     }
 
     /// # Results of the simulation
     /// 
     /// This is what we do the simulation for!
     /// 
-    /// It returns `ReplicaGlued` which allows you to print out the merged probability density function.
+    /// It returns [Glued] which allows you to print out the merged probability density function.
     /// It also allows you to switch the base of the logarithm and so on, have a look!
     /// 
-    /// It will use an derivative based merging algorthim, i.e., it will try to align the intervals
+    /// It will use an derivative based merging algorithm, i.e., it will try to align the intervals
     /// and merge them by looking at the derivatives of the probability density function.
     /// It will search for the (merging-)point where the derivatives are the most similar to each other 
     /// and glue by using the values of one of the intervals before the merging point and the 
@@ -807,12 +890,15 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// ## Notes
     /// Fails if the internal histograms (intervals) do not align. Might fail if 
     /// there is no overlap between neighboring intervals
-    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<ReplicaGlued<Hist>, HistErrors>
+    pub fn derivative_merged_log_prob_and_aligned(&self) -> Result<Glued<Hist, Energy>, HistErrors>
     where Hist: HistogramCombine + Histogram
     {
         let (hists, log_probs) = self.get_log_prob_and_hists();
         
-        derivative_merged_and_aligned(log_probs, hists, LogBase::BaseE)
+        let mut res = derivative_merged_and_aligned(log_probs, &hists, LogBase::BaseE)?;
+        let stats = self.get_glue_stats();
+        res.set_stats(stats);
+        Ok(res)
     }
 
     #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
@@ -831,22 +917,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
         )
     }
 
-    #[deprecated(since="0.2.0", note="will be removed in future releases. Use new method 'derivative_merged_log_prob_and_aligned' or consider using 'average_merged_log_probability_and_align' instead")]
-    #[allow(deprecated)]
-    fn merged_log_probability_and_align(&self) -> GluedResult<Hist>
-    where Hist: HistogramCombine
-    {
-        let (merge_points, alignment, log_prob, e_hist) = self.merged_log_probability_helper()?;
-        merged_and_aligned(
-            self.walker.iter()
-                    .step_by(self.walkers_per_interval().get())
-                    .map(|v| v.hist()),
-            merge_points,
-            alignment,
-            log_prob,
-            e_hist
-        )
-    }
+
 }
 
 /// # Merge probability density of multiple rees simulations

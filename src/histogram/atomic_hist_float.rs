@@ -230,8 +230,8 @@ where T: Float + Zero + NumCast{
     }
 
     #[inline]
-    fn second_last_border(&self) -> T {
-        self.bin_borders[self.bin_borders.len() - 2]
+    fn last_border(&self) -> T {
+        self.bin_borders[self.bin_borders.len() - 1]
     }
 
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool {

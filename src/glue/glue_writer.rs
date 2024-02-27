@@ -13,11 +13,67 @@ use {
     std::borrow::Borrow
 };
 
+use std::{marker::PhantomData, fmt::Display};
+
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+use crate::{IntervalSimStats, AccumulatedIntervalStats};
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub struct GlueStats{
+    pub interval_stats: Vec<IntervalSimStats>,
+    pub roundtrips: Vec<usize>
+}
+
+impl GlueStats{
+    /// # Write the Glued Stats in a human readable way
+    /// * This is the verbose form
+    /// * every line this writes will be starting with '#', to mark it as comment for 
+    /// gnuplot and co.
+    pub fn write_verbose<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
+    {
+        if !self.interval_stats.is_empty()
+        {
+            writeln!(writer, "#Interval Stats")?;
+
+            for (index, interval) in self.interval_stats.iter().enumerate()
+            {
+                writeln!(writer, "#Stats for Interval {index}")?;
+                interval.write(&mut writer)?;
+                writeln!(writer, "#")?;
+            }
+        }
+
+        if !self.roundtrips.is_empty(){
+            let mut min_roundtrips = usize::MAX;
+            write!(writer, "#Roundtrips (higher is better):")?;
+            for &r in self.roundtrips.iter()
+            {
+                min_roundtrips = min_roundtrips.min(r);
+                write!(writer, " {r}")?;
+            }
+            writeln!(writer)?;
+            writeln!(writer, "#Minimum of performed Roundtrips {min_roundtrips}")?;
+        }
+        Ok(())
+    }
+
+    pub fn write_accumulated<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>{
+        if !self.interval_stats.is_empty(){
+            let acc = AccumulatedIntervalStats::generate_stats(&self.interval_stats);
+            acc.write(&mut writer)?;
+        }
+        if !self.roundtrips.is_empty(){
+            let min_roundtrips = self.roundtrips.iter().min().unwrap();
+            writeln!(writer, "#Minimum of performed Roundtrips {min_roundtrips}")?;
+        }
+        Ok(())
+    }
+}
+
 /// # Which LogBase is being used/should be used?
-/// 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum LogBase{
@@ -35,31 +91,52 @@ impl LogBase{
             Self::BaseE => norm_ln_prob(slice)
         }
     }
+
+    pub fn is_base10(self) -> bool {
+        matches!(self, LogBase::Base10)
+    }
+
+    pub fn is_base_e(self) -> bool {
+        matches!(self, LogBase::BaseE)
+    }
 }
 
-// TODO maybe rename struct?
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+pub enum GlueWriteVerbosity
+{
+    NoStats,
+    AccumulatedStats,
+    IntervalStats,
+    IntervalStatsAndAccumulatedStats
+}
+
 /// # Result of the gluing
 #[derive(Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct ReplicaGlued<Hist>
+pub struct Glued<Hist, T>
 {
     /// Histogram that encapsulates that is 
     pub(crate) encapsulating_histogram: Hist,
     pub(crate) glued: Vec<f64>,
     pub(crate) aligned: Vec<Vec<f64>>,
     pub(crate) base: LogBase,
-    pub(crate) alignment: Vec<usize>
+    pub(crate) alignment: Vec<usize>,
+    pub(crate) marker: PhantomData<T>,
+    pub(crate) stats: Option<GlueStats>,
+    pub(crate) write_verbosity: GlueWriteVerbosity
 }
 
-impl<Hist> ReplicaGlued<Hist>
+impl<Hist, T> Glued<Hist, T>
 {
-    /// Create a new `ReplicaGlued<Hist>` instance without checking anything
+    /// Create a new `Glued<Hist>` instance without checking anything
     pub fn new_unchecked(
         encapsulating_histogram: Hist, 
         glued: Vec<f64>, 
         aligned: Vec<Vec<f64>>, 
         base: LogBase, 
-        alignment: Vec<usize>
+        alignment: Vec<usize>,
+        stats: Option<GlueStats>
     ) -> Self
     {
         Self{
@@ -67,8 +144,27 @@ impl<Hist> ReplicaGlued<Hist>
             aligned,
             base,
             glued,
-            encapsulating_histogram
+            encapsulating_histogram,
+            marker: PhantomData,
+            stats,
+            write_verbosity: GlueWriteVerbosity::NoStats
         }
+    }
+
+    /// # Set the verbosity
+    /// * this decides on how and how many Statistics will be written by the write functions
+    /// * The default is `GlueWriteVerbosity::NoStats`
+    pub fn set_stat_write_verbosity(&mut self, verbosity: GlueWriteVerbosity)
+    {
+        self.write_verbosity = verbosity;
+    }
+
+    /// # Set stats
+    /// * Set [GlueStats] - depending on the verbosity, which you can set via set_stat_write_verbosity
+    /// these stats will be written on the write commands 
+    pub fn set_stats(&mut self, stats: GlueStats)
+    {
+        self.stats = Some(stats);
     }
 
     /// # Returns Slice which represents the glued logarithmic probability density
@@ -121,25 +217,35 @@ impl<Hist> ReplicaGlued<Hist>
 
 }
 
-impl<T> ReplicaGlued<HistogramFast<T>>
-where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
-    T::Unsigned: num_traits::Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-    + num_traits::WrappingAdd + num_traits::ToPrimitive + std::ops::Sub<Output=T::Unsigned>
+impl<H, T> Glued<H, T>
+where H: HistogramCombine + BinDisplay,
+    T: Display
 {
-    /// # Write the ReplicaGlued in a human readable format
+    /// # Write the Glued in a human readable format
     /// * You probably want to use this ;)
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
-        writeln!(writer, "#bin log_merged log_interval0 …")?;
-        writeln!(writer, "#log: {:?}", self.base)?;
+        write!(writer, "#")?;
+        self.encapsulating_histogram.write_header(&mut writer)?;
+        write!(writer, " log_merged")?;
+        
+        for i in 0..self.aligned.len()
+        {
+            write!(writer, " interval_{i}")?;
+        }
+        writeln!(writer)?;
 
-        let mut alinment_helper = self.alinment_helper();
+        writeln!(writer, "#log: {:?}", self.base)?;
+        self.write_stats(&mut writer)?;
+
+        let mut alinment_helper = self.alignment_helper();
 
         for (&log_prob, bin) in self.glued
             .iter()
-            .zip(self.encapsulating_histogram.bin_iter())
+            .zip(self.encapsulating_histogram.display_bin_iter())
         {
-            write!(writer, "{} {:e}", bin, log_prob)?;
+            H::write_bin(&bin, &mut writer)?;
+            write!(writer, " {:e}", log_prob)?;
             for (i, counter) in alinment_helper.iter_mut().enumerate()
             {
                 if *counter < 0 {
@@ -157,10 +263,8 @@ where T: HasUnsignedVersion + num_traits::PrimInt + std::fmt::Display,
         }
         Ok(())
     }
-}
-impl<T> ReplicaGlued<HistogramFast<T>>
-{
-    fn alinment_helper(&self) -> Vec<isize>
+
+    fn alignment_helper(&self) -> Vec<isize>
     {
         let mut alinment_helper: Vec<_> = std::iter::once(0)
             .chain(
@@ -181,6 +285,32 @@ impl<T> ReplicaGlued<HistogramFast<T>>
         alinment_helper
     }
 
+    fn write_stats<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
+    {
+        if let Some(stats) = self.stats.as_ref()
+        {
+            match self.write_verbosity
+            {
+                GlueWriteVerbosity::NoStats => {
+                    Ok(())
+                },
+                GlueWriteVerbosity::AccumulatedStats => {
+                    stats.write_accumulated(writer)
+                },
+                GlueWriteVerbosity::IntervalStats => {
+                    stats.write_verbose(writer)
+                },
+                GlueWriteVerbosity::IntervalStatsAndAccumulatedStats => {
+                    stats.write_verbose(&mut writer)?;
+                    stats.write_accumulated(writer)
+                }
+            }
+        } else {
+            Ok(())
+        }
+        
+    }
+
     /// # Write the normalized probability density function
     /// The function will be normalized by using the binsize 
     /// you specify (uniform binsize is assumed).
@@ -194,9 +324,14 @@ impl<T> ReplicaGlued<HistogramFast<T>>
         starting_point: f64
     ) -> std::io::Result<()>
     {
-        writeln!(writer, "#bin log_merged log_interval0 …")?;
+        write!(writer, "#bin log_merged")?;
+        for i in 0..self.aligned.len()
+        {
+            write!(writer, " interval_{i}")?;
+        }
+        writeln!(writer)?;
         writeln!(writer, "#log: {:?}", self.base)?;
-
+        self.write_stats(&mut writer)?;
         let bin_size_recip = bin_size.recip();
 
         let rescale = match self.base {
@@ -204,7 +339,7 @@ impl<T> ReplicaGlued<HistogramFast<T>>
             LogBase::Base10 => bin_size_recip.log10(),
         };
 
-        let mut alinment_helper = self.alinment_helper();
+        let mut alinment_helper = self.alignment_helper();
 
         for (index, log_prob) in self.glued
             .iter()
@@ -234,7 +369,8 @@ impl<T> ReplicaGlued<HistogramFast<T>>
         }
         Ok(())
     }
-} 
+}
+
 
 pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -> Vec<usize>
 {
@@ -273,14 +409,14 @@ pub(crate) fn calc_merge_points(alignment: &[usize], derivatives: &[Vec<f64>]) -
 /// 
 /// `LogBase`: Which base do the logarithmic probabilities have?
 /// 
-/// This uses a derviative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
+/// This uses a derivative merge, that works similar to: [derivative_merged_log_prob_and_aligned](crate::rees::ReplicaExchangeEntropicSampling::derivative_merged_log_prob_and_aligned)
 /// 
-/// The [ReplicaGlued] allows you to easily write the probability density function to a file
-pub fn derivative_merged_and_aligned<H, Hist>(
+/// The [Glued] allows you to easily write the probability density function to a file
+pub fn derivative_merged_and_aligned<H, Hist, T>(
     mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<H>,
+    hists: &[H],
     log_base: LogBase
-) -> Result<ReplicaGlued<Hist>, HistErrors>
+) -> Result<Glued<Hist, T>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
 {
@@ -298,7 +434,7 @@ where Hist: HistogramCombine + Histogram,
     let derivatives: Vec<_> = log_prob.iter()
         .map(|v| derivative_merged(v))
         .collect();
-    let e_hist = Hist::encapsulating_hist(&hists)?;
+    let e_hist = Hist::encapsulating_hist(hists)?;
     let alignment  = hists.iter()
         .zip(hists.iter().skip(1))
         .map(|(left, right)| left.borrow().align(right.borrow()))
@@ -321,12 +457,13 @@ where Hist: HistogramCombine + Histogram,
         
         let merged_prob = log_prob[0].clone();
         let r = 
-            ReplicaGlued::new_unchecked(
+            Glued::new_unchecked(
                 e_hist,
                 merged_prob,
                 log_prob,
                 log_base,
-                alignment
+                alignment,
+                None
             );
         return Ok(r);
     }
@@ -376,12 +513,13 @@ where Hist: HistogramCombine + Histogram,
         );
 
     let glued = 
-        ReplicaGlued::new_unchecked(
+        Glued::new_unchecked(
             e_hist, 
             merged_log_prob, 
             log_prob, 
             LogBase::BaseE, 
-            alignment
+            alignment,
+            None
         );
         
     Ok(
@@ -445,12 +583,12 @@ pub(crate) fn norm_log10_prob(log10_prob: &mut[f64]) -> f64
 /// This uses a average merge, which first align all intervals and then merges 
 /// the probability densities by averaging in the logarithmic space
 /// 
-/// The [ReplicaGlued] allows you to easily write the probability density function to a file
-pub fn average_merged_and_aligned<Hist, H>(
+/// The [Glued] allows you to easily write the probability density function to a file
+pub fn average_merged_and_aligned<Hist, H, T>(
     mut log_prob: Vec<Vec<f64>>,
-    hists: Vec<H>,
+    hists: &[H],
     log_base: LogBase
-) -> Result<ReplicaGlued<Hist>, HistErrors>
+) -> Result<Glued<Hist, T>, HistErrors>
 where Hist: HistogramCombine + Histogram,
     H: Borrow<Hist>
 {
@@ -463,8 +601,9 @@ where Hist: HistogramCombine + Histogram,
                 subtract_max(v);
             }
         );
-    let e_hist = Hist::encapsulating_hist(&hists)?;
-    let alignment  = hists.iter()
+    let e_hist = Hist::encapsulating_hist(hists)?;
+    let alignment  = hists
+        .iter()
         .zip(hists.iter().skip(1))
         .map(|(left, right)| left.borrow().align(right.borrow()))
         .collect::<Result<Vec<_>, _>>()?;
@@ -476,18 +615,22 @@ where Hist: HistogramCombine + Histogram,
         
         let glued = log_prob[0].clone();
         return Ok(
-                ReplicaGlued{
+                Glued{
                 base: LogBase::Base10,
                 encapsulating_histogram: e_hist,
                 aligned: log_prob,
                 glued,
-                alignment
+                alignment,
+                marker: PhantomData,
+                stats: None,
+                write_verbosity: GlueWriteVerbosity::NoStats
             }
         );
     }
 
     // calc z
-    let z_vec = calc_z(&log_prob, &alignment).expect("Unable to calculate Z in glueing");
+    let z_vec = calc_z(&log_prob, &alignment)
+        .expect("Unable to calculate Z in glueing");
 
     // correct height
     height_correction(&mut log_prob, &z_vec);
@@ -507,17 +650,20 @@ where Hist: HistogramCombine + Histogram,
         .for_each(|v| *v -= shift);
 
     Ok(
-        ReplicaGlued{
+        Glued{
             base: log_base,
             encapsulating_histogram: e_hist,
             aligned: aligned_intervals,
             glued: glued_log_density,
-            alignment
+            alignment,
+            marker: PhantomData,
+            stats: None,
+            write_verbosity: GlueWriteVerbosity::NoStats
         }
     )
 }
 
-// TODO DOcument function, maybe rename function?
+
 fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
     let mut glue_log_density = vec![f64::NAN; size];
@@ -577,7 +723,7 @@ fn glue_no_derive(size: usize, log10_vec: &[Vec<f64>], alignment: &[usize]) -> R
     Ok(glue_log_density)
 }
 
-// TODO maybe rename function?
+
 fn calc_z(log10_vec: &[Vec<f64>], alignment: &[usize]) -> Result<Vec<f64>, GlueErrors>
 {
     let mut z_vec = Vec::with_capacity(alignment.len());

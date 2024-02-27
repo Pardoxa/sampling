@@ -118,12 +118,14 @@
 /// 
 /// // Since our simulations did all finish, lets see what our distribution looks like
 /// // Lets glue them together. We use our original histogram for that.
-/// let glued = glue_wl(
-///     &wl_list,
-///     &hist
-/// ).expect("Unable to glue results. Look at error message");
-/// 
+/// let mut glue_job = 
+///     GlueJob::new_from_slice(&wl_list, LogBase::Base10);
+/// let mut glued = glue_job
+///     .average_merged_and_aligned()
+///     .expect("Unable to glue results. Look at error message");
+///
 /// // now, lets print our result
+/// glued.set_stat_write_verbosity(GlueWriteVerbosity::AccumulatedStats);
 /// glued.write(std::io::stdout()).unwrap();
 /// 
 /// // or store it into a file
@@ -135,11 +137,9 @@
 /// // lets compare that to the analytical result
 /// 
 /// // Since the library I am going to use lets me directly calculate the natural
-/// // logaritm of the probability, I first convert the base of our own results:
-/// let log10_prob = glued.glued_log10_probability;
-/// let ln_prob: Vec<_> = log10_prob.iter()
-///                         .map(|&val| val / std::f64::consts::LOG10_E)
-///                         .collect();
+/// // logaritm of the probability, I now switch the base of our glue results
+/// glued.switch_base();
+/// let ln_prob = glued.glued();
 /// 
 /// // Then create the `true` results:
 /// let binomial = Binomial::new(0.5, n as u64).unwrap();
@@ -207,10 +207,17 @@
 ///     });
 /// 
 /// // Now, lets see our refined results:
-/// let glued = glue_entropic(
-///     &entropic_list,
-///     &hist
-/// ).expect("Unable to glue results. Look at error message");
+/// let mut glue_job = 
+///     GlueJob::new_from_slice(&entropic_list, LogBase::Base10);
+/// // Note that the library also allows you to mix REWL, REES, Entropic and Wanglandau simulations
+/// // with the GlueJob, if you deem it necessary. We won't do that here though
+/// 
+/// // after creating the GlueJob we need to do the merging:
+/// let mut glued = glue_job
+///     .average_merged_and_aligned()
+///     .expect("Unable to glue results. Look at error message");
+/// // to also write Statistics of the simulation as comments
+/// glued.set_stat_write_verbosity(GlueWriteVerbosity::IntervalStatsAndAccumulatedStats);
 /// 
 /// // lets store our result
 /// let file = File::create("coin_flip_log_density_entropic.dat").unwrap();
@@ -219,10 +226,9 @@
 /// 
 /// // now, lets compare with the analytical results again
 /// // Again, calculate to base e
-/// let ln_prob: Vec<_> = glued.glued_log10_probability
-///     .iter()
-///     .map(|&val| val / std::f64::consts::LOG10_E)
-///     .collect();
+/// // (Note that we could have calculated to base e directly by choosing so in the GlueJob)
+/// glued.switch_base();
+/// let ln_prob = glued.glued();
 /// 
 /// 
 /// // lets write that in a file, so we can use gnuplot to plot the result
@@ -281,33 +287,35 @@
 /// # Created files:
 /// * `coin_flip_log_density.dat`
 /// ```txt 
-/// #bin_left bin_right glued_log_density curve_0 curve_1 curve_2
-/// #total_steps 3300000
-/// #total_steps_accepted 1892678
-/// #total_steps_rejected 1407322
-/// #total_acception_fraction 5.735387878787879e-1
-/// #total_rejection_fraction 4.2646121212121213e-1
-/// 0 1 -6.031606841072606e0 -5.2779314834625595e0 NONE NONE
-/// 1 2 -4.728485280490379e0 -3.9748099228803326e0 NONE NONE
-/// 2 3 -3.7500990622715635e0 -2.9964237046615168e0 NONE NONE
-/// 3 4 -2.9668930048460895e0 -2.2132176472360428e0 NONE NONE
-/// 4 5 -2.339721588163688e0 -1.5860462305536416e0 NONE NONE
-/// 5 6 -1.8365244111917054e0 -1.0820006622583023e0 -1.083697444905016e0 NONE
-/// 6 7 -1.4371802248730712e0 -6.836525846019086e-1 -6.83357149924141e-1 NONE
-/// 7 8 -1.1351008012679982e0 -3.8187173971763855e-1 -3.809791475982654e-1 NONE
-/// 8 9 -9.233969878866752e-1 -1.7037710459167243e-1 -1.6906615596158522e-1 NONE
-/// 9 10 -7.962413727681732e-1 -4.269821376793459e-2 -4.243381654831898e-2 NONE
-/// 10 11 -7.528173091050847e-1 0e0 -1.0665900001297264e-3 3.6407355150146854e-3
-/// 11 12 -7.942713970200067e-1 NONE -4.26721996981397e-2 -3.8519879121780974e-2
-/// 12 13 -9.171173964543223e-1 NONE -1.6557876219227494e-1 -1.61305315496277e-1
-/// 13 14 -1.1271626249139948e0 NONE -3.736972983947891e-1 -3.732772362131079e-1
-/// 14 15 -1.430004495200477e0 NONE -6.750424918819155e-1 -6.776157832989455e-1
-/// 15 16 -1.8307880991746777e0 NONE -1.0716228097885552e0 -1.0826026733407075e0
-/// 16 17 -2.3447129767461368e0 NONE NONE -1.5910376191360902e0
-/// 17 18 -2.974429977113245e0 NONE NONE -2.220754619503199e0
-/// 18 19 -3.7503197785367197e0 NONE NONE -2.9966444209266734e0
-/// 19 20 -4.732341369591395e0 NONE NONE -3.9786660119813484e0
-/// 20 21 -6.014059503852461e0 NONE NONE -5.260384146242414e0
+/// #bin log_merged interval_0 interval_1 interval_2
+/// #log: Base10
+/// #Accumulated Stats of 3 Intervals
+/// #Worst log progress: 0.00001 - out of 3 intervals that tracked log progress
+/// #WangLandau1T contributed 3 intervals
+/// #TOTAL: 1892678 accepted and 1407322 rejected steps, which makes a total of 3300000 steps
+/// #TOTAL acceptance rate 0.5735387878787879
+/// #TOTAL rejection rate 0.42646121212121213
+/// 0 -6.031606841072606e0 -6.0298907440626826e0 NaN NaN
+/// 1 -4.728485280490379e0 -4.726769183480456e0 NaN NaN
+/// 2 -3.7500990622715635e0 -3.74838296526164e0 NaN NaN
+/// 3 -2.9668930048460895e0 -2.965176907836166e0 NaN NaN
+/// 4 -2.339721588163688e0 -2.3380054911537647e0 NaN NaN
+/// 5 -1.8365244111917054e0 -1.8339599228584254e0 -1.8356567055051392e0 NaN
+/// 6 -1.4371802248730712e0 -1.4356118452020317e0 -1.4353164105242642e0 NaN
+/// 7 -1.1351008012679982e0 -1.1338310003177616e0 -1.1329384081983884e0 NaN
+/// 8 -9.233969878866752e-1 -9.223363651917955e-1 -9.210254165617083e-1 NaN
+/// 9 -7.962413727681732e-1 -7.946574743680577e-1 -7.943930771484421e-1 NaN
+/// 10 -7.528173091050847e-1 -7.519592606001231e-1 -7.530258506002528e-1 -7.483185250851084e-1
+/// 11 -7.942713970200067e-1 NaN -7.946314602982628e-1 -7.904791397219041e-1
+/// 12 -9.171173964543223e-1 NaN -9.17538022792398e-1 -9.132645760964001e-1
+/// 13 -1.1271626249139948e0 NaN -1.1256565589949121e0 -1.125236496813231e0
+/// 14 -1.430004495200477e0 NaN -1.4270017524820386e0 -1.4295750438990686e0
+/// 15 -1.8307880991746777e0 NaN -1.8235820703886783e0 -1.8345619339408306e0
+/// 16 -2.3447129767461368e0 NaN NaN -2.342996879736213e0
+/// 17 -2.974429977113245e0 NaN NaN -2.972713880103322e0
+/// 18 -3.7503197785367197e0 NaN NaN -3.7486036815267965e0
+/// 19 -4.732341369591395e0 NaN NaN -4.730625272581472e0
+/// 20 -6.014059503852461e0 NaN NaN -6.012343406842537e0
 /// ```
 /// * `coin_flip_compare.dat`
 /// ```dat
@@ -340,37 +348,66 @@
 /// set format y "10^{%.0f}"
 /// set ylabel 'P(Heads)'
 /// set xlabel '#Heads'
-/// p "coin_flip_log_density_entropic.dat" u 1:3 t 'P(E), normalized',\
-///    for[i=4:6] "" u 1:i t "glued not normalized overlapping interval"
+/// p "coin_flip_log_density_entropic.dat" u 1:2 t 'P(E), normalized',\
+///    for[i=3:5] "" u 1:i t "glued overlapping interval"
 /// ```
+/// * and here is the file the program has outputted: `coin_flip_log_density_entropic.dat`
+/// * note that the verbosity was set to `GlueWriteVerbosity::IntervalStatsAndAccumulatedStats`
 /// ```csv
-/// #bin_left bin_right glued_log_density curve_0 curve_1 curve_2
-/// #total_steps 6600000
-/// #total_steps_accepted 3789779
-/// #total_steps_rejected 2810221
-/// #total_acception_fraction 5.742089393939394e-1
-/// #total_rejection_fraction 4.257910606060606e-1
-/// 0 1 -6.026918605089148e0 -5.27395131583382e0 NONE NONE
-/// 1 2 -4.7282564130642415e0 -3.9752891238089134e0 NONE NONE
-/// 2 3 -3.740764114870072e0 -2.987796825614744e0 NONE NONE
-/// 3 4 -2.9571447347511652e0 -2.204177445495837e0 NONE NONE
-/// 4 5 -2.3331262146639107e0 -1.5801589254085826e0 NONE NONE
-/// 5 6 -1.822752729218271e0 -1.072607725281621e0 -1.0669631546442648e0 NONE
-/// 6 7 -1.4288440916787124e0 -6.757499681532266e-1 -6.76003636693542e-1 NONE
-/// 7 8 -1.1277454047397892e0 -3.750318346032344e-1 -3.745243963656879e-1 NONE
-/// 8 9 -9.191559949607412e-1 -1.6656676951174632e-1 -1.6581064189908012e-1 NONE
-/// 9 10 -7.959284032103325e-1 -4.211860403626844e-2 -4.3803623873740705e-2 NONE
-/// 10 11 -7.547205033527027e-1 0e0 -4.969448109781283e-3 -2.901941823427734e-4
-/// 11 12 -7.971134272615988e-1 NONE -4.4924054052993156e-2 -4.336822195954859e-2
-/// 12 13 -9.198413168594478e-1 NONE -1.6588986141874607e-1 -1.6785819378949363e-1
-/// 13 14 -1.1307079438518484e0 NONE -3.7892725389989756e-1 -3.76554055293143e-1
-/// 14 15 -1.4352206678153943e0 NONE -6.801668342346883e-1 -6.843399228854441e-1
-/// 15 16 -1.836086569993232e0 NONE -1.0818858489348369e0 -1.084352712540971e0
-/// 16 17 -2.3462415423683174e0 NONE NONE -1.5932742531129893e0
-/// 17 18 -2.971577175460559e0 NONE NONE -2.218609886205231e0
-/// 18 19 -3.7473120822317787e0 NONE NONE -2.9943447929764506e0
-/// 19 20 -4.723849161266183e0 NONE NONE -3.970881872010855e0
-/// 20 21 -6.016589039252039e0 NONE NONE -5.263621749996711e0
+/// #bin log_merged interval_0 interval_1 interval_2
+/// #log: Base10
+/// #Interval Stats
+/// #Stats for Interval 0
+/// #Simulated via: "Entropic"
+/// #progress MissingSteps(0)
+/// #created from a single walker
+/// #had 549335 accepted and 550665 rejected steps, which makes a total of 1100000 steps
+/// #acceptance rate 0.49939545454545453
+/// #rejection rate 0.5006045454545455
+/// #
+/// #Stats for Interval 1
+/// #Simulated via: "Entropic"
+/// #progress MissingSteps(0)
+/// #created from a single walker
+/// #had 799683 accepted and 300317 rejected steps, which makes a total of 1100000 steps
+/// #acceptance rate 0.7269845454545455
+/// #rejection rate 0.27301545454545456
+/// #
+/// #Stats for Interval 2
+/// #Simulated via: "Entropic"
+/// #progress MissingSteps(0)
+/// #created from a single walker
+/// #had 548083 accepted and 551917 rejected steps, which makes a total of 1100000 steps
+/// #acceptance rate 0.4982572727272727
+/// #rejection rate 0.5017427272727273
+/// #
+/// #Accumulated Stats of 3 Intervals
+/// #Worst missing steps progress: 0 - out of 3 intervals that tracked missing steps progress
+/// #Entropic contributed 3 intervals
+/// #TOTAL: 1897101 accepted and 1402899 rejected steps, which makes a total of 3300000 steps
+/// #TOTAL acceptance rate 0.574879090909091
+/// #TOTAL rejection rate 0.4251209090909091
+/// 0 -6.026918605089148e0 -6.030425033283898e0 NaN NaN
+/// 1 -4.7282564130642415e0 -4.731762841258991e0 NaN NaN
+/// 2 -3.740764114870072e0 -3.7442705430648213e0 NaN NaN
+/// 3 -2.9571447347511652e0 -2.9606511629459145e0 NaN NaN
+/// 4 -2.3331262146639107e0 -2.33663264285866e0 NaN NaN
+/// 5 -1.822752729218271e0 -1.8290814427316984e0 -1.8234368720943421e0 NaN
+/// 6 -1.4288440916787124e0 -1.432223685603304e0 -1.4324773541436193e0 NaN
+/// 7 -1.1277454047397892e0 -1.1315055520533117e0 -1.1309981138157652e0 NaN
+/// 8 -9.191559949607412e-1 -9.230404869618237e-1 -9.222843593491575e-1 NaN
+/// 9 -7.959284032103325e-1 -7.985923214863458e-1 -8.002773413238181e-1 NaN
+/// 10 -7.547205033527027e-1 -7.564737174500774e-1 -7.614431655598587e-1 -7.567639116324202e-1
+/// 11 -7.971134272615988e-1 NaN -8.013977715030706e-1 -7.99841939409626e-1
+/// 12 -9.198413168594478e-1 NaN -9.223635788688235e-1 -9.24331911239571e-1
+/// 13 -1.1307079438518484e0 NaN -1.1354009713499749e0 -1.1330277727432203e0
+/// 14 -1.4352206678153943e0 NaN -1.4366405516847656e0 -1.4408136403355214e0
+/// 15 -1.836086569993232e0 NaN -1.8383595663849142e0 -1.8408264299910484e0
+/// 16 -2.3462415423683174e0 NaN NaN -2.3497479705630666e0
+/// 17 -2.971577175460559e0 NaN NaN -2.975083603655308e0
+/// 18 -3.7473120822317787e0 NaN NaN -3.750818510426528e0
+/// 19 -4.723849161266183e0 NaN NaN -4.727355589460933e0
+/// 20 -6.016589039252039e0 NaN NaN -6.020095467446788e0
 /// ```
 /// * `coin_flip_compare_entr.dat`
 /// * gnuplot for comparing:
@@ -449,9 +486,9 @@
 /// * The same example as above, but with replica exchange wang landau
 /// * [see explanaition of the model](#example-coin-flips)
 /// ```
-/// // feature is activated by default
-/// #[cfg(feature="replica_exchange")]
-/// {
+/// 
+/// #[cfg(feature="replica_exchange")] // feature is activated by default - you do not need this line 
+/// { // neither do you need this brackets, I need them for the unit tests to work if the feature is deactivated
 /// use rand::SeedableRng;
 /// use rand_pcg::Pcg64;
 /// use sampling::{*, examples::coin_flips::*};
@@ -507,16 +544,18 @@
 /// // This is the heart pice - it performs the actual simulation
 /// rewl.simulate_while(
 ///     |e| Some(e.head_count()), // energy function. has to be the same as used above
-///     |_| start.elapsed().as_secs() < seconds // condition for continuation of simulation
+///     |_| start.elapsed().as_secs() < seconds // simulation is allowed to run while this is true
 /// );
-/// // note, the above simulation might take slightly longer than 40 seconds, 
-/// // because the condition is only checked after each sweep
+/// // note, the above simulation could take slightly longer than 40 * 60 seconds, 
+/// // because the condition is only checked after each sweep.
+/// // In this case however, the simulation will likely finish in a few seconds anyway,
+/// // and since the simulation is finished before the condition is false, it will not matter
 ///
 /// // now lets get the result of the simulation:
-/// // The logarithm (here base e, there is also a function for base 10) of the probability density (or density of states)
 /// let glued = rewl.derivative_merged_log_prob_and_aligned()
 ///     .unwrap();
-/// 
+/// // This is the logarithm (here base e, you can call glued.switch_base() for base 10) 
+/// // of the probability density (or density of states)
 /// let ln_prob = glued.glued();
 /// 
 ///
@@ -558,18 +597,20 @@
 /// // Note: to get even better results, you can decrease the threshold 
 /// // I used 2.5E-6. Often it is good to use between 1E-6 and 1E-8
 /// // I used a larger threshold, since this is also a doc test and 
-/// // should run under 5 minutes in Debug mode
+/// // should run in under 5 minutes in Debug mode
 /// // (on my machine it takes about 30 seconds in debug mode and under 2 seconds in release mode)
 /// 
 /// // if you want to see, how good the intervals align, you can do the following
-/// 
 /// let file = File::create("coin_flip_rewl.dat").unwrap();
 /// let buf = BufWriter::new(file);
 /// 
-/// let glued = rewl.derivative_merged_log_prob_and_aligned().unwrap();
-/// 
+/// let mut glued = rewl.derivative_merged_log_prob_and_aligned().unwrap();
+/// // set verbosity for write, if you are interested in Statistics of 
+/// // the simulation
+/// glued.set_stat_write_verbosity(GlueWriteVerbosity::AccumulatedStats);
+/// // write to buf
 /// glued.write(buf).unwrap();
-/// 
+/// // and now you can plot the file, e.g., with gnuplot
 /// 
 /// println!("Total time: {}", begin.elapsed().as_secs());
 /// }
@@ -585,29 +626,314 @@
 /// 
 /// The resulting file is "coin_flip_rewl.dat"
 /// ```dat
-///#left_border right_border merged_ln interval0_ln interval1_ln …
-///#bin log_merged log_interval0 …
-///#log: BaseE
-///0 -1.3871903700121702e1 -1.3875739115786455e1 NaN NaN
-///1 -1.0870146579412317e1 -1.087398199507707e1 NaN NaN
-///2 -8.618332301859919e0 -8.622167717524672e0 NaN NaN
-///3 -6.82920349878786e0 -6.8330389144526125e0 NaN NaN
-///4 -5.377758170163912e0 -5.381593585828665e0 -5.388874667753538e0 NaN
-///5 -4.216803437381242e0 -4.220638853045995e0 -4.226280476088033e0 NaN
-///6 -3.29812994129598e0 -3.301965356960733e0 -3.305497156868495e0 NaN
-///7 -2.605482088178616e0 -2.6093175038433687e0 -2.6108809938156528e0 NaN
-///8 -2.1197452928056864e0 -2.1235807084704392e0 -2.1240478848774105e0 -2.122542340935621e0
-///9 -1.8310804880851892e0 -1.834915903749942e0 -1.834915903749942e0 -1.8347018659540995e0
-///10 -1.735772920315168e0 -1.7376906281475444e0 -1.7396083359799208e0 -1.7396083359799208e0
-///11 -1.831533663302804e0 -1.8331206687810608e0 -1.8363372589726454e0 -1.835369078967557e0
-///12 -2.1181512793901733e0 -2.1199758856386497e0 -2.1267731198929996e0 -2.121986695054926e0
-///13 -2.60403923032207e0 NaN -2.613084660078397e0 -2.607874645986823e0
-///14 -3.2983258973492697e0 NaN -3.3051691503818974e0 -3.3021613130140226e0
-///15 -4.216952145493605e0 NaN -4.21975952523182e0 -4.220787561158358e0
-///16 -5.381221237813844e0 NaN -5.381876163859073e0 -5.385056653478597e0
-///17 -6.829471030462838e0 NaN NaN -6.833306446127591e0
-///18 -8.62372738543517e0 NaN NaN -8.627562801099923e0
-///19 -1.0870037296186052e1 NaN NaN -1.0873872711850805e1
-///20 -1.3867708133842694e1 NaN NaN -1.3871543549507447e1
+/// #bin log_merged interval_0 interval_1 interval_2
+/// #log: BaseE
+/// #Accumulated Stats of 3 Intervals
+/// #Worst log progress: 0.000002499038831218762 - out of 3 intervals that tracked log progress
+/// #REWL contributed 3 intervals
+/// #TOTAL: 38065207 accepted and 24358793 rejected steps, which makes a total of 62424000 steps
+/// #TOTAL acceptance rate 0.6097848103293605
+/// #TOTAL rejection rate 0.3902151896706395
+/// #TOTAL performed replica exchanges: 22340
+/// #TOTAL proposed replica exchanges: 29478
+/// #rate of accepting replica exchanges: 0.757853314336115
+/// #Minimum of performed Roundtrips 85
+/// 0 -1.3871903700121702e1 -1.3875739115786455e1 NaN NaN
+/// 1 -1.0870146579412317e1 -1.087398199507707e1 NaN NaN
+/// 2 -8.618332301859919e0 -8.622167717524672e0 NaN NaN
+/// 3 -6.82920349878786e0 -6.8330389144526125e0 NaN NaN
+/// 4 -5.377758170163912e0 -5.381593585828665e0 -5.388874667753538e0 NaN
+/// 5 -4.216803437381242e0 -4.220638853045995e0 -4.226280476088033e0 NaN
+/// 6 -3.29812994129598e0 -3.301965356960733e0 -3.305497156868495e0 NaN
+/// 7 -2.605482088178616e0 -2.6093175038433687e0 -2.6108809938156528e0 NaN
+/// 8 -2.1197452928056864e0 -2.1235807084704392e0 -2.1240478848774105e0 -2.122542340935621e0
+/// 9 -1.8310804880851892e0 -1.834915903749942e0 -1.834915903749942e0 -1.8347018659540995e0
+/// 10 -1.735772920315168e0 -1.7376906281475444e0 -1.7396083359799208e0 -1.7396083359799208e0
+/// 11 -1.831533663302804e0 -1.8331206687810608e0 -1.8363372589726454e0 -1.835369078967557e0
+/// 12 -2.1181512793901733e0 -2.1199758856386497e0 -2.1267731198929996e0 -2.121986695054926e0
+/// 13 -2.60403923032207e0 NaN -2.613084660078397e0 -2.607874645986823e0
+/// 14 -3.2983258973492697e0 NaN -3.3051691503818974e0 -3.3021613130140226e0
+/// 15 -4.216952145493605e0 NaN -4.21975952523182e0 -4.220787561158358e0
+/// 16 -5.381221237813844e0 NaN -5.381876163859073e0 -5.385056653478597e0
+/// 17 -6.829471030462838e0 NaN NaN -6.833306446127591e0
+/// 18 -8.62372738543517e0 NaN NaN -8.627562801099923e0
+/// 19 -1.0870037296186052e1 NaN NaN -1.0873872711850805e1
+/// 20 -1.3867708133842694e1 NaN NaN -1.3871543549507447e1
 /// ```
 pub mod coin_flips;
+
+
+// TODO Include this test and make it work!
+/* 
+#[cfg(test)]
+mod tests{
+    use rand::SeedableRng;
+    use rand_pcg::Pcg64;
+    use crate::{*, examples::coin_flips::*};
+    use std::fs::File;
+    use std::io::{BufWriter, Write};
+    use statrs::distribution::{Binomial, Discrete};
+    #[test]
+    fn test_exclusive_borders()
+    {
+
+        
+         // length of coin flip sequence
+         let n = 20;
+         let interval_count = 3;
+            
+         // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
+         let hist = HistUsize::new_inclusive(0, n, n + 1).unwrap();
+         assert!(!hist.last_border_is_inclusive());
+            
+         // now the overlapping histograms for sampling
+         // lets create 3 histograms. The parameter Overlap should be larger than 0. Normally, 1 is sufficient
+         let hist_list = hist.overlapping_partition(interval_count, 1).unwrap();
+         // alternatively you could also create the histograms in the desired interval. 
+         // Just make sure, that they overlap
+            
+         // create rng to seed all other rngs
+         let mut rng = Pcg64::seed_from_u64(834628956578);
+            
+         // now create ensembles (could be combined with wl creation)
+         // note: You could also create one ensemble and clone it instead of creating different ones
+         let ensembles: Vec<_> = (0..interval_count).map(|_| {
+             CoinFlipSequence::new(
+                 n,
+                 Pcg64::from_rng(&mut rng).unwrap()
+             )
+         }).collect();
+         
+         // Now the Wang Landau simulation. First create the struct 
+         // (here as Vector, since we want to use 3 overlapping intervals)
+         let mut wl_list: Vec<_> = ensembles.into_iter()
+             .zip(hist_list.into_iter())
+             .map(|(ensemble, histogram)| {
+                 WangLandau1T::new(
+                     0.00001, // arbitrary threshold for `log_f`(see paper), 
+                              // you have to try what is good for your model
+                     ensemble,
+                     Pcg64::from_rng(&mut rng).unwrap(),
+                     1,  // stepsize 1 is sufficient for this problem
+                     histogram,
+                     100 // every 100 steps: check if WL can refine factor f
+                 ).unwrap()
+             }).collect();
+         
+         // Now we have to initialize the wl with a valid state
+         // as the simulation has to start in the interval one wants to measure.
+         // Since the energy landscape is quite simple, here a greedy approach is good enough.
+         
+         wl_list.iter_mut()
+             .for_each(|wl|{
+                 wl.init_greedy_heuristic(
+                     |coin_seq| Some(coin_seq.head_count()),
+                     Some(10_000) // if no valid state is found after 10_000 
+                                  // this returns an Err. If you do not want a step limit,
+                                  // you can use None here
+                 ).expect("Unable to find valid state within 10_000 steps!");
+             });
+         
+         // Now our ensemble is initialized. Time for the Wang Landau Simulation. 
+         // You can do that in different ways.
+         // I will show this by doing it differently for our three intervals
+         
+         // First, the simplest one. Just simulate until the threshold for `log_f` is reached
+         wl_list[0].wang_landau_convergence(
+             |coin_seq| Some(coin_seq.head_count())
+         );
+         
+         // Secondly, I only have a limited amount of time.
+         // Lets say, I have 1 minute at most.
+         let start_time = std::time::Instant::now();
+         wl_list[1].wang_landau_while(
+             |coin_seq| Some(coin_seq.head_count()),
+             |_| start_time.elapsed().as_secs() <= 60
+         );
+         
+         // Or lets say, I want to limit the number of steps to 100_000
+         wl_list[2].wang_landau_while(
+             |coin_seq| Some(coin_seq.head_count()),
+             |state| state.step_counter() <= 100_000 
+         );
+         
+         // Now, lets see if our last two simulations did indeed finish:
+         // This one did
+         assert!(wl_list[1].is_finished());
+         // This simulation did not finish
+         assert!(!wl_list[2].is_finished());
+         
+         // If a simulation did not finish, you could, e.g., store the state (`wl_list[2]`) using serde.
+         // Then you could continue the simulation later on.
+         // I recommend the crate `bincode` for storing
+         
+         // lets resume the simulation for now
+         wl_list[2].wang_landau_convergence(
+             |coin_seq| Some(coin_seq.head_count())
+         );
+         // it finished
+         assert!(wl_list[2].is_finished());
+         
+         // Since our simulations did all finish, lets see what our distribution looks like
+         // Lets glue them together. We use our original histogram for that.
+         let glue_job = glue::GlueJob::new_from_slice(
+            &wl_list, 
+            LogBase::Base10
+        );
+         let glued = glue_job.average_merged_and_aligned()
+            .expect("Unable to glue results. Look at error message");
+         
+         // now, lets print our result
+         glued.write(std::io::stdout()).unwrap();
+         
+         // or store it into a file
+         let file = File::create("coin_flip_log_density_e.dat").unwrap();
+         let buf = BufWriter::new(file);
+         glued.write(buf).unwrap();
+         
+         // now, lets check if our results are actually any good.
+         // lets compare that to the analytical result
+         
+         // Since the library I am going to use lets me directly calculate the natural
+         // logaritm of the probability, I first convert the base of our own results:
+         let log10_prob = glued.glued_log10_probability;
+         let ln_prob: Vec<_> = log10_prob.iter()
+                                 .map(|&val| val / std::f64::consts::LOG10_E)
+                                 .collect();
+         
+         // Then create the `true` results:
+         let binomial = Binomial::new(0.5, n as u64).unwrap();
+         
+         let ln_prob_true: Vec<_> = (0..=n)
+             .map(|k| binomial.ln_pmf(k as u64))
+             .collect();
+         
+         // lets write that in a file, so we can use gnuplot to plot the result
+         let comp_file = File::create("coin_flip_compare_e.dat").unwrap();
+         let mut buf = BufWriter::new(comp_file);
+         
+         // lets also calculate the maximum difference between the two solutions
+         let mut max_ln_dif = std::f64::NEG_INFINITY;
+         let mut max_dif = std::f64::NEG_INFINITY;
+         
+         writeln!(buf, "#head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif").unwrap();
+         for (index, (numeric, analytic)) in ln_prob.iter().zip(ln_prob_true.iter()).enumerate()
+         {
+             let ln_dif = numeric - analytic;
+             max_ln_dif = ln_dif.abs().max(max_ln_dif);
+             let dif = numeric.exp() - analytic.exp();
+             max_dif = dif.abs().max(max_dif);
+             writeln!(buf, "{} {:e} {:e} {:e} {:e}", index, numeric, analytic, ln_dif, dif).unwrap();
+         }
+         
+         println!("Max_ln_dif = {}", max_ln_dif);
+         println!("Max_dif = {}", max_dif);
+         
+         // in this case, the max difference of the natural logarithms 
+         // of the probabilities is smaller than 0.03
+         assert!(max_ln_dif < 0.03);
+         // and the max absolute difference is smaller than 0.0009
+         assert!(max_dif < 0.0009);
+         
+         // But we can do better. Lets refine the results with entropic sampling
+         // first, convert the wl simulations in entropic sampling simulations
+         let mut entropic_list: Vec<_> = wl_list
+             .into_iter()
+             .map(|wl| EntropicSampling::from_wl(wl).unwrap())
+             .collect();
+         
+         
+         // Now, while doing that, lets also create a heatmap.
+         // Lets say, we want to see, how the number of times `Head` occurred in the sequence 
+         // correlates to the maximum number of `Heads` in a row in that sequence.
+         
+         // In this case, the heatmap is symmetric and we already have a histogram of correct sice
+         let mut heatmap = HeatmapU::new(
+             hist.clone(),
+             hist.clone()
+         );
+         
+         entropic_list.iter_mut()
+             .for_each(|entr|{
+                 entr.entropic_sampling(
+                     |coin_seq| Some(coin_seq.head_count()),
+                     |state| {
+                         let head_count = *state.energy();
+                         let heads_in_row = state.ensemble().max_heads_in_a_row();
+                         heatmap.count(head_count, heads_in_row)
+                             .expect("Value outside heatmap?");
+                     }
+                 )
+             });
+         
+         // Now, lets see our refined results:
+         let glued = glue_entropic(
+             &entropic_list,
+             &hist
+         ).expect("Unable to glue results. Look at error message");
+         
+         // lets store our result
+         let file = File::create("coin_flip_log_density_entropic_e.dat").unwrap();
+         let buf = BufWriter::new(file);
+         glued.write(buf).unwrap();
+         
+         // now, lets compare with the analytical results again
+         // Again, calculate to base e
+         let ln_prob: Vec<_> = glued.glued_log10_probability
+             .iter()
+             .map(|&val| val / std::f64::consts::LOG10_E)
+             .collect();
+         
+         
+         // lets write that in a file, so we can use gnuplot to plot the result
+         let comp_file = File::create("coin_flip_compare_entr_e.dat").unwrap();
+         let mut buf = BufWriter::new(comp_file);
+         
+         // lets also calculate the maximum difference between the two solutions
+         let mut max_ln_dif = std::f64::NEG_INFINITY;
+         let mut max_dif = std::f64::NEG_INFINITY;
+         
+         writeln!(buf, "#head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif").unwrap();
+         for (index, (numeric, analytic)) in ln_prob.iter().zip(ln_prob_true.iter()).enumerate()
+         {
+             let ln_dif = numeric - analytic;
+             max_ln_dif = ln_dif.abs().max(max_ln_dif);
+             let dif = numeric.exp() - analytic.exp();
+             max_dif = dif.abs().max(max_dif);
+             writeln!(buf, "{} {:e} {:e} {:e} {:e}", index, numeric, analytic, ln_dif, dif).unwrap();
+         }
+         
+         println!("Max_ln_dif = {}", max_ln_dif);
+         println!("Max_dif = {}", max_dif);
+         
+         // in this case, the max difference of the natural logarithms 
+         //of the probabilities is smaller than 0.026
+         assert!(max_ln_dif < 0.026);
+         // and the max absolut difference is smaller than 0.0007
+         assert!(max_dif < 0.0007);
+         
+         // That would be the final result for our probability 
+         // density than. As you can see, it is very very 
+         // close to the analytical result.
+         
+         // Now, lets see, how our heatmap looks:
+         let mut settings = GnuplotSettings::new();
+         settings.x_label("#Heads")
+             .y_label("Max heads in row")
+             .terminal(GnuplotTerminal::PDF("heatmap_coin_flips".to_owned()));
+         
+         // lets normalize coloumwise
+         // This way, the scale of our heatmap tells us the conditional probability
+         // P(Number of heads in a rom | number of heads) of how many heads in a row were
+         // part of that sequence given the total number of heads that occurred in the sequence
+         let heatmap = heatmap.heatmap_normalized_columns();
+         
+         // now create gnuplot file
+         let file = File::create("coin_heatmap_e.gp").unwrap();
+         let buf = BufWriter::new(file);
+         heatmap.gnuplot(
+             buf,
+             settings
+         ).unwrap();
+    }
+}*/

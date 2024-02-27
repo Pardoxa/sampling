@@ -40,6 +40,7 @@ where B: Binning<T> {
         &self.hits
     }
 
+    #[inline]
     fn any_bin_zero(&self) -> bool {
         self.hits.iter().any(|h| *h == 0)
     }
@@ -49,6 +50,7 @@ where B: Binning<T> {
         self.hits.len()
     }
 
+    #[inline]
     fn count_index(&mut self, index: usize) -> Result<(), HistErrors> {
         let entry = self.hits
             .get_mut(index)
@@ -57,6 +59,7 @@ where B: Binning<T> {
         Ok(())
     }
 
+    #[inline]
     fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
         let entry = self.hits
             .get_mut(index)
@@ -73,6 +76,7 @@ where B: Binning<T> {
 impl<T,B> HistogramVal<T> for GenericHist<B, T>
 where B: Binning<T>
 {
+    #[inline(always)]
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         self.binning.get_bin_index(val)
             .ok_or(HistErrors::OutsideHist)
@@ -86,6 +90,7 @@ where B: Binning<T>
         self.binning.is_inside(val)
     }
 
+    #[inline(always)]
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
         let index = self.get_bin_index(val)?;
         self.count_index(index)
@@ -96,16 +101,21 @@ where B: Binning<T>
         self.binning.not_inside(val)
     }
 
-    fn second_last_border(&self) -> T {
-        self.binning.second_last_border()
+    fn last_border(&self) -> T {
+        self.binning.last_border()
+    }
+
+    #[inline]
+    fn last_border_is_inclusive(&self) -> bool {
+        self.binning.last_border_is_inclusive()
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
         self.binning.distance(val)
     }
 
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        self.binning.borders_clone()
+    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>>> {
+        self.binning().bin_iter()
     }
 }
 

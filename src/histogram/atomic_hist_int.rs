@@ -414,9 +414,9 @@ pub trait AtomicHistogramVal<T>{
     /// get the left most border (inclusive)
     fn first_border(&self) -> T;
 
-    /// * get second last border from the right
-    /// * should be the same as `let b = self.borders_clone().expect("overflow"); assert_eq!(self.second_last_border(), b[b.len()-2])`
-    fn second_last_border(&self) -> T;
+    /// # Get border on the right
+    /// * Note: This border might be inclusive or exclusive
+    fn last_border(&self) -> T;
     /// # calculates some sort of absolute distance to the nearest valid bin
     /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
     /// * if a value corresponds to a valid bin, the distance should be zero
@@ -454,7 +454,7 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
         self.bin_borders[0]
     }
 
-    fn second_last_border(&self) -> T {
+    fn last_border(&self) -> T {
         self.bin_borders[self.bin_borders.len() - 1]
     }
 
@@ -733,29 +733,51 @@ mod tests{
         
                 for (index,(a, b)) in overlapping_f.into_iter().zip(overlapping_i).enumerate()
                 {
-                    let border_clone_a = a.borders_clone().unwrap();
+                    let bins_a: Vec<_> = a
+                        .bin_enum_iter()
+                        .map(
+                            |bin|
+                            {
+                                match bin 
+                                {
+                                    Bin::SingleValued(val) => val,
+                                    _ => unreachable!()
+                                }
+                            }
+                        ).collect();
 
-                    assert_eq!(border_clone_a.len(), a.hist().len() + 1);
+                    assert_eq!(bins_a.len(), a.hist().len());
                     
-                    let border_clone_b = b.borders_clone().unwrap();
+                    let bins_b: Vec<_> = b
+                        .bin_enum_iter()
+                        .map(
+                            |bin|
+                            {
+                                match bin 
+                                {
+                                    Bin::InclusiveExclusive(left, right) => (left, right),
+                                    _ => unreachable!()
+                                }
+                            }
+                        ).collect();
 
-                    assert_eq!(border_clone_b.len(), b.hist().len() + 1);
+                    assert_eq!(bins_b.len(), b.hist().len());
 
-                    if border_clone_a.len() != border_clone_b.len()
+                    if bins_a.len() != bins_b.len()
                     {
                         println!("Fast: {} SLOW {}", a.bin_count(), b.bin_count());
                         dbg!(left, right, overlap);
                         dbg!(hist_i.bin_count(), hist_fast.bin_count());
-                        dbg!(&border_clone_b, &border_clone_a);
+                        dbg!(&bins_b, &bins_a);
                         eprintln!("index: {} of {}", index, len);
                     }
 
-                    assert_eq!(border_clone_a.len(), border_clone_b.len());
+                    assert_eq!(bins_a.len(), bins_b.len());
                     assert_eq!(a.bin_count(), b.bin_count());
         
-                    for (b_a, b_b) in border_clone_a.into_iter().zip(border_clone_b)
+                    for (b_a, b_b) in bins_a.into_iter().zip(bins_b)
                     {
-                        assert_eq!(b_a, b_b);
+                        assert_eq!((b_a, b_a + 1), b_b);
                     }
                 }
             }

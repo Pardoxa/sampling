@@ -79,7 +79,8 @@ where B: Binning<T>
     }
 
     fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        self.binning.borders_clone()
+        // remove this function
+        unimplemented!()
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
@@ -98,7 +99,7 @@ where B: Binning<T>
         self.binning.not_inside(val)
     }
 
-    fn second_last_border(&self) -> T {
-        self.binning.second_last_border()
+    fn last_border(&self) -> T {
+        self.binning.last_border()
     }
 }

@@ -197,7 +197,8 @@ impl<T> Histogram for HistogramFloat<T>
 }
 
 impl<T> HistogramVal<T> for HistogramFloat<T>
-where T: Float + Zero + NumCast{
+where T: Float + Zero + NumCast + PartialOrd + FromPrimitive
+{
 
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
     {
@@ -227,8 +228,13 @@ where T: Float + Zero + NumCast{
     }
 
     #[inline]
-    fn second_last_border(&self) -> T {
-        self.bin_borders[self.bin_borders.len() - 2]
+    fn last_border(&self) -> T {
+        self.bin_borders[self.bin_borders.len() - 1]
+    }
+
+    #[inline(always)]
+    fn last_border_is_inclusive(&self) -> bool {
+        false
     }
 
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool {
@@ -270,9 +276,15 @@ where T: Float + Zero + NumCast{
         } 
     }
 
-    /// consider using `self.borders()`
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        Ok(self.bin_borders.clone())
+    /// # consider using `self.bin_iter()` instead
+    /// * This gives you a dynamic iterator over all bins-
+    /// * For this type all bins are InclusiveExclusive -> Usage of `self.bin_iter`
+    /// is more efficient
+    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>> + '_> {
+        let iter = self
+            .bin_iter()
+            .map(|slice| Bin::InclusiveExclusive(slice[0], slice[1]));
+        Box::new(iter)
     }
 }
 

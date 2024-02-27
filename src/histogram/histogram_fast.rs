@@ -16,6 +16,7 @@ use{
         num::*
     }
 };
+use super::binning::BinDisplay;
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -29,6 +30,29 @@ pub struct HistogramFast<T> {
     left: T, 
     right: T,
     hist: Vec<usize>,
+}
+
+impl<T> BinDisplay for HistogramFast<T>
+where 
+T: PrimInt + HasUnsignedVersion + Copy + std::fmt::Display + WrappingAdd,
+T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
+    + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+{
+    type BinEntry = T;
+
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=Self::BinEntry> + '_>{
+        Box::new(
+            self.bin_iter()
+        )
+    }
+
+    fn write_bin<W: std::io::Write>(entry: &Self::BinEntry, mut writer: W) -> std::io::Result<()> {
+        write!(writer, "{entry}")
+    }
+
+    fn write_header<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        write!(writer, "Bin")
+    }
 }
 
 impl<T> HistogramFast<T>
@@ -55,7 +79,7 @@ where T: Copy
 
 impl<T> HistogramFast<T> 
     where 
-    T: PrimInt + HasUnsignedVersion,
+    T: PrimInt + HasUnsignedVersion + WrappingAdd,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -211,7 +235,7 @@ pub(crate) struct HistFastIterHelper<T>
 
 impl<T> Iterator for HistFastIterHelper<T>
 where 
-    T: PrimInt,
+    T: PrimInt + WrappingAdd,
 {
     type Item = T;
 
@@ -222,16 +246,59 @@ where
             return None;
         }
 
-        let is_iterating = self.current < self.right;
+        let next = self.current.wrapping_add(&T::one());
+        let current = std::mem::replace(&mut self.current, next);
+        self.invalid = current == self.right;
         Some(
-            if is_iterating
-            {
-                let next = self.current + T::one();
-                std::mem::replace(&mut self.current, next)
-            } else {
-                self.invalid = true;
-                self.current
-            }
+            current
+        )
+
+    }
+}
+
+pub(crate) struct BinModIterHelper<T>
+{
+    pub(crate) current: T,
+    pub(crate) right: T,
+    pub(crate) step_by: T,
+    pub(crate) invalid: bool,
+}
+
+impl<T> BinModIterHelper<T>
+{
+    pub(crate) fn new_unchecked(left: T, right: T, step_by: T) -> Self
+    {
+        Self{
+            current: left,
+            right,
+            step_by,
+            invalid: false
+        }
+    }
+}
+
+impl<T> Iterator for BinModIterHelper<T>
+where 
+    T: Add::<T, Output=T> 
+        + Ord + Copy + WrappingAdd
+        + WrappingSub
+        + One,
+{
+    type Item = (T, T);
+
+    #[inline]
+    fn next(&mut self) -> Option<(T, T)>
+    {
+        if self.invalid {
+            return None;
+        }
+
+        let next = self.current.wrapping_add(&self.step_by);
+        let right = next.wrapping_sub(&T::one());
+        self.invalid = right == self.right;
+        let left = std::mem::replace(&mut self.current, next);
+        Some(
+            (left, right)
         )
 
     }
@@ -239,7 +306,7 @@ where
 
 impl<T> HistogramPartition for HistogramFast<T> 
 where T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
-    + HasUnsignedVersion + Bounded,
+    + HasUnsignedVersion + Bounded + WrappingAdd,
 T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes, Unsigned=T::Unsigned> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned> + FromPrimitive + WrappingSub,
 {
@@ -341,7 +408,7 @@ impl<T> Histogram for HistogramFast<T>
 } 
 
 impl<T> HistogramVal<T> for HistogramFast<T>
-where T: PrimInt + HasUnsignedVersion,
+where T: PrimInt + HasUnsignedVersion + WrappingAdd,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -350,8 +417,13 @@ where T: PrimInt + HasUnsignedVersion,
         self.left
     }
 
-    fn second_last_border(&self) -> T {
+    fn last_border(&self) -> T {
         self.right
+    }
+
+    #[inline(always)]
+    fn last_border_is_inclusive(&self) -> bool {
+        true
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
@@ -369,6 +441,7 @@ where T: PrimInt + HasUnsignedVersion,
         }
     }
 
+    #[inline(always)]
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         let val = *val.borrow();
         if val <= self.right{
@@ -394,27 +467,15 @@ where T: PrimInt + HasUnsignedVersion,
         }
     }
 
-    /// # Creates a vector containing borders
-    /// How to understand the borders?
-    /// 
-    /// Lets say we have a Vector containing `[a,b,c]`,
-    /// then the first bin contains all values `T` for which 
-    /// `a <= T < b`, the second bin all values `T` for which 
-    /// `b <= T < c`. In this case, there are only two bins.
-    /// # Errors
-    /// * returns `Err(Overflow)` if right border is `T::MAX`
-    /// * creates and returns borders otherwise
-    /// * Note: even if `Err(Overflow)` is returned, this does not 
-    ///  provide any problems for the rest of the implementation,
-    ///  as the border vector is not used internally for `HistogramFast`
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        let right = self.right.checked_add(&T::one())
-            .ok_or(HistErrors::Overflow)?;
-        Ok(
-            self.bin_iter()
-                .chain(std::iter::once(right))
-                .collect()
-        )
+    /// # Iterator over the bins
+    /// * This iterator will always return SingleValued bins
+    /// * Consider using `self.bin_iter()` instead, its more efficient
+    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>> + '_>{
+        
+        let iter = self
+            .bin_iter()
+            .map(|bin| Bin::SingleValued(bin));
+        Box::new(iter)
     }
 
     #[inline]
@@ -460,7 +521,7 @@ where Self: HistogramVal<T>,
 
 impl<T> HistogramCombine for HistogramFast<T>
     where   Self: HistogramVal<T>,
-    T: PrimInt + HasUnsignedVersion,
+    T: PrimInt + HasUnsignedVersion + WrappingAdd,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
 {
@@ -531,7 +592,7 @@ mod tests{
 
     fn hist_test_fast<T>(left: T, right: T)
     where T: PrimInt + num_traits::Bounded + PartialOrd + CheckedSub + One 
-        + NumCast + Copy + FromPrimitive + HasUnsignedVersion,
+        + NumCast + Copy + FromPrimitive + HasUnsignedVersion + WrappingAdd,
     std::ops::RangeInclusive<T>: Iterator<Item=T>,
     T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
         + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
@@ -559,7 +620,7 @@ mod tests{
         let one = unsafe{NonZeroUsize::new_unchecked(1)};
         assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
         assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
-        assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
+        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());
     }
 
     #[test]
@@ -632,8 +693,8 @@ mod tests{
                 let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
 
                 assert_eq!(
-                    overlapping.last().unwrap().second_last_border(),
-                    hist_fast.second_last_border()
+                    overlapping.last().unwrap().last_border(),
+                    hist_fast.last_border()
                 );
 
                 assert_eq!(

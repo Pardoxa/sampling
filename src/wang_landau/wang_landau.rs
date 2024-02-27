@@ -13,7 +13,7 @@ use serde::{Serialize, Deserialize};
 /// > “Fast algorithm to calculate density of states,”
 /// > Phys.&nbsp;Rev.&nbsp;E&nbsp;**75**: 046701 (2007), DOI&nbsp;[10.1103/PhysRevE.75.046701](https://doi.org/10.1103/PhysRevE.75.046701)
 /// 
-/// * The original Wang Landau algorithim comes from this paper
+/// * The original Wang Landau algorithm comes from this paper
 /// > F. Wang and D. P. Landau,
 /// > “Efficient, multiple-range random walk algorithm to calculate the density of states,” 
 /// > Phys.&nbsp;Rev.&nbsp;Lett.&nbsp;**86**, 2050–2053 (2001), DOI&nbsp;[10.1103/PhysRevLett.86.2050](https://doi.org/10.1103/PhysRevLett.86.2050)
@@ -38,6 +38,41 @@ pub struct WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>{
     pub(crate) hist: Hist,
     pub(crate) old_energy: Option<Energy>,
     check_refine_every: usize,
+}
+
+impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for WangLandau1T<Hist, R, E, S, Res, Energy>
+    where Hist: Clone
+{
+    fn push_glue_entry_ignoring(
+            &self, 
+            job: &mut GlueJob<Hist>,
+            ignore_idx: &[usize]
+        ) {
+        if !ignore_idx.contains(&0)
+        {
+            let sim_progress = SimProgress::LogF(self.log_f);
+            let rejected = self.total_steps_rejected() as u64;
+            let accepted = self.total_steps_accepted() as u64;
+
+            let stats = IntervalSimStats{
+                sim_progress,
+                interval_sim_type: SimulationType::WangLandau1T,
+                rejected_steps: rejected,
+                accepted_steps: accepted,
+                replica_exchanges: None,
+                proposed_replica_exchanges: None,
+                merged_over_walkers: NonZeroUsize::new(1).unwrap()
+            };
+
+            let glue_entry = GlueEntry{
+                hist: self.hist.clone(),
+                prob: self.log_density.clone(),
+                log_base: LogBase::BaseE,
+                interval_stats: stats
+            };
+            job.collection.push(glue_entry);
+        }
+    }
 }
 
 impl<Hist, Rng, Ensemble, S, Res, Energy>WangLandau1T<Hist, Rng, Ensemble, S, Res, Energy>
@@ -872,7 +907,6 @@ where
         
     }
 }
-
 
 
 #[cfg(test)]

@@ -38,6 +38,9 @@ pub mod rees;
 #[cfg(feature="replica_exchange")]
 pub use rees::*;
 
+pub use rees::merged_log_prob;
+pub use rees::merged_log10_prob;
+
 
 pub use histogram::*;
 pub use heatmap::*;

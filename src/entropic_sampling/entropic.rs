@@ -6,7 +6,8 @@ use{
         marker::PhantomData,
         io::Write,
         iter::*,
-        convert::*
+        convert::*,
+        num::*
     }
 };
 
@@ -38,6 +39,45 @@ pub struct EntropicSampling<Hist, R, E, S, Res, Energy>
     log_density: Vec<f64>,
     old_energy: Energy,
     old_bin: usize,
+}
+
+impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for EntropicSampling<Hist, R, E, S, Res, Energy>
+    where Hist: Clone + Histogram
+{
+    fn push_glue_entry_ignoring(
+            &self, 
+            job: &mut GlueJob<Hist>,
+            ignore_idx: &[usize]
+        ) {
+        if !ignore_idx.contains(&0)
+        {
+            let mut missing_steps = 0;
+            if self.step_count >= self.step_goal
+            {
+                missing_steps = (self.step_goal - self.step_count) as u64;
+            }
+            let rejected = self.total_steps_rejected as u64;
+            let accepted = self.total_steps_accepted as u64;
+
+            let stats = IntervalSimStats{
+                sim_progress: SimProgress::MissingSteps(missing_steps),
+                interval_sim_type: SimulationType::Entropic,
+                rejected_steps: rejected,
+                accepted_steps: accepted,
+                replica_exchanges: None,
+                proposed_replica_exchanges: None,
+                merged_over_walkers: NonZeroUsize::new(1).unwrap()
+            };
+
+            let glue_entry = GlueEntry{
+                hist: self.hist.clone(),
+                prob: self.log_density_refined(),
+                log_base: LogBase::BaseE,
+                interval_stats: stats
+            };
+            job.collection.push(glue_entry);
+        }
+    }
 }
 
 impl<Hist, R, E, S, Res, Energy> TryFrom<WangLandau1T<Hist, R, E, S, Res, Energy>>
@@ -178,28 +218,10 @@ impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
         &self.hist
     }
 }
+
 impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
-where Hist: Histogram,
-    R: Rng,
-    //E: MarkovChain<S, Res>
+where Hist: Histogram
 {
-
-    /// # Creates Entropic from a `WangLandauAdaptive` state
-    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
-    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
-    pub fn from_wl(wl: WangLandau1T<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
-    {
-        wl.try_into()
-    }
-
-        /// # Creates Entropic from a `WangLandauAdaptive` state
-    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
-    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
-    pub fn from_wl_adaptive(wl: WangLandauAdaptive<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
-    {
-        wl.try_into()
-    }
-
     /// calculates the (non normalized) log_density estimate log(P(E)) according to the [paper](#entropic-sampling-made-easy)
     pub fn log_density_refined(&self) -> Vec<f64> {
         let mut log_density = Vec::with_capacity(self.log_density.len());
@@ -220,7 +242,6 @@ where Hist: Histogram,
         );
         log_density
     }
-
 
     /// # Calculates `self.log_density_refined` and uses that as estimate for a the entropic sampling simulation
     /// * returns old estimate
@@ -262,6 +283,27 @@ where Hist: Histogram,
     {
         (self.log_density[self.old_bin] - self.log_density[new_bin])
                 .exp()
+    }
+}
+
+impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
+where Hist: Histogram,
+    R: Rng
+{
+    /// # Creates Entropic from a `WangLandauAdaptive` state
+    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
+    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
+    pub fn from_wl(wl: WangLandau1T<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
+    {
+        wl.try_into()
+    }
+
+        /// # Creates Entropic from a `WangLandauAdaptive` state
+    /// * `WangLandauAdaptive` state needs to be valid, i.e., you must have called one of the `init*` methods
+    /// - this ensures, that the members `old_energy` and `old_bin` are not `None`
+    pub fn from_wl_adaptive(wl: WangLandauAdaptive<Hist, R, E, S, Res, T>) -> Result<Self, EntropicErrors>
+    {
+        wl.try_into()
     }
 }
 

@@ -6,7 +6,8 @@ use{
         io::Write,
         iter::*,
         collections::*,
-        convert::*
+        convert::*,
+        num::*
     }
 };
 
@@ -75,6 +76,45 @@ pub struct EntropicSamplingAdaptive<Hist, R, E, S, Res, T>
     old_energy: T,
     old_bin: usize,
     adjust_bestof_every: usize,
+}
+
+impl<Hist, R, E, S, Res, Energy> GlueAble<Hist> for EntropicSamplingAdaptive<Hist, R, E, S, Res, Energy>
+    where Hist: Clone + Histogram
+{
+    fn push_glue_entry_ignoring(
+            &self, 
+            job: &mut GlueJob<Hist>,
+            ignore_idx: &[usize]
+        ) {
+        if !ignore_idx.contains(&0)
+        {
+            let mut missing_steps = 0;
+            if self.step_count() >= self.step_goal()
+            {
+                missing_steps = (self.step_goal() - self.step_count()) as u64;
+            }
+            let rejected = self.total_entr_steps_rejected() as u64;
+            let accepted = self.total_entr_steps_accepted() as u64;
+
+            let stats = IntervalSimStats{
+                sim_progress: SimProgress::MissingSteps(missing_steps),
+                interval_sim_type: SimulationType::Entropic,
+                rejected_steps: rejected,
+                accepted_steps: accepted,
+                replica_exchanges: None,
+                proposed_replica_exchanges: None,
+                merged_over_walkers: NonZeroUsize::new(1).unwrap()
+            };
+
+            let glue_entry = GlueEntry{
+                hist: self.hist().clone(),
+                prob: self.log_density_refined(),
+                log_base: LogBase::BaseE,
+                interval_stats: stats
+            };
+            job.collection.push(glue_entry);
+        }
+    }
 }
 
 impl<Hist, R, E, S, Res, T> TryFrom<WangLandauAdaptive<Hist, R, E, S, Res, T>>
@@ -249,6 +289,28 @@ impl<Hist, R, E, S, Res, T> EntropicSamplingAdaptive<Hist, R, E, S, Res, T>
         &self.log_density
     }
 
+    /// calculates the (non normalized) log_density estimate log(P(E)) according to the [paper](#entropic-sampling-made-easy)
+    pub fn log_density_refined(&self) -> Vec<f64> 
+    where Hist: Histogram{
+        let mut log_density = Vec::with_capacity(self.log_density.len());
+        log_density.extend(
+            self.log_density
+                .iter()
+                .zip(self.histogram.hist().iter())
+                .map(
+                    |(&log_p, &h)|
+                    {
+                        if h == 0 {
+                            log_p
+                        } else {
+                            log_p + (h as f64).ln()
+                        }
+                    }
+                )
+        );
+        log_density
+    }
+
     /// # Return current state of histogram
     pub fn hist(&self) -> &Hist
     {
@@ -268,26 +330,7 @@ where Hist: Histogram,
         wl.try_into()
     }
 
-    /// calculates the (non normalized) log_density estimate log(P(E)) according to the [paper](#entropic-sampling-made-easy)
-    pub fn log_density_refined(&self) -> Vec<f64> {
-        let mut log_density = Vec::with_capacity(self.log_density.len());
-        log_density.extend(
-            self.log_density
-                .iter()
-                .zip(self.histogram.hist().iter())
-                .map(
-                    |(&log_p, &h)|
-                    {
-                        if h == 0 {
-                            log_p
-                        } else {
-                            log_p + (h as f64).ln()
-                        }
-                    }
-                )
-        );
-        log_density
-    }
+
 
 
     /// # Calculates `self.log_density_refined` and uses that as estimate for a the entropic sampling simulation
