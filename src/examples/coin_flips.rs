@@ -240,7 +240,7 @@ impl<R> HasRng<R> for CoinFlipSequence<R>
 }
 
 #[cfg(test)]
-#[cfg(features="replica_exchange")]
+#[cfg(feature="replica_exchange")]
 mod tests{
     use super::*;
     use rand::SeedableRng;
@@ -296,7 +296,7 @@ mod tests{
             1,
             NonZeroUsize::new(1999).unwrap(),
             NonZeroUsize::new(2).unwrap(),
-            0.000003
+            0.0000022
         ).unwrap();
 
         let mut rewl2 = rewl_builder2.greedy_build(|e| Some(e.head_count()));
@@ -315,7 +315,8 @@ mod tests{
                             .for_each(|w| println!("rewl replica_frac {}", w.replica_exchange_frac()));
                     }
                 );
-        let steps: usize = rewl_slice
+        
+        let steps: u64 = rewl_slice
                 .iter()
                 .flat_map(|r| 
                     r.walkers()
@@ -332,14 +333,21 @@ mod tests{
              .map(|k| binomial.ln_pmf(k as u64))
              .collect();
         
-
         let mut rees_slice: Vec<_> = rewl_slice.into_iter()
             .map(|r| r.into_rees())
             .collect();
         
-        rees_slice.par_iter_mut()
-            .for_each(|rees| rees.simulate_until_convergence(|e| Some(e.head_count()), |_,_, _|{}));
-        let steps: usize = rees_slice
+        rees_slice
+            .par_iter_mut() 
+            .for_each(
+                |rees| 
+                rees.simulate_until_convergence(
+                    |e| Some(e.head_count()), 
+                    |_,_, _|{}
+                )
+            );
+        
+        let steps: u64 = rees_slice
             .iter()
             .flat_map(|r| 
                 r.walkers()

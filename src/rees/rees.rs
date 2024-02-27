@@ -605,7 +605,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
             .par_iter_mut()
             .zip(self.extra.par_iter_mut())
             .for_each(|(w, extra)| w.sweep(slice, extra, extra_fn, energy_fn));
-
+        
         // replica exchange
         if self.walkers_per_interval().get() > 1 {
             let exchange_m = self.replica_exchange_mode;
@@ -1002,7 +1002,7 @@ where Hist: HistogramVal<Energy> + HistogramCombine,
     assert_eq!(hists.len(), merged_probs.len());
 
     let mut container: Vec<_> = merged_probs.iter()
-        .zip(hists.into_iter())
+        .zip(hists)
         .map(|(prob, hist)| (prob.as_slice(), hist))
         .collect();
 

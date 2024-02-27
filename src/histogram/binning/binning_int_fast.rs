@@ -504,7 +504,7 @@ mod tests{
         for i in T::min_value()..left {
             assert!(binning.not_inside(i));
             assert_eq!(binning.is_inside(i), !binning.not_inside(i));
-            assert!(matches!(binning.get_bin_index(i), None));
+            assert!(binning.get_bin_index(i).is_none());
             let dist = binning.distance(i);
             assert!(dist > 0.0);
             match last_dist{
@@ -525,7 +525,7 @@ mod tests{
         for (i, dist_counter) in (right+T::one()..=T::max_value()).zip(1_u64..) {
             assert!(binning.not_inside(i));
             assert_eq!(binning.is_inside(i), !binning.not_inside(i));
-            assert!(matches!(binning.get_bin_index(i), None));
+            assert!(binning.get_bin_index(i).is_none());
             let dist = binning.distance(i);
             assert!(dist > 0.0);
             println!("{i}, {:?}", right+T::one()..=T::max_value());

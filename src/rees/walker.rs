@@ -366,8 +366,8 @@ where Hist: HistogramVal<Energy>,
                 },
                 _ => {
                     self.count_rejected();
-                    e.undo_steps_quiet(&self.markov_steps);
                     e.steps_rejected(&self.markov_steps);
+                    e.undo_steps_quiet(&self.markov_steps);
                 }
             }
 
@@ -452,7 +452,7 @@ where Hist: Histogram
                 |log_density|
                 {
                     averaged_log_density.iter_mut()
-                        .zip(log_density.into_iter())
+                        .zip(log_density)
                         .for_each(
                             |(average, other)|
                             {

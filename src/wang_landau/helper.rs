@@ -80,13 +80,13 @@ impl Eq for ProbIndex{}
 
 impl PartialOrd for ProbIndex{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.diff.partial_cmp(&other.diff)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for ProbIndex{
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        self.diff.total_cmp(&other.diff)
     }
 }
 

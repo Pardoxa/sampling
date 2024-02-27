@@ -66,7 +66,7 @@ pub fn bench_wl_step(c: &mut Criterion){
     // Now the Wang Landau simulation. First create the struct 
     // (here as Vector, since we want to use 3 overlapping intervals)
     let mut wl_list: Vec<_> = ensembles.into_iter()
-        .zip(hist_list.into_iter())
+        .zip(hist_list)
         .map(|(ensemble, histogram)| {
             WangLandau1T::new(
                 0.0000000000000000001, // arbitrary threshold for `log_f`(see paper), 
@@ -138,7 +138,7 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
     // Now the Wang Landau simulation. First create the struct 
     // (here as Vector, since we want to use 3 overlapping intervals)
     let mut wl_list: Vec<_> = ensembles.into_iter()
-        .zip(hist_list.into_iter())
+        .zip(hist_list)
         .map(|(ensemble, histogram)| {
             WangLandau1T::new(
                 0.0000000000000000001, // arbitrary threshold for `log_f`(see paper), 
