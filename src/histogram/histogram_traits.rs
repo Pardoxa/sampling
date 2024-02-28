@@ -165,6 +165,14 @@ pub enum HistErrors{
     /// bins, that all have the same width!
     ModuloError,
 
+    /// Cannot create the requested overlap!
+    /// 
+    /// This can, for example, happen, if you 
+    /// have the interval [1,3] and try to create more than two overlapping 
+    /// intervals with overlap 1 from this, since we can only create [1,2] and  [2,3],
+    /// so only two intervals.
+    InvalidOverlap,
+
     /// Unable to perform operation on empty slice
     EmptySlice
 }

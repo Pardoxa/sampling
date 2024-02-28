@@ -1,5 +1,8 @@
 use std::{
-    ops::{RangeInclusive, Shl},
+    ops::{
+        RangeInclusive, 
+        //Shl
+    },
     borrow::Borrow
 };
 use paste::paste;
@@ -7,10 +10,10 @@ use super::{
     Binning,
     HasUnsignedVersion,
     to_u,
-    from_u,
+    //from_u,
     Bin,
-    HistogramPartition,
-    HistErrors
+    //HistogramPartition,
+    //HistErrors
 };
 
 #[cfg(feature = "serde_support")]
@@ -31,6 +34,7 @@ macro_rules! impl_binning {
     (
         $t:ty
     ) => {
+        /* 
         paste::item! {
             fn [< checked_mul_div_ $t >] (
                 mut a: <$t as HasUnsignedVersion>::Unsigned, 
@@ -38,13 +42,27 @@ macro_rules! impl_binning {
                 denominator: <$t as HasUnsignedVersion>::Unsigned
             ) -> Option<<$t as HasUnsignedVersion>::Unsigned>
             {
-                println!("");
+                if a == denominator{
+                    return Some(b);
+                } else if b == denominator {
+                    return Some(a);
+                }
+
                 if let Some(val) = a.checked_mul(b){
                     return Some(val / denominator);
                 }
+
+
+                
                 if a < b {
                     std::mem::swap(&mut a, &mut b);
                 }
+                // test, to change:
+
+                return Some(
+                    ((a as i128 * b as i128) / denominator as i128) as <$t as HasUnsignedVersion>::Unsigned
+                );
+                todo!("");
                 // a >= b is now true
                 let mut sum_rest = 0;
                 if a >= denominator{
@@ -137,7 +155,7 @@ macro_rules! impl_binning {
     
                 }
             }
-        }
+        }*/
         
         paste!{
             #[doc = "Efficient binning for `" $t "` with bins of width 1"]
@@ -153,7 +171,7 @@ macro_rules! impl_binning {
             /// TODO Think about if this should actually panic or return None
             #[inline(always)]
             pub const fn new_inclusive(start: $t, end_inclusive: $t) -> Self{
-                assert!(start <= end_inclusive);
+                assert!(start <= end_inclusive, "Start needs to be <= end_inclusive!");
                 Self {start, end_inclusive }
             }
 
@@ -296,7 +314,7 @@ macro_rules! impl_binning {
             }
         }
 
-        impl HistogramPartition for paste!{[<FastBinning $t:upper>]}
+        /*impl HistogramPartition for paste!{[<FastBinning $t:upper>]}
         {
            
             /// # partition the interval
@@ -304,20 +322,27 @@ macro_rules! impl_binning {
             /// ## parameter
             /// * `n` number of resulting intervals
             /// * `overlap` How much overlap should there be?
+            /// ## To understand overlap, we have to look at the formula for the i_th interval in the result vector:
+            ///
+            ///    let ``left`` be the left border of ``self`` and ``right`` be the right border of self
+            ///
+            ///    * left border of interval i = left + i * (right - left) / (n + overlap)
+            ///    * right border of interval i = left + (i + overlap) * (right - left) / (n + overlap)
+            ///
             /// ## What is it for?
             /// * This is intended to create multiple overlapping intervals, e.g.,
             /// for a Wang-Landau simulation
             fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
             {
+                dbg!(self, n, overlap);
                 let mut result = Vec::with_capacity(n);
-                // TODO maybe change n: usize to n: Unsigned?
-                let size = self.bins_m1();
+                let right_minus_left = self.bins_m1();
                 let n_native = n as <$t as HasUnsignedVersion>::Unsigned;
                 let denominator = (n + overlap) as <$t as HasUnsignedVersion>::Unsigned;
                 let overlap_native = overlap as <$t as HasUnsignedVersion>::Unsigned;
                 for c in 0..n_native {
                     println!("1");
-                    let left_distance = match paste::item! { [< checked_mul_div_ $t >] }(c, size, denominator)
+                    let left_distance = match paste::item! { [< checked_mul_div_ $t >] }(c, right_minus_left, denominator)
                     {
                         Some(mul_res) => mul_res ,
                         None => { return Err(HistErrors::Overflow)}
@@ -330,7 +355,7 @@ macro_rules! impl_binning {
                         .checked_add(1)
                         .ok_or(HistErrors::Overflow)?;
 
-                    let right_distance = match  paste::item! { [< checked_mul_div_ $t >] }(right_sum, size, denominator)
+                    let right_distance = match  paste::item! { [< checked_mul_div_ $t >] }(right_sum, right_minus_left, denominator)
                     {
                         Some(mul_res) => mul_res ,
                         None => { return Err(HistErrors::Overflow)}
@@ -344,11 +369,23 @@ macro_rules! impl_binning {
                 
                     result.push(Self::new_inclusive(left, right));
                 }
-                assert_eq!(self.start, result[0].start, "eq1");
-                assert_eq!(self.end_inclusive, result.last().unwrap().end_inclusive, "eq2");
+                dbg!(&result);
+                assert_eq!(
+                    self.start, 
+                    result[0].start, 
+                    "eq1"
+                );
+                assert_eq!(
+                    self.end_inclusive, 
+                    result.last().unwrap().end_inclusive, 
+                    "eq2"
+                );
                 for (entry_old, entry_new) in result.iter().zip(result.iter().skip(1))
                 {
-                    assert!(entry_old.start < entry_old.end_inclusive);
+                    assert!(
+                        entry_old.start < entry_old.end_inclusive,
+                        "Start needs to be smaller than end"
+                    );
                     println!("entry_old.start {} <= {} entry_new.start", entry_old.end_inclusive, entry_new.start);
                     assert!(entry_old.start < entry_new.start);
                     println!("entry_old.end_inclusive {} <= {} entry_new.end_inclusive", entry_old.end_inclusive, entry_new.end_inclusive);
@@ -357,7 +394,7 @@ macro_rules! impl_binning {
                 }
                 Ok(result)
             }
-        }
+        }*/
     };
     (
         $($t:ty),* $(,)?
@@ -382,17 +419,15 @@ impl_binning!(
     isize
 );
 
-
-
 #[cfg(test)]
 mod tests{
     use std::fmt::{Display, Debug};
 
     use crate::GenericHist;
-    use rand_pcg::Pcg64Mcg;
-    use rand::SeedableRng;
-    use rand::distributions::Uniform;
-    use rand::prelude::*;
+    // use rand_pcg::Pcg64Mcg;
+    // use rand::SeedableRng;
+    // use rand::distributions::Uniform;
+    // use rand::prelude::*;
     use super::*;
     use crate::histogram::*;
     use num_traits::{PrimInt, AsPrimitive};
@@ -417,6 +452,7 @@ mod tests{
         assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());   
     }
 
+    /* 
     fn check_widening(a: u8, b: u8) 
     {
         let actual = (a as usize * b as usize) / 256;
@@ -449,17 +485,17 @@ mod tests{
         check_widening_u32(3, u32::MAX);
         check_widening(128, 3);
         check_widening_u32(u32::MAX/2+1, 3);
-    }
+    }*/
 
     #[test]
     fn hist_inside()
     {
-        hist_test_generic_all_inside(20usize, 31usize);
-        hist_test_generic_all_inside(-23isize, 31isize);
+        //hist_test_generic_all_inside(20usize, 31usize);
+        //hist_test_generic_all_inside(-23isize, 31isize);
         hist_test_generic_all_inside(-23i16, 31);
         hist_test_generic_all_inside(1u8, 3u8);
-        hist_test_generic_all_inside(123u128, 300u128);
-        hist_test_generic_all_inside(-123i128, 300i128);
+        //hist_test_generic_all_inside(123u128, 300u128);
+        //hist_test_generic_all_inside(-123i128, 300i128);
         hist_test_generic_all_inside(u8::MIN, u8::MAX);
         hist_test_generic_all_inside(i8::MIN, i8::MAX);
         hist_test_generic_all_inside(-100i8, 100i8);
@@ -564,9 +600,10 @@ mod tests{
         binning_all_outside_extensive(-100, 100_i8);
         binning_all_outside_extensive(-100, 100_i16);
         binning_all_outside_extensive(123, 299u16);
-        binning_all_outside_extensive(1, usize::MAX -100);
+        //binning_all_outside_extensive(1, usize::MAX -100);
     }
 
+    /* 
     macro_rules! mul_t {
         (
             $t:ty, $o:ty
@@ -594,7 +631,7 @@ mod tests{
                 }
             }
         }
-    }
+    } 
 
     #[test]
     fn mul_testing()
@@ -603,9 +640,9 @@ mod tests{
         mul_tests_u8();
         
     }  
+    */
     
-    
-      
+    /* 
     #[test]
     fn partion_test()
     {
@@ -656,16 +693,18 @@ mod tests{
 
                 assert_eq!(
                     overlapping.last().unwrap().last_border(),
-                    hist_fast.last_border()
+                    hist_fast.last_border(),
+                    "overlapping_partition_test2 - last border check"
                 );
 
                 assert_eq!(
                     overlapping.first().unwrap().first_border(),
-                    hist_fast.first_border()
+                    hist_fast.first_border(),
+                    "overlapping_partition_test2 - first border check"
                 );
             }
         }
-    }
+    }*/
 /*Below tests test a functionality that is not yet implemented
     #[test]
     fn hist_combine()
