@@ -936,7 +936,7 @@ where Hist: Histogram + HistogramVal<Energy> + HistogramCombine + Send + Sync,
 }
 
 /// # Merge probability density of multiple rees simulations
-/// * very similar to [merged_log_prob](`crate::rees::Rees::merged_log_prob`)
+/// * very similar to [merged_log_prob](`crate::rees::Rees::merged_log_prob_rees`)
 /// 
 /// The difference is, that this function will ignore the specified walkers,
 /// therefore `ignore` should be a slice of indices, which are to be ignored.

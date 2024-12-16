@@ -16,6 +16,7 @@ use serde::{Serialize, Deserialize};
 /// * Tipp: Use shorthand `RewlBuilder`
 /// ## Notes
 /// * Don't be intimidated by the number of trait bounds an generic parameters.
+/// 
 /// You should very rarely have to explicitly write the types, as Rust will infer them for you.
 #[derive(Debug,Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]

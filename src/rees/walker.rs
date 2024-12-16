@@ -189,6 +189,7 @@ impl<R, Hist, Energy, S, Res> ReesWalker<R, Hist, Energy, S, Res>
     /// # How does the refining work?
     /// * Let P(i) be the current probability density function (non normalized) at some index i
     /// * Let H(i) be the histogram at some index i
+    /// 
     /// We will now calculate the refined density P', which is calculated as follows:
     /// 
     /// P'(i) = P(i) * H(i) (if H(i) != 0)

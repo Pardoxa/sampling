@@ -209,7 +209,6 @@ macro_rules! impl_binning {
                 pub fn single_valued_bin_iter(&self) -> impl Iterator<Item=$t>
                 {
                     self.range_inclusive()
-                
                 }
             }
 
