@@ -214,7 +214,7 @@ macro_rules! impl_binning {
 
             /// # The amount of bins -1
             /// * minus 1 because if the bins are going over the entire range of the type,
-            /// then I cannot represent the number of bins as this type
+            ///     then I cannot represent the number of bins as this type
             /// 
             /// # Example
             /// If we look at an u8 and the range from 0 to 255, then this is 256 bins, which 
@@ -238,7 +238,7 @@ macro_rules! impl_binning {
 
             /// # Get the respective bin index
             /// * Note: Obviously this breaks when the bin index cannot be represented as 
-            /// `usize`
+            ///     `usize`
             #[inline(always)]
             fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
                 let val = *val.borrow();
@@ -302,9 +302,9 @@ macro_rules! impl_binning {
 
             /// # Iterates over all bins
             /// * Note: This implementation use more efficient representations of the bins underneath,
-            /// but are capable of returning the bins in this representation on request
+            ///     but are capable of returning the bins in this representation on request
             /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `single_valued_bin_iter`.
-            /// Consider using that instead, as it is more efficient
+            ///     Consider using that instead, as it is more efficient
             fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
                 Box::new(
                     self.range_inclusive()

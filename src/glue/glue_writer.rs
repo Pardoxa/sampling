@@ -31,7 +31,7 @@ impl GlueStats{
     /// # Write the Glued Stats in a human readable way
     /// * This is the verbose form
     /// * every line this writes will be starting with '#', to mark it as comment for 
-    /// gnuplot and co.
+    ///     gnuplot and co.
     pub fn write_verbose<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
         if !self.interval_stats.is_empty()
@@ -161,7 +161,7 @@ impl<Hist, T> Glued<Hist, T>
 
     /// # Set stats
     /// * Set [GlueStats] - depending on the verbosity, which you can set via set_stat_write_verbosity
-    /// these stats will be written on the write commands 
+    ///     these stats will be written on the write commands 
     pub fn set_stats(&mut self, stats: GlueStats)
     {
         self.stats = Some(stats);

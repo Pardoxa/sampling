@@ -29,7 +29,7 @@ impl CoinFlip
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// Result of markov Step
 pub struct CoinFlipMove{
-    previouse: CoinFlip,
+    previous: CoinFlip,
     index: usize,
 }
 
@@ -87,14 +87,14 @@ impl<R> CoinFlipSequence<R>
             .count()
     }
 
-    /// * Calculate the head count, if a previouse head count of the ensemble and the 
-    /// markov steps leading to the current state are known
+    /// * Calculate the head count, if a previous head count of the ensemble and the 
+    ///     markov steps leading to the current state are known
     /// * `head_count` is updated
     /// * might **panic** if `step` was not the markov step leading from the ensemble with `head_count`
-    /// to the current ensemble - if it does not panic, the result will be wrong
+    ///     to the current ensemble - if it does not panic, the result will be wrong
     pub fn update_head_count(&self, step: &CoinFlipMove, head_count: &mut usize)
     {
-        match step.previouse {
+        match step.previous {
             CoinFlip::Head => {
                 *head_count -= 1;
             },
@@ -104,7 +104,7 @@ impl<R> CoinFlipSequence<R>
         }
     }
 
-    /// Count many times `Head` occured in a row
+    /// Count many times `Head` occurred in a row
     /// * uses maximum value, i.e., for the sequence `HHTHHHT` it will return 3
     pub fn max_heads_in_a_row(&self) -> usize
     {
@@ -136,7 +136,7 @@ where R: Rng
         self.seq[pos].turn();
         // information to restore the previouse state
         CoinFlipMove{
-            previouse,
+            previous: previouse,
             index: pos
         }
     }
@@ -174,7 +174,7 @@ where R: Rng
     }
 
     fn undo_step(&mut self, step: &CoinFlipMove) {
-        self.seq[step.index] = step.previouse;
+        self.seq[step.index] = step.previous;
     }
 
     #[inline]

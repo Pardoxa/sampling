@@ -5,9 +5,9 @@ use{
 
 /// # Traits for quantities that all Wang Landau simulations have
 /// * see also: `WangLandauHist`
-/// * this trait is for convinience, so that you do not have
-/// to write all the trait bounds of, e.g.,  `WangLandauHist`, if you are
-/// not using functuinality, that requires it
+/// * this trait is for convenience, so that you do not have
+///     to write all the trait bounds of, e.g.,  `WangLandauHist`, if you are
+///     not using functionality, that requires it
 pub trait WangLandau
 {
     /// get current value of log_f
@@ -31,15 +31,15 @@ pub trait WangLandau
     
     /// # Current (non normalized) estimate of ln(P(E))
     /// * i.e., of the natural logarithm of the 
-    /// probability density function
-    /// for the requested interval
+    ///     probability density function
+    ///     for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density(&self) -> &Vec<f64>;
 
     /// # Current (non normalized) estimate of log10(P(E))
     /// * i.e., of logarithm with base 10 of the 
-    /// probability density function
-    /// for the requested interval
+    ///     probability density function
+    ///     for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density_base10(&self) -> Vec<f64>{
         self.log_density()
@@ -50,8 +50,8 @@ pub trait WangLandau
 
     /// # Current (non normalized) estimate of log_base(P(E))
     /// * i.e., of logarithm with arbitrary base of the 
-    /// probability density function
-    /// for the requested interval
+    ///     probability density function
+    ///     for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density_base(&self, base: f64) -> Vec<f64>{
         let factor = std::f64::consts::E.log(base);
@@ -66,31 +66,31 @@ pub trait WangLandau
     fn write_log<W: Write>(&self, writer: W) -> Result<(), std::io::Error>;
     
     /// # Returns current wang landau mode
-    /// * see `WangLandauMode` for an explaination
+    /// * see `WangLandauMode` for an explanation
     fn mode(&self) -> WangLandauMode;
     
     /// # Counter
     /// * how many wang Landau steps were performed until now?
-    /// * this does not include steps, that were perfored to find a inital valid ensemble
+    /// * this does not include steps, that were performed to find a initial valid ensemble
     fn step_counter(&self) -> usize;
 
     /// # Counter
     /// * how many wang Landau steps were performed until now?
-    /// * this includes steps, that were perfored to find a inital valid ensemble
+    /// * this includes steps, that were performed to find a initial valid ensemble
     fn steps_total(&self) -> usize{
         self.total_steps_accepted() + self.total_steps_rejected()
     }
 
     /// # How many steps were accepted until now?
-    /// * this includes steps, that were perfored to find a inital valid ensemble
+    /// * this includes steps, that were performed to find a initial valid ensemble
     fn total_steps_accepted(&self) -> usize;
 
     /// # How many steps were rejected until now?
-    /// * this includes steps, that were perfored to find a inital valid ensemble
+    /// * this includes steps, that were performed to find a initial valid ensemble
     fn total_steps_rejected(&self) -> usize;
 
     /// # Calculate, which fraction of steps were accepted
-    /// * this includes steps, that were perfored to find a inital valid ensemble
+    /// * this includes steps, that were performed to find a initial valid ensemble
     /// * if no steps were performed, it returns `f64::NAN`
     fn fraction_accepted_total(&self) -> f64 {
         let total_acc = self.total_steps_accepted();
@@ -104,7 +104,7 @@ pub trait WangLandau
     }
 
     /// # Calculate, which fraction of steps were rejected
-    /// * this includes steps, that were perfored to find a inital valid ensemble
+    /// * this includes steps, that were performed to find a initial valid ensemble
     /// * if no steps were performed, it returns `f64::NAN`
     fn fraction_rejected_total(&self) -> f64 {
         let total_rej = self.total_steps_rejected();
@@ -128,7 +128,7 @@ pub trait WangLandauEnsemble<E> : WangLandau
 
     /// # mutable reference to current state
     /// * Intended for usecases where mutable access allows for a much more 
-    /// efficient calculation of your calculations
+    ///     efficient calculation of your calculations
     /// # Safety
     /// *you should not make any changes, that effect the 'energy' state of the system.
     /// otherwise the WangLandau simulations will give false results!
@@ -143,7 +143,7 @@ pub trait WangLandauHist<Hist> : WangLandau
 {
     /// # returns current histogram
     /// * **Note**: histogram will be reset multiple times during the simulation
-    /// * please refere to the [papers](struct.WangLandauAdaptive.html#adaptive-wanglandau-1t)
+    /// * please refer to the [papers](struct.WangLandauAdaptive.html#adaptive-wanglandau-1t)
     fn hist(&self) -> &Hist;
 }
 

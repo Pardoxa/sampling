@@ -3,7 +3,7 @@
 pub trait MarkovChain<S, Res> {
     /// * undo a markov step, return result-state
     /// * if you want to undo more than one step
-    /// see [`undo_steps`](#method.undo_steps)
+    ///     see [`undo_steps`](#method.undo_steps)
     fn undo_step(&mut self, step: &S) -> Res;
 
     /// * undo a markov, **panic** on invalid result state
@@ -31,7 +31,7 @@ pub trait MarkovChain<S, Res> {
     /// * use this to perform multiple markov steps at once
     /// * only use this if you **know** that you do **not** want to undo the steps
     /// * you cannot undo this steps, but therefore it does not need to allocate a vector 
-    /// for undoing steps
+    ///     for undoing steps
     fn m_steps_quiet(&mut self, count: usize)
     {
         for _ in 0..count {
@@ -41,7 +41,7 @@ pub trait MarkovChain<S, Res> {
 
     /// # Accumulating markov step
     /// * this calculates something while performing the markov chain, e.g., the current energy,
-    /// which can be more efficient then calculating it from scratch afterwards
+    ///     which can be more efficient then calculating it from scratch afterwards
     #[inline]
     fn m_step_acc<Acc, AccFn>(&mut self, acc: &mut Acc, mut acc_fn: AccFn) -> S
     where AccFn: FnMut(&Self, &S, &mut Acc)
@@ -53,7 +53,7 @@ pub trait MarkovChain<S, Res> {
 
     /// # Accumulating markov steps
     /// * this calculates something while performing the markov chain, e.g., the current energy
-    /// which can be more efficient then calculating it from scratch afterwards
+    ///     which can be more efficient then calculating it from scratch afterwards
     #[inline]
     fn m_steps_acc<Acc, AccFn>
     (
@@ -74,7 +74,7 @@ pub trait MarkovChain<S, Res> {
 
     /// # Accumulating markov steps
     /// * this calculates something while performing the markov chain, e.g., the current energy
-    /// which can be more efficient then calculating it from scratch afterwards
+    ///     which can be more efficient then calculating it from scratch afterwards
     /// * quiet step, i.e., you will not be able to undo the step
     #[inline]
     fn m_steps_acc_quiet<Acc, AccFn>(&mut self, count: usize, acc: &mut Acc, mut acc_fn: AccFn)
@@ -121,7 +121,7 @@ pub trait MarkovChain<S, Res> {
 
     /// # Function called whenever the steps are rejected.
     /// * You can use it to create the acceptance statistics if 
-    /// you move a variety of different moves
+    ///     you move a variety of different moves
     /// * If you use the default implementation this will be a optimized out
     #[inline]
     fn steps_rejected(&mut self, _steps: &[S])
@@ -135,7 +135,7 @@ pub trait SimpleSample{
     /// # Randomizes self according to  model
     /// * this is intended for creation of initial sample
     /// * used in [`simple_sample`](#method.simple_sample)
-    /// and [`simple_sample_vec`](#method.simple_sample_vec)
+    ///     and [`simple_sample_vec`](#method.simple_sample_vec)
     fn randomize(&mut self);
 
     /// # do the following `times` times:

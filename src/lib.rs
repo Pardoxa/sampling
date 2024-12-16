@@ -2,9 +2,9 @@
 //! * contains Simple sampling, WangLandau, entropic sampling, Metropolis, Histograms
 //! 
 //! * [Detailed example](examples/coin_flips/index.html) for Wang-landau with successive entropic sampling
-//! and comparison with analytical results
+//!     and comparison with analytical results
 //! * [Detailed example](examples/coin_flips/index.html#example-replica-exchange-wang-landau) for 
-//! parallel Replica exchange Wang Landau
+//!     parallel Replica exchange Wang Landau
 
 // TODO Remove comment to force Documentation of everything as requirement for compiling
 //#![deny(missing_docs, warnings)]

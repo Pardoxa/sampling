@@ -13,7 +13,7 @@ use serde::{Serialize, Deserialize};
 
 /// # Heatmap
 /// * stores heatmap in row-major order: the rows of the heatmap are contiguous,
-/// and the columns are strided
+///     and the columns are strided
 /// * enables you to quickly create a heatmap
 /// * you can create gnuplot scripts to plot the heatmap
 /// * you can transpose the heatmap
@@ -119,7 +119,7 @@ impl <HistWidth, HistHeight> HeatmapF64<HistWidth, HistHeight>
     /// * otherwise it is a slice of the row at height `y`
     /// # Note
     /// *  there is no `get_column` method, because, due to implementation details,
-    /// it is way less efficient, and could not be returned as slice
+    ///     it is way less efficient, and could not be returned as slice
     pub fn get_row(&self, y: usize) -> Option<&[f64]>
     {
         let fin = self.index(self.width, y);
@@ -134,7 +134,7 @@ impl <HistWidth, HistHeight> HeatmapF64<HistWidth, HistHeight>
     }
 
     /// # row of the heatmap
-    /// * returns reference of Slice of the specifed row of the heatmap without checking for bounds 
+    /// * returns reference of Slice of the specified row of the heatmap without checking for bounds 
     /// * Generally not recommended, use with caution! 
     /// ## Safety 
     /// Calling this with out-of-bounds index will result in undefined behavior!
@@ -205,9 +205,9 @@ where
 
     /// # Create a new Heatmap
     /// * heatmap will have width `width_hist.bin_count()` 
-    /// and height `height_hist.bin_count()`
+    ///     and height `height_hist.bin_count()`
     /// * histograms will be reset (zeroed) here, so it does not matter, if they 
-    /// were used before and contain Data
+    ///     were used before and contain Data
     pub fn new(mut width_hist: HistWidth, mut height_hist: HistHeight) -> Self {
         let width = width_hist.bin_count();
         let height = height_hist.bin_count();
@@ -241,7 +241,7 @@ where
     /// * miss counts of other will be added to self
     /// * with and hight histogram counts will be added to self
     /// * `self.heatmap` will be modified at each index by 
-    /// `self.heatmap[i] = combine_fn(self.heatmap[i], other.heatmap[i])`
+    ///     `self.heatmap[i] = combine_fn(self.heatmap[i], other.heatmap[i])`
     /// # Usecase
     /// * e.g. if you want to add, subtract or multiply two heatmaps
     pub fn combine<OtherHW, OtherHH, F>
@@ -310,7 +310,7 @@ where
     /// * an entry is 0 if it was never hit
     /// # Access indices; understanding how the data is mapped
     /// * A specific heatmap location `(x,y)`
-    /// corresponds to the index `y * self.width() + x`
+    ///     corresponds to the index `y * self.width() + x`
     /// * you can use the `heatmap_index` function to calculate the index
     pub fn heatmap(&self) -> &Vec<f64>
     {
@@ -318,7 +318,7 @@ where
     }
 
     /// # Normalizes self
-    /// * Afterwards sum over all entrys (within numerical precision) should be 1.0
+    /// * Afterwards sum over all entries (within numerical precision) should be 1.0
     pub fn normalize_total(&mut self)
     {
         let sum = self.heatmap.iter().sum::<f64>();
@@ -330,7 +330,7 @@ where
 
     /// # Normalizes self
     /// * Afterwards the sum of each column (fixed x) will be 1.0, if the sum of the row was not 0.0 before
-    ///  If it did not, the column will only consist of 0.0
+    ///     If it did not, the column will only consist of 0.0
     pub fn normalize_columns(&mut self)
     {
 
@@ -377,10 +377,10 @@ where
 {
     /// # update the heatmap
     /// * calculates the coordinate `(x, y)` of the bin corresponding
-    /// to the given value pair `(width_val, height_val)`
+    ///     to the given value pair `(width_val, height_val)`
     /// * if coordinate is out of bounds, it counts a "miss" and returns the HeatmapError
     /// * otherwise it counts the "hit" (by adding `val` to the heatmap at the corresponding location)
-    /// and returns the coordinate `(x, y)` of the hit 
+    ///     and returns the coordinate `(x, y)` of the hit 
     pub fn count<A, B, X, Y>(&mut self, width_val: A, height_val: B, val: f64) -> Result<(usize, usize), HeatmapError>
     where 
         HistWidth: HistogramVal<X>,
@@ -445,9 +445,9 @@ where
     /// * `writer`: The gnuplot script will be written to this
     /// # Note
     /// * This is the same as calling [`gnuplot`](Self::gnuplot) with default
-    /// `GnuplotSettings`
+    ///     `GnuplotSettings`
     /// * The default axis are the bin indices, which, e.g, means they always 
-    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///     begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot_quick<W>(
         &self,
         writer: W
@@ -465,7 +465,7 @@ where
     }
 
     /// # Create a gnuplot script to plot your heatmap
-    /// This function writes a file, that can be plottet via the terminal via [gnuplot](http://www.gnuplot.info/)
+    /// This function writes a file, that can be plotted via the terminal via [gnuplot](http://www.gnuplot.info/)
     /// ```bash
     /// gnuplot gnuplot_file
     /// ```
@@ -474,7 +474,7 @@ where
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, be called? Ending of file will be set automatically
     /// ## Note
     /// * The default axis are the bin indices, which, e.g, means they always 
-    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///     begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     /// ## Example
     /// ```
     /// use rand_pcg::Pcg64;
@@ -518,13 +518,13 @@ where
     /// // norm heatmap row wise - this converts HeatmapU to HeatmapfF64
     /// let heatmap = heatmap.into_heatmap_normalized_rows();
     ///
-    /// // create skript
+    /// // create script
     /// heatmap.gnuplot(
     ///     buf,
     ///     settings
     /// ).unwrap();
     /// ```
-    /// Skript can now be plotted with
+    /// Script can now be plotted with
     /// ```bash
     /// gnuplot heatmap_normalized.gp
     /// ```

@@ -442,6 +442,7 @@
 /// 20 -1.3853708232453112e1 -1.3862943611198906e1 9.235378745794165e-3 8.848339504323986e-9
 /// ```
 /// * `coin_heatmap.gp`
+/// 
 /// If you want to see how it looks like, you can copy the file and use `gnuplot coin_heatmap.gp`
 /// ```gp
 /// set t pdf

@@ -40,8 +40,8 @@ pub enum WangLandauErrors{
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum WangLandauMode {
     /// * Using original wang landau, i.e., 
-    /// refine every time when every bin in the 
-    /// histogram was hit
+    ///     refine every time when every bin in the 
+    ///     histogram was hit
     /// * refine: `log_f *= 0.5;
     RefineOriginal,
     /// * Use 1/T approach

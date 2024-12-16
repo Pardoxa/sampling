@@ -186,9 +186,9 @@ impl<T> HistogramFast<T>
 
     /// # Add other histogram to self
     /// * will fail if the ranges are not equal, i.e., if [equal_range](Self::equal_range)
-    /// returns false
-    /// * Otherwise the hitcount of the bins of self will be increased 
-    /// by the corresponding hitcount of other. 
+    ///     returns false
+    /// * Otherwise the hit count of the bins of self will be increased 
+    ///     by the corresponding hit count of other. 
     /// * other will be unchanged
     #[allow(clippy::result_unit_err)]
     pub fn try_add(&mut self, other: &Self) -> Result<(), ()>

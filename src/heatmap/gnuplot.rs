@@ -313,9 +313,9 @@ impl GnuplotSettings {
     }
 
     /// # Write a heatmap with the given gnuplot Settings
-    /// * `closure` has to write the heatmap. It must write `y_len` rows with `x_len` values each, where the latter values are seperated by a space.
-    /// This data will be used for the heatmap.
-    /// * `x_len`: The number of entrys in each column, that you promise the `closure` will write
+    /// * `closure` has to write the heatmap. It must write `y_len` rows with `x_len` values each, where the latter values are separated by a space.
+    ///     This data will be used for the heatmap.
+    /// * `x_len`: The number of entries in each column, that you promise the `closure` will write
     /// * `y_len`: The number of columns you promise that the `closure` will write
     pub fn write_heatmap<F, W>(
         &self, 
@@ -747,7 +747,7 @@ impl PaletteRGB{
 
 /// # Defines gnuplot point
 /// * Note that most of the fields are public and
-/// can be accessed directly
+///     can be accessed directly
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GnuplotPointSettings
@@ -962,12 +962,12 @@ pub enum GnuplotTerminal{
     /// # Use EpsLatex as terminal in gnuplot
     /// * the created gnuplotscript assumes, you have `latexmk` installed
     /// * if you do not have latexmk, you can still use this, but you have to manually edit the 
-    /// gnuplotscrip later on
+    ///     gnuplotscrip later on
     /// * gnuplot script will create `.tex` file and `.pdf` file created from the tex file
     /// * The String here is the output name, i.e., the filepath of the output of gnuplot (without the .tex)
     EpsLatex(String),
     /// # Use pdf as gnuplot terminal
-    /// * gnuplot skript will create a `.pdf` file
+    /// * gnuplot script will create a `.pdf` file
     /// * The String here is the output name, i.e., the filepath of the output of gnuplot (without the .pdf)
     PDF(String),
     /// # Does not specify a terminal

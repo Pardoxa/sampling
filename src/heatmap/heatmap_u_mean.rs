@@ -7,7 +7,7 @@ use{
 
 /// # Heatmap with mean of y-axis
 /// * stores heatmap in row-major order: the rows of the heatmap are contiguous,
-/// and the columns are strided
+///     and the columns are strided
 /// * enables you to quickly create a heatmap
 /// * you can create gnuplot scripts to plot the heatmap
 /// * for each x-axis bin, the y-axis mean is calculated
@@ -15,8 +15,8 @@ use{
 /// 
 /// # Difference to `HeatmapU`
 /// * [`HeatmapU`](crate::heatmap::HeatmapU) does not contain the averages for th y-axis,
-/// but can be transposed and also used for Y-Histograms which take types which do not 
-/// implement `AsPrimitive<f64>`
+///     but can be transposed and also used for Y-Histograms which take types which do not 
+///     implement `AsPrimitive<f64>`
 pub struct HeatmapUsizeMean<HistX, HistY>
 {
     pub(crate) heatmap: HeatmapUsize<HistX, HistY>,
@@ -129,7 +129,7 @@ where HistX: Histogram,
     /// * iterates over the means
     /// * The mean corresponds to the bins of the x-axis
     /// * if a bin on the x-axis has no entries, the corresponding
-    /// mean will be `f64::NAN`
+    ///     mean will be `f64::NAN`
     pub fn mean_iter(&'_ self) -> impl Iterator<Item=f64> + '_
     {
         self.mean_with_errors
@@ -149,11 +149,11 @@ where HistX: Histogram,
     /// # Get a mean vector
     /// * The entries are the means corresponds to the bins of the x-axis
     /// * if a bin on the x-axis has no entries, the corresponding
-    /// mean will be `f64::NAN`
+    ///     mean will be `f64::NAN`
     /// 
     /// # Note
     /// * If you want to iterate over the mean values, use 
-    /// [`mean_iter`](Self::mean_iter) instead
+    ///     [`mean_iter`](Self::mean_iter) instead
     /// * If you require error information, take a look at [`mean_slice`](Self::mean_slice)
     pub fn mean(&self) -> Vec<f64>
     {
@@ -169,7 +169,7 @@ where HistX: Histogram,
     /// 
     /// * Heatmap vector `self.heatmap_normalized().heatmap()` contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each column (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///  If it did not, the column will only consist of 0.0
+    ///     If it did not, the column will only consist of 0.0
     /// * otherwise the sum of this Vector is 1.0 
     /// 
     /// For the calculation of the mean, each `count` will have a weight of 1
@@ -203,13 +203,13 @@ where HistX: Histogram,
     /// # Create a gnuplot script to plot your heatmap
     /// * `writer`: The gnuplot script will be written to this
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
-    /// be called? Ending of file will be set automatically
+    ///     be called? Ending of file will be set automatically
     /// # Note
     /// * This is the same as calling [`gnuplot`](Self::gnuplot) with default
-    /// [`GnuplotSettings`](crate::heatmap::GnuplotSettings) 
-    /// and default [`GnuplotPointSettings`](crate::heatmap::GnuplotPointSettings)
+    ///     [`GnuplotSettings`](crate::heatmap::GnuplotSettings) 
+    ///     and default [`GnuplotPointSettings`](crate::heatmap::GnuplotPointSettings)
     /// * The default axis are the bin indices, which, e.g, means they always 
-    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///     begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot_quick<W>(
         &self,
         writer: W,
@@ -233,12 +233,12 @@ where HistX: Histogram,
     /// * `writer`: writer gnuplot script will be written to
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, be called? Ending of file will be set automatically
     /// * `settings`: Here you can set the axis, choose between terminals and more. 
-    /// I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///     I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
     /// * `point_color`: the mean (in y-direction) will be plotted as points in the heatmap.
-    /// Here you can choose the point color
+    ///     Here you can choose the point color
     /// ## Note 
     /// * The default axis are the bin indices, which, e.g, means they always 
-    /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///     begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot<W, P, GS>(
         &self,
         mut writer: W,

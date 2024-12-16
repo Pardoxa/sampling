@@ -171,8 +171,8 @@ impl<Hist, R, E, S, Res, T> EntropicSampling<Hist, R, E, S, Res, T>
 
     /// # Energy of ensemble
     /// * assuming `energy_fn` (see `self.entropic_step` etc.) 
-    /// is deterministic and will allways give the same result for the same ensemble,
-    /// this returns the energy of the current ensemble
+    ///     is deterministic and will always give the same result for the same ensemble,
+    ///     this returns the energy of the current ensemble
     #[inline]
     pub fn energy(&self) -> &T
     {
@@ -319,18 +319,18 @@ where Hist: Histogram + HistogramVal<T>,
     /// * **Note**: you have access to the current step_count (`self.step_count()`)
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    ///     or rather the Parameter of which you wish to obtain the probability distribution.
+    ///     If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
+    ///     will always be rejected 
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_while<F, G, W>(
@@ -352,16 +352,16 @@ where Hist: Histogram + HistogramVal<T>,
     /// * performs `self.entropic_step_acc(&mut energy_fn)` until `condition(self) == false`
     /// # Parameter
     /// * `energy_fn` function calculating the energy `E` of the system
-    /// (or rather the Parameter of which you wish to obtain the probability distribution)
-    /// during the markov steps, which can be more efficient.
+    ///     (or rather the Parameter of which you wish to obtain the probability distribution)
+    ///     during the markov steps, which can be more efficient.
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_while_acc<F, G, W>(
@@ -383,25 +383,25 @@ where Hist: Histogram + HistogramVal<T>,
     /// * if possible, use `entropic_sampling_while` instead, as it is safer
     /// ## Safety
     /// * use this if you need **mutable access** to your ensemble while printing or 
-    /// calculating the condition. Note, that whatever you do there, should not change
-    /// the energy of the current state. Otherwise this can lead to undefined behavior and
-    /// the results of the entropic sampling cannot be trusted anymore!
+    ///     calculating the condition. Note, that whatever you do there, should not change
+    ///     the energy of the current state. Otherwise this can lead to undefined behavior and
+    ///     the results of the entropic sampling cannot be trusted anymore!
     /// * performs `self.entropic_step(energy_fn)` until `condition` is false
     /// * **Note**: you have access to the current step_count (`self.step_count()`)
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    ///     or rather the Parameter of which you wish to obtain the probability distribution.
+    ///     If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
+    ///     will always be rejected 
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have mutable access to your ensemble with `self.ensemble_mut()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub unsafe fn entropic_sampling_while_unsafe<F, G, W>(
@@ -425,18 +425,18 @@ where Hist: Histogram + HistogramVal<T>,
     /// * performs `self.entropic_step(energy_fn)` until `self.step_count == self.step_goal`
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    ///     or rather the Parameter of which you wish to obtain the probability distribution.
+    ///     If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
+    ///     will always be rejected 
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling<F, G>(
@@ -456,16 +456,16 @@ where Hist: Histogram + HistogramVal<T>,
     /// * performs `self.entropic_step_acc(&mut energy_fn)` until `self.step_count >= self.step_goal`
     /// # Parameter
     /// * `energy_fn` function calculating the energy `E` of the system
-    /// (or rather the Parameter of which you wish to obtain the probability distribution)
-    /// during the markov steps, which can be more efficient.
+    ///     (or rather the Parameter of which you wish to obtain the probability distribution)
+    ///     during the markov steps, which can be more efficient.
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_sampling_acc<F, G>(
@@ -486,24 +486,24 @@ where Hist: Histogram + HistogramVal<T>,
     /// ## Safety
     /// * **NOTE** You have mutable access to your ensemble (and to `self`, at least in the printing function).
     ///   This makes this function unsafe. You should never change your ensemble in a way, that will effect the outcome of the 
-    /// energy function. Otherwise the results will just be wrong.
-    /// This is intended for usecases, where the energycalculation is more efficient with mutable access, e.g., through using a 
-    /// buffer stored in the ensemble
+    ///     energy function. Otherwise the results will just be wrong.
+    ///     This is intended for usecases, where the energy calculation is more efficient with mutable access, e.g., through using a 
+    ///     buffer stored in the ensemble
     /// * performs `self.entropic_step(energy_fn)` until `self.step_count == self.step_goal`
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    ///     or rather the Parameter of which you wish to obtain the probability distribution.
+    ///     If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
+    ///     will always be rejected 
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub unsafe fn entropic_sampling_unsafe<F, G>(
@@ -526,17 +526,17 @@ where Hist: Histogram + HistogramVal<T>,
     /// * performs a single step
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    ///     or rather the Parameter of which you wish to obtain the probability distribution.
+    ///     If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
+    ///     will always be rejected 
     /// # Important
     /// * `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// ## Safety
     /// * While you do have mutable access to the ensemble, the energy function should not change the 
-    /// ensemble in a way, which affects the next calculation of the energy
-    /// * This is intended for usecases, where the energycalculation is more efficient with mutable access, e.g., through using a 
-    /// buffer stored in the ensemble
+    ///     ensemble in a way, which affects the next calculation of the energy
+    /// * This is intended for usecases, where the energy calculation is more efficient with mutable access, e.g., through using a 
+    ///     buffer stored in the ensemble
     pub unsafe fn entropic_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,
@@ -566,10 +566,10 @@ where Hist: Histogram + HistogramVal<T>,
     /// * performs a single step
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    /// or rather the Parameter of which you wish to obtain the probability distribution.
-    /// If there are any states, for which the calculation is invalid, `None` should be returned
+    ///     or rather the Parameter of which you wish to obtain the probability distribution.
+    ///     If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    /// will always be rejected 
+    ///     will always be rejected 
     /// # Important
     /// * `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     pub fn entropic_step<F>(
@@ -588,16 +588,16 @@ where Hist: Histogram + HistogramVal<T>,
     /// * performs `self.entropic_step_acc(&mut energy_fn)` until `self.step_count == self.step_goal`
     /// # Parameter
     /// * `energy_fn` function calculating the energy `E` of the system
-    /// (or rather the Parameter of which you wish to obtain the probability distribution)
-    /// during the markov steps, which can be more efficient.
+    ///     (or rather the Parameter of which you wish to obtain the probability distribution)
+    ///     during the markov steps, which can be more efficient.
     /// * **Important** `energy_fn`: should be the same as used for Wang Landau, otherwise the results will be wrong!
     /// * `print_fn`: see below
     /// # Correlations
     /// * if you want to measure correlations between "energy" and other measurable quantities,
-    /// use `print_fn`, which will be called after each step - use this function to write to 
-    /// a file or whatever you desire
+    ///     use `print_fn`, which will be called after each step - use this function to write to 
+    ///     a file or whatever you desire
     /// * Note: You do not have to recalculate the energy, if you need it in `print_fn`:
-    ///  just call `self.energy()` 
+    ///     just call `self.energy()` 
     /// * you have access to your ensemble with `self.ensemble()`
     /// * if you do not need it, you can use `|_|{}` as `print_fn`
     pub fn entropic_step_acc<F>(
@@ -671,7 +671,7 @@ where Hist: Histogram,
 
     /// # Number of entropic steps to be performed
     /// * if `self` was created from `WangLandauAdaptive`,
-    /// `step_goal` will be equal to the number of WangLandau steps, that were performed
+    ///     `step_goal` will be equal to the number of WangLandau steps, that were performed
     #[inline]
     fn step_goal(&self) -> usize
     {
@@ -706,8 +706,8 @@ where Hist: Histogram,
 {
     /// # Energy of ensemble
     /// * assuming `energy_fn` (see `self.entropic_step` etc.) 
-    /// is deterministic and will allways give the same result for the same ensemble,
-    /// this returns the energy of the current ensemble
+    ///     is deterministic and will always give the same result for the same ensemble,
+    ///     this returns the energy of the current ensemble
     #[inline]
     fn energy(&self) -> &Energy
     {
