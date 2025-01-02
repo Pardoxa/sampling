@@ -8,6 +8,8 @@ Histogram:
 * I might exchange a few histograms with the new underlying binning,
 but this would currently be a breaking change for my own simulations,
 so I will only do that once my current project is done, if at all
+ * renamed `count_index` to `increment_index`
+ * renamed `count_multiple_index` to `increment_index_by`
 
 Glue:
 New way to glue the simulations, removed the old one, see examples

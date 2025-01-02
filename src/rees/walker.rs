@@ -372,7 +372,7 @@ where Hist: HistogramVal<Energy>,
                 }
             }
 
-            self.hist.count_index(self.bin)
+            self.hist.increment_index(self.bin)
                 .expect("Histogram index Error, ERRORCODE 0x4");
 
             extra_fn(self, &mut e, extra);
@@ -430,8 +430,8 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         walker_b.re += 1;
     }
 
-    walker_a.hist.count_index(walker_a.bin).unwrap();
-    walker_b.hist.count_index(walker_b.bin).unwrap();
+    walker_a.hist.increment_index(walker_a.bin).unwrap();
+    walker_b.hist.increment_index(walker_b.bin).unwrap();
 }
 
 pub(crate) fn get_merged_refined_walker_prob<R, Hist, Energy, S, Res>(walker: &[ReesWalker<R, Hist, Energy, S, Res>]) -> Vec<f64>

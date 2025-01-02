@@ -272,14 +272,14 @@ where
         for (i, &count) in other.hist_width.hist().iter().enumerate()
         {
             self.hist_width
-                .count_multiple_index(i, count)
+                .increment_index_by(i, count)
                 .unwrap()
         }
 
         for (i, &count) in other.hist_height.hist().iter().enumerate()
         {
             self.hist_height
-                .count_multiple_index(i, count)
+                .increment_index_by(i, count)
                 .unwrap()
         }
         self.error_count += other.error_count;
@@ -409,7 +409,7 @@ where
         }
 
         self.hist_width
-            .count_index(x)
+            .increment_index(x)
             .unwrap();
 
         Ok((x, y))

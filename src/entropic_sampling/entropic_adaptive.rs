@@ -749,7 +749,7 @@ where Hist: Histogram + HistogramVal<T>,
             None => {
                 self.ensemble.steps_rejected(&self.steps);
                 self.count_rejected(step_size);
-                self.histogram.count_index(self.old_bin).unwrap();
+                self.histogram.increment_index(self.old_bin).unwrap();
                 self.ensemble.undo_steps_quiet(&self.steps);
                 return;
             }
@@ -836,7 +836,7 @@ where Hist: Histogram + HistogramVal<T>,
             }
         };
         
-        self.histogram.count_index(self.old_bin).unwrap();
+        self.histogram.increment_index(self.old_bin).unwrap();
     }
 }
 

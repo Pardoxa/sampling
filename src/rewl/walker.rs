@@ -413,7 +413,7 @@ where R: Rng + Send + Sync,
                 }
             }
 
-            self.hist.count_index(self.bin)
+            self.hist.increment_index(self.bin)
                 .expect("Histogram index Error, ERRORCODE 0x7");
             
             self.log_density[self.bin] += self.log_f;
@@ -539,11 +539,11 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
             walker_b.log_f =  walker_b.log_f_1_t();
         }
     
-        walker_a.hist.count_index(walker_a.bin)
+        walker_a.hist.increment_index(walker_a.bin)
                     .expect("Histogram index Error, ERRORCODE 0x8");
         walker_a.log_density[walker_a.bin] += walker_a.log_f;
     
-        walker_b.hist.count_index(walker_b.bin)
+        walker_b.hist.increment_index(walker_b.bin)
                     .expect("Histogram index Error, ERRORCODE 0x8");
         walker_b.log_density[walker_b.bin] += walker_b.log_f;
     }

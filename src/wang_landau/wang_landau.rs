@@ -670,7 +670,7 @@ where
             Some(energy) => energy,
             None => {
                 self.count_rejected();
-                self.hist.count_index(self.old_bin).unwrap();
+                self.hist.increment_index(self.old_bin).unwrap();
                 self.log_density[self.old_bin] += self.log_f;
                 self.ensemble.undo_steps_quiet(&self.steps);
                 return;
@@ -701,7 +701,7 @@ where
             }
         };
         
-        self.hist.count_index(self.old_bin).unwrap();
+        self.hist.increment_index(self.old_bin).unwrap();
         self.log_density[self.old_bin] += self.log_f;
     }
 

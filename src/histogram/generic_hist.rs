@@ -51,7 +51,7 @@ where B: Binning<T> {
     }
 
     #[inline]
-    fn count_index(&mut self, index: usize) -> Result<(), HistErrors> {
+    fn increment_index(&mut self, index: usize) -> Result<(), HistErrors> {
         let entry = self.hits
             .get_mut(index)
             .ok_or(HistErrors::OutsideHist)?;
@@ -60,7 +60,7 @@ where B: Binning<T> {
     }
 
     #[inline]
-    fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
+    fn increment_index_by(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
         let entry = self.hits
             .get_mut(index)
             .ok_or(HistErrors::OutsideHist)?;
@@ -93,7 +93,7 @@ where B: Binning<T>
     #[inline(always)]
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors> {
         let index = self.get_bin_index(val)?;
-        self.count_index(index)
+        self.increment_index(index)
             .map(|_| index)
     }
 

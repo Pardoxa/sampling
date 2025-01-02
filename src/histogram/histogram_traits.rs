@@ -10,12 +10,12 @@ use crate::Bin;
 pub trait Histogram {
     /// # `self.hist[index] += 1`, `Err()` if `index` out of bounds
     #[inline(always)]
-    fn count_index(&mut self, index: usize) -> Result<(), HistErrors>{
-        self.count_multiple_index(index, 1)
+    fn increment_index(&mut self, index: usize) -> Result<(), HistErrors>{
+        self.increment_index_by(index, 1)
     }
 
     /// # `self.hist[index] += count`, `Err()` if `index` out of bounds
-    fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors>;
+    fn increment_index_by(&mut self, index: usize, count: usize) -> Result<(), HistErrors>;
 
     /// # the created histogram
     fn hist(&self) -> &Vec<usize>;

@@ -378,7 +378,7 @@ impl<T> Histogram for HistogramFast<T>
 {
 
     #[inline]
-    fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
+    fn increment_index_by(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
         match self.hist.get_mut(index) {
             None => Err(HistErrors::OutsideHist),
             Some(val) => {

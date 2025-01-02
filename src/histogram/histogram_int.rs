@@ -250,7 +250,7 @@ impl<T> Histogram for HistogramInt<T>
     }
 
     #[inline]
-    fn count_multiple_index(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
+    fn increment_index_by(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
         match self.hist.get_mut(index) {
             None => Err(HistErrors::OutsideHist),
             Some(val) => {
@@ -275,7 +275,7 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
     fn count_val<V: Borrow<T>>(&mut self, val: V) -> Result<usize, HistErrors>
     {
         let id = self.get_bin_index(val)?;
-        self.count_index(id)
+        self.increment_index(id)
             .map(|_| id)
     }
 

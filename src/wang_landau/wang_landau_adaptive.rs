@@ -999,7 +999,7 @@ where R: Rng,
             Some(energy) => energy,
             None => {
                 self.count_rejected(step_size);
-                self.histogram.count_index(old_bin).unwrap();
+                self.histogram.increment_index(old_bin).unwrap();
                 self.log_density[old_bin] += self.log_f;
                 self.ensemble.undo_steps_quiet(&self.steps);
                 return;
@@ -1030,7 +1030,7 @@ where R: Rng,
             }
         };
         
-        self.histogram.count_index(self.old_bin.unwrap()).unwrap();
+        self.histogram.increment_index(self.old_bin.unwrap()).unwrap();
         self.log_density[self.old_bin.unwrap()] += self.log_f;
     }
 
