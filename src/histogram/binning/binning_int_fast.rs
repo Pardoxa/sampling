@@ -588,17 +588,21 @@ mod tests{
                         let mut rng = Pcg64Mcg::seed_from_u64(314668);
                         let uni_one = Uniform::new_inclusive(1, $t::MAX);
                         let uni_all = Uniform::new_inclusive(0, $t::MAX);
-                        let max = $t::MAX.into();
+                        let max = <$t as HasUnsignedVersion>::Unsigned::MAX.into();
                         for _ in 0..100 {
                             let a = uni_all.sample(&mut rng);
                             let b = uni_all.sample(&mut rng);
                             let c = uni_one.sample(&mut rng);
                             let result: $o = a as $o * b as $o / c as $o;
-                            let mul = paste::item! { [< checked_mul_div_ $t >]}(a,b,c);
+                            let mul = paste::item! { [< checked_mul_div_ $t >]}(
+                                a as <$t as HasUnsignedVersion>::Unsigned,
+                                b as <$t as HasUnsignedVersion>::Unsigned,
+                                c as <$t as HasUnsignedVersion>::Unsigned
+                            );
                             if result <= max {
                                 assert_eq!(
                                     mul,
-                                    Some(result as $t)
+                                    Some(result as <$t as HasUnsignedVersion>::Unsigned)
                                 )
                             } else {
                                 assert!(mul.is_none());
@@ -614,6 +618,10 @@ mod tests{
         mul_tests_u16();
         mul_t!(u32, u128);
         mul_tests_u32();
+        mul_t!(i8, i16);
+        mul_tests_i8();
+        mul_t!(i32, i128);
+        mul_tests_i32();
     }  
   
     
