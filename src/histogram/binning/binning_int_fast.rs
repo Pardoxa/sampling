@@ -38,8 +38,11 @@ macro_rules! impl_binning {
         
         
         paste::item! {
-            /// Checked multiply divide. 
-            /// Is None if the result cannot be represented by the unsigned version of the type.
+            #[doc = "# Checked multiply divide\n\
+            The operation is: a * b / denominator.\n\n \
+            However this function guards against an overflow of a * b. \n\n As long as the mathematical result of a * b / denominator \
+            is representable as unsigned version of `<" $t " as HasUnsignedVersion>::Unsigned` then the mathematical answer is returned. Otherwise, None is returned\n\n ## Note: \n\n `denominator` is not allowed to be 0"]
+
             pub fn [< checked_mul_div_ $t >] (
                 a: <$t as HasUnsignedVersion>::Unsigned, 
                 b: <$t as HasUnsignedVersion>::Unsigned,

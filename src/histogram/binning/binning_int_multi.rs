@@ -59,9 +59,14 @@ macro_rules! other_binning {
                     end_inclusive,
                     bin_width
                 };
+
+                // Check if the requested bin_width makes sense
                 let u_width = bin_width as <$t as HasUnsignedVersion>::Unsigned;
-                let res = (this.bins_m1() % u_width) + 1;
-                if res != u_width{
+                let left = to_u(start);
+                let right = to_u(end_inclusive);
+                let res = ((right - left) % u_width + 1) % u_width;
+                // now res needs to be 0 for this to be a valid config
+                if res != 0{
                     Err(res)
                 } else {
                     Ok(this)
@@ -89,10 +94,10 @@ macro_rules! other_binning {
             }
 
             paste!{
-                #[doc = "# Iterator over all the bins\
-                \n
-                # Example\n\
-                ```\n\
+                #[doc = "# Iterator over all the bins\n\
+                Example: \
+                \n\
+                ```
                 use sampling::histogram::" [<Binning $t:upper>] ";\n\
                 let binning = " [<Binning $t:upper>] "::new_inclusive(2,7,2).unwrap();\n\
                 let vec: Vec<_> = binning.multi_valued_bin_iter().collect();\n\
@@ -242,6 +247,11 @@ other_binning!(
 
 #[cfg(test)]
 mod tests{
+    use rand::{Rng, SeedableRng};
+    use rand_pcg::Pcg64;
+
+    use crate::{GenericHist, Histogram, HistogramVal};
+
     use super::*;
 
     #[test]
@@ -250,5 +260,40 @@ mod tests{
         let binning = BinningU8::new_inclusive(250,255,2).unwrap();
         let vec: Vec<_> = binning.multi_valued_bin_iter().collect();
         assert_eq!(&vec, &[(250, 251), (252, 253), (254, 255)]);
+        let _binning = BinningU8::new_inclusive(0,255,1).unwrap();
+        let _binning = BinningU8::new_inclusive(0,255,2).unwrap();
+    }
+
+    #[test]
+    fn other_binning_hist_test()
+    {
+        use crate::HistogramInt;
+
+        fn check(left: u8, right: u8, bin_width: u8)
+        {
+            let mut rng = Pcg64::seed_from_u64(23984);
+
+            let binning = BinningU8::new_inclusive(left, right, bin_width).unwrap();
+            let mut inefficient_hist = HistogramInt::new_inclusive(
+                binning.left(), 
+                binning.right(), 
+                binning.bins_m1() as usize + 1
+            ).unwrap();
+            let mut this_hist = GenericHist::new(binning);
+    
+            for _ in 0..1000{
+                let num = rng.gen_range(0..=9);
+                this_hist.count_val(num).unwrap();
+                inefficient_hist.increment_quiet(num);
+            }
+    
+            let hist = this_hist.hist();
+            let other_hist = inefficient_hist.hist();
+            assert_eq!(hist, other_hist);
+        }
+        check(0, 9, 2);
+        check(0, 254, 1);
+        check(0, 253, 2);
+
     }
 }
