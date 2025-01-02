@@ -35,17 +35,20 @@ macro_rules! other_binning {
     ) => {
         
         paste!{
-            #[doc = "Efficient binning for `" $t "` with bins of width 1"]
+            #[doc = "Efficient binning for `" $t "` with arbitrary width"]
             pub type [<Binning $t:upper>] = BinningWithWidth<$t>;
         }
         
         impl paste!{[<Binning $t:upper>]}{
             /// # Create a new Binning
             /// * both borders are inclusive
-            /// * each bin has width 1
+            /// * each bin has width bin_width
             /// # Panics
             /// * if `start` is smaller than `end_inclusive`
             /// * if bin_width <= 0
+            /// # Err
+            /// Result is Err if start and end are mismatched with the bin_width, i.e., 
+            /// it is impossible to create the binning due to the integer nature of our types
             #[inline(always)]
             pub fn new_inclusive(start: $t, end_inclusive: $t, bin_width: $t) -> Result<Self, <$t as HasUnsignedVersion>::Unsigned>{
                 assert!(start <= end_inclusive);
@@ -87,8 +90,7 @@ macro_rules! other_binning {
 
             paste!{
                 #[doc = "# Iterator over all the bins\
-                \nSince the bins have width 1, a bin can be defined by its corresponding value \
-                which we can iterate over.\n\
+                \n
                 # Example\n\
                 ```\n\
                 use sampling::histogram::" [<Binning $t:upper>] ";\n\
@@ -105,8 +107,8 @@ macro_rules! other_binning {
             }
 
             /// # The amount of bins -1
-            /// * minus 1 because if the bins are going over the entire range of the type,
-            ///     then I cannot represent the number of bins as this type
+            /// * minus 1 because if the bins are of width 1 and are going over the entire range of the type,
+            ///     then we cannot represent the number of bins as this type
             /// 
             /// # Example
             /// If we look at an u8 and the range from 0 to 255, then this is 256 bins, which 
@@ -117,7 +119,7 @@ macro_rules! other_binning {
                 let left = to_u(self.start);
                 let right = to_u(self.end_inclusive);
 
-                right - left
+                (right - left) / to_u(self.bin_width)
             }
 
             /// # Get the respective bin in native unsigned
