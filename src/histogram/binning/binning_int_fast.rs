@@ -15,6 +15,7 @@ use super::{
     //HistogramPartition,
     //HistErrors
 };
+use num_bigint::BigUint;
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -34,11 +35,14 @@ macro_rules! impl_binning {
     (
         $t:ty
     ) => {
-        /* 
+        
+        
         paste::item! {
-            fn [< checked_mul_div_ $t >] (
-                mut a: <$t as HasUnsignedVersion>::Unsigned, 
-                mut b: <$t as HasUnsignedVersion>::Unsigned,
+            /// Checked multiply divide. 
+            /// Is None if the result cannot be represented by the unsigned version of the type.
+            pub fn [< checked_mul_div_ $t >] (
+                a: <$t as HasUnsignedVersion>::Unsigned, 
+                b: <$t as HasUnsignedVersion>::Unsigned,
                 denominator: <$t as HasUnsignedVersion>::Unsigned
             ) -> Option<<$t as HasUnsignedVersion>::Unsigned>
             {
@@ -52,58 +56,53 @@ macro_rules! impl_binning {
                     return Some(val / denominator);
                 }
 
-
+                enum Answer{
+                    Known(Option<<$t as HasUnsignedVersion>::Unsigned>),
+                    Unknown
+                }
                 
-                if a < b {
-                    std::mem::swap(&mut a, &mut b);
+                
+                fn mul_div(mut a: <$t as HasUnsignedVersion>::Unsigned, mut b: <$t as HasUnsignedVersion>::Unsigned, denominator: <$t as HasUnsignedVersion>::Unsigned) -> Answer
+                {
+                    if a < b {
+                        std::mem::swap(&mut a, &mut b);
+                    }
+                    // idea here: a/denominator *b + (a%denominator)*b/denominator
+                    // if it works, this should be faster than the alternative.
+                    // this works only if (a%denominator)*b does not overflow.
+                    // Thus we check that first.
+                    let right_mul = match (a%denominator)
+                        .checked_mul(b){
+                            None => return Answer::Unknown,
+                            Some(v) => v
+                        };
+                    
+                    
+                    let result = (a/denominator).checked_mul(b)
+                        .and_then(
+                            |left| 
+                            {
+                                left.checked_add(right_mul/denominator)
+                            }
+                        );
+                    Answer::Known(result)
                 }
-                // test, to change:
 
-                return Some(
-                    ((a as i128 * b as i128) / denominator as i128) as <$t as HasUnsignedVersion>::Unsigned
-                );
-                todo!("");
-                // a >= b is now true
-                let mut sum_rest = 0;
-                if a >= denominator{
-                    sum_rest += a / denominator;
-                    a %= denominator;
+                match mul_div(a,b,denominator){
+                    Answer::Known(res) => return res,
+                    Answer::Unknown => {
+                        let a: BigUint = a.into();
+                        let b: BigUint = b.into();
+                        let denominator: BigUint = denominator.into();
+                        let res = a*b/denominator;
+                        res.try_into().ok()
+                    } 
                 }
-                println!("sum_rest {sum_rest} a: {a} b: {b} denominator {denominator}");
-                let (overflows, rest) = paste::item! { [< overflow_counting_mul_ $t >] }(a, b);
-                // (overflows * (num + 1) + rest) / denominator;
-                // -> overflows * (num / denominator + 1/ denominator) + rest / denominator
-                let mut num_den = <$t as HasUnsignedVersion>::Unsigned::MAX / denominator;
-                let mut num_res = <$t as HasUnsignedVersion>::Unsigned::MAX % denominator;
-                let num_res_p1 = num_res.checked_add(1)?;
-                println!("here 1");
-                num_den = num_den.checked_add(num_res_p1 / denominator)?;
-                println!("here 2");
-                num_res = num_res_p1 % denominator;
-                println!("here 3");
-                num_den = num_den.checked_mul(overflows)?;
-                println!("here 4 num_den {num_den} overflows {overflows} num_res");
-                let (new_overflows, res) = paste::item! { [< overflow_counting_mul_ $t >] }(num_res, overflows);
-                num_res = res;
-                // ich muss den overflow noch irgendwie einbeziehen -> new_overflow / denominator…
-                // in der zeile hier drunter ist wahrscheinlich noch der wurm drin
-                let overflow_rest = ((<$t as HasUnsignedVersion>::Unsigned::MAX % denominator) + 1) / denominator;
-                num_den += new_overflows.checked_mul((<$t as HasUnsignedVersion>::Unsigned::MAX / denominator))?;
-                num_den += overflow_rest;
-                println!("here 5");
-                num_den = num_den.checked_add(num_res / denominator)?;
-                println!("here 6");
-                num_res %= denominator;
-                println!("here 7");
-                num_res = num_res.checked_add(rest)?;
-                println!("here 8");
-                let result = num_den.checked_add(num_res / denominator)?;
-                println!("result: {result}");
-                result.checked_add(sum_rest.checked_mul(b)?)
 
             }
         }
 
+        /* 
         paste::item! {
             fn [< overflow_counting_mul_ $t >] (
                 a: <$t as HasUnsignedVersion>::Unsigned, 
@@ -600,6 +599,27 @@ mod tests{
         binning_all_outside_extensive(-100, 100_i16);
         binning_all_outside_extensive(123, 299u16);
         //binning_all_outside_extensive(1, usize::MAX -100);
+    }
+
+    #[test]
+    fn check_mul_div()
+    {
+        fn check(a: u8, b: u8, denominator: u8) -> Option<u8>
+        {
+            (a as u128 * b as u128 / denominator as u128).try_into().ok()
+        }
+
+        for i in 0..255{
+            for j in 0..255{
+                for k in 1..255{
+                    assert_eq!(
+                        check(i,j,k),
+                        checked_mul_div_u8(i,j,k),
+                        "Error in {i} {j} {k}"
+                    );
+                }
+            }
+        }
     }
 
     /* 
