@@ -571,44 +571,51 @@ mod tests{
         }
     }
 
-    /* 
-    macro_rules! mul_t {
-        (
-            $t:ty, $o:ty
-        ) => {
-            
-            paste::item!{ fn [< mul_tests_ $t >]()
-                {
-                    let mut rng = Pcg64Mcg::seed_from_u64(314668);
-                    let uni_one = Uniform::new_inclusive(1, $t::max_value());
-                    for _ in 0..100 {
-                        let a = uni_one.sample(&mut rng);
-                        let b = uni_one.sample(&mut rng);
-                        let c = uni_one.sample(&mut rng);
-                        let result: $o = a as $o * b as $o / c as $o;
-                        let max = $t::max_value().into();
-                        let mul = paste::item! { [< checked_mul_div_ $t >]}(a,b,c);
-                        if result <= max {
-                            println!("{a} {b} {c}");
-                            println!("{mul:?} {result}");
-                            assert!(mul.is_some());
-                        } else {
-                            assert!(mul.is_none());
+    #[test]
+    fn mul_testing()
+    {
+        use rand_pcg::Pcg64Mcg;
+        use rand::SeedableRng;
+        use rand::distributions::Uniform;
+        use rand::prelude::*;
+        macro_rules! mul_t {
+            (
+                $t:ty, $o:ty
+            ) => {
+                
+                paste::item!{ fn [< mul_tests_ $t >]()
+                    {
+                        let mut rng = Pcg64Mcg::seed_from_u64(314668);
+                        let uni_one = Uniform::new_inclusive(1, $t::MAX);
+                        let uni_all = Uniform::new_inclusive(0, $t::MAX);
+                        let max = $t::MAX.into();
+                        for _ in 0..100 {
+                            let a = uni_all.sample(&mut rng);
+                            let b = uni_all.sample(&mut rng);
+                            let c = uni_one.sample(&mut rng);
+                            let result: $o = a as $o * b as $o / c as $o;
+                            let mul = paste::item! { [< checked_mul_div_ $t >]}(a,b,c);
+                            if result <= max {
+                                assert_eq!(
+                                    mul,
+                                    Some(result as $t)
+                                )
+                            } else {
+                                assert!(mul.is_none());
+                            }
                         }
                     }
                 }
             }
-        }
-    } 
-
-    #[test]
-    fn mul_testing()
-    {
+        } 
         mul_t!(u8, u16);
         mul_tests_u8();
-        
+        mul_t!(u16, u64);
+        mul_tests_u16();
+        mul_t!(u32, u128);
+        mul_tests_u32();
     }  
-    */
+  
     
     /* 
     #[test]
