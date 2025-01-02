@@ -101,60 +101,6 @@ macro_rules! impl_binning {
 
             }
         }
-
-        /* 
-        paste::item! {
-            fn [< overflow_counting_mul_ $t >] (
-                a: <$t as HasUnsignedVersion>::Unsigned, 
-                b: <$t as HasUnsignedVersion>::Unsigned
-            )  
-                -> (<$t as HasUnsignedVersion>::Unsigned, <$t as HasUnsignedVersion>::Unsigned)
-            {
-                if let Some(res) = a.checked_mul(b)
-                {
-                    (0, res)
-                } else{
-                    #[inline]
-                    fn check_bit_at(input: <$t as HasUnsignedVersion>::Unsigned, bit: <$t as HasUnsignedVersion>::Unsigned) -> bool {
-                    
-                        input & bit != 0
-
-                    }
-                    let mut bit = 1;
-                    let mut sum: <$t as HasUnsignedVersion>::Unsigned = 0;
-                    let mut overflow_counter = 0;
-                    for i in 0..$t::BITS {
-                        let mut shifted_num = b;
-                        if check_bit_at(a, bit){
-                            let mut to_shift = i;
-                            let mut current_overflow_counter = 0;
-                            loop {
-                                let overflow;
-                                if to_shift <= shifted_num.leading_zeros(){
-                                    (sum, overflow) = sum.overflowing_add(shifted_num.shl(to_shift));
-                                    overflow_counter += current_overflow_counter;
-                                    if overflow {
-                                        overflow_counter += 1;
-                                    }
-                                    break;
-                                } else if shifted_num.leading_zeros() > 0{
-                                    to_shift -= shifted_num.leading_zeros();
-                                    shifted_num = shifted_num.shl(shifted_num.leading_zeros());
-                                } else {
-                                    shifted_num = shifted_num.shl(1);
-                                    to_shift -= 1;
-                                    current_overflow_counter = current_overflow_counter.shl(1);
-                                    current_overflow_counter += 1;
-                                }
-                            }
-                        }
-                        bit = bit.shl(1);
-                    }
-                    (overflow_counter, sum)
-    
-                }
-            }
-        }*/
         
         paste!{
             #[doc = "Efficient binning for `" $t "` with bins of width 1"]
