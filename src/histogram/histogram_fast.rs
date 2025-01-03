@@ -21,6 +21,15 @@ use super::binning::BinDisplay;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
+/// You have done something that can succeed or fail
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Outcome{
+    /// It worked :)
+    Success,
+    /// It did not work…
+    Failure
+}
+
 /// # Faster version of HistogramInt for Integers
 /// provided the bins should be: (left, left +1, ..., right - 1)
 /// then you should use this version!
@@ -190,8 +199,7 @@ impl<T> HistogramFast<T>
     /// * Otherwise the hit count of the bins of self will be increased 
     ///     by the corresponding hit count of other. 
     /// * other will be unchanged
-    #[allow(clippy::result_unit_err)]
-    pub fn try_add(&mut self, other: &Self) -> Result<(), ()>
+    pub fn try_add(&mut self, other: &Self) -> Outcome
     where T: Eq
     {
         if self.equal_range(other) {
@@ -199,9 +207,9 @@ impl<T> HistogramFast<T>
                 .iter_mut()
                 .zip(other.hist().iter())
                 .for_each(|(s, o)| *s += o);
-            Ok(())
+            Outcome::Success
         } else {
-            Err(())
+            Outcome::Failure
         }
     }
 

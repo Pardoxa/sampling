@@ -1,3 +1,5 @@
+use crate::Outcome;
+
 use{
     crate::{MarkovChain, HasRng},
     rand::Rng,
@@ -77,22 +79,15 @@ where T: Copy + AsPrimitive<f64>
     }
 
     /// # set stored value for `current_energy`
-    /// * Will return Err() if you try to set the energy to nan
-    /// * otherwise it will set the stored `energy` and return Ok(())
+    /// * This function does not check if the new energy you set makes any sense at all
     /// # Important
     /// * It is very unlikely that you need this function - Only use it, if you know what you are doing
     /// ## Safety
     /// This is not unsafe in the programming sense, but I chose to make it unsafe anyway to make the user 
-    /// aknowledge that this will result in a logical error for the algorithms if 
+    /// acknowledge that this will result in a logical error for the algorithms if 
     /// set to the incorrect energy
-    #[allow(clippy::result_unit_err)]
-    pub unsafe fn set_energy(&mut self, energy: T) -> Result<(),()>{
-        if (energy.as_()).is_nan() {
-            Err(())
-        } else {
-            self.energy = energy;
-            Ok(())
-        }
+    pub unsafe fn set_energy(&mut self, energy: T){
+        self.energy = energy;
     }
 
     /// returns reference to ensemble
@@ -134,15 +129,14 @@ where T: Copy + AsPrimitive<f64>
     }
 
     /// * change the `stepsize`
-    /// * returns err if you try to set stepsize to `0`, because that would be invalid
-    #[allow(clippy::result_unit_err)]
-    pub fn set_step_size(&mut self, step_size: usize) -> Result<(),()>
+    /// * returns Failure if you try to set stepsize to `0`, because that would be invalid
+    pub fn set_step_size(&mut self, step_size: usize) -> Outcome
     {
         if step_size == 0 {
-            Err(())
+            Outcome::Failure
         } else {
             self.step_size = step_size;
-            Ok(())
+            Outcome::Success
         }
     }
 

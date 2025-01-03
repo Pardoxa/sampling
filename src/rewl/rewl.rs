@@ -247,20 +247,19 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// # Change step size for markov chain of walkers
     /// * changes the step size used in the sweep
     /// * changes step size of all walkers in the nth interval
-    /// * returns Err if index out of bounds, i.e., the requested interval does not exist
+    /// * returns Failure if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
-    #[allow(clippy::result_unit_err)]
-    pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Result<(), ()>
+    pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Outcome
     {
         let start = n * self.chunk_size.get();
         let end = start + self.chunk_size.get();
         if self.walker.len() < end {
-            Err(())
+            Outcome::Failure
         } else {
             let slice = &mut self.walker[start..start+self.chunk_size.get()];
             slice.iter_mut()
                 .for_each(|entry| entry.step_size_change(step_size));
-            Ok(())
+            Outcome::Success
         }
     }
 
@@ -296,20 +295,19 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// # Change sweep size for markov chain of walkers
     /// * changes the sweep size used in the sweep
     /// * changes sweep size of all walkers in the nth interval
-    /// * returns Err if index out of bounds, i.e., the requested interval does not exist
+    /// * returns Failure if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
-    #[allow(clippy::result_unit_err)]
-    pub fn change_sweep_size_of_interval(&mut self, n: usize, sweep_size: NonZeroUsize) -> Result<(), ()>
+    pub fn change_sweep_size_of_interval(&mut self, n: usize, sweep_size: NonZeroUsize) -> Outcome
     {
         let start = n * self.chunk_size.get();
         let end = start + self.chunk_size.get();
         if self.walker.len() < end {
-            Err(())
+            Outcome::Failure
         } else {
             let slice = &mut self.walker[start..start+self.chunk_size.get()];
             slice.iter_mut()
                 .for_each(|entry| entry.sweep_size_change(sweep_size));
-            Ok(())
+            Outcome::Success
         }
     }
 

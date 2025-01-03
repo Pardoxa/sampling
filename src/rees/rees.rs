@@ -287,20 +287,19 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// # Change step size for markov chain of walkers
     /// * changes the step size used in the sweep
     /// * changes step size of all walkers in the nth interval
-    /// * returns Err if index out of bounds, i.e., the requested interval does not exist
+    /// * returns Failure if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
-    #[allow(clippy::result_unit_err)]
-    pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Result<(), ()>
+    pub fn change_step_size_of_interval(&mut self, n: usize, step_size: usize) -> Outcome
     {
         let start = n * self.chunk_size.get();
         let end = start + self.chunk_size.get();
         if self.walker.len() < end {
-            Err(())
+            Outcome::Failure
         } else {
             let slice = &mut self.walker[start..start+self.chunk_size.get()];
             slice.iter_mut()
                 .for_each(|entry| entry.step_size_change(step_size));
-            Ok(())
+            Outcome::Success
         }
     }
 
@@ -336,20 +335,19 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// # Change sweep size for markov chain of walkers
     /// * changes the sweep size used in the sweep
     /// * changes sweep size of all walkers in the nth interval
-    /// * returns Err if index out of bounds, i.e., the requested interval does not exist
+    /// * returns Failure if index out of bounds, i.e., the requested interval does not exist
     /// * interval counting starts at 0, i.e., n=0 is the first interval
-    #[allow(clippy::result_unit_err)]
-    pub fn change_sweep_size_of_interval(&mut self, n: usize, sweep_size: NonZeroUsize) -> Result<(), ()>
+    pub fn change_sweep_size_of_interval(&mut self, n: usize, sweep_size: NonZeroUsize) -> Outcome
     {
         let start = n * self.chunk_size.get();
         let end = start + self.chunk_size.get();
         if self.walker.len() < end {
-            Err(())
+            Outcome::Failure
         } else {
             let slice = &mut self.walker[start..start+self.chunk_size.get()];
             slice.iter_mut()
                 .for_each(|entry| entry.sweep_size_change(sweep_size));
-            Ok(())
+            Outcome::Success
         }
     }
 
@@ -419,16 +417,17 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     }
 
     /// # Swap the extra vector
-    /// * Note: len of extra has to be the same as `self.num_walkers()` (which is the same as `self.extra_slice().len()`)
-    ///     otherwise an Err is returned
-    #[allow(clippy::result_unit_err, clippy::type_complexity)]
+    /// * Note: len of extra has to be the same as `self.num_walkers()` (which is the same as `self.extra_slice().len()`),
+    ///   otherwise swapping will fail
+    /// * If swap was successful, new Rees is returned, and the old Extra as well, in case you want to do something with it
+    #[allow(clippy::type_complexity)]
     pub fn swap_extra<Extra2>(
         self, 
         new_extra: Vec<Extra2>
-    ) -> Result<(Rees<Extra2, Ensemble, R, Hist, Energy, S, Res>, Vec<Extra>), ()>
+    ) -> Option<(Rees<Extra2, Ensemble, R, Hist, Energy, S, Res>, Vec<Extra>)>
     {
         if self.extra.len() != new_extra.len(){
-            Err(())
+            None
         } else {
             let old_extra = self.extra;
             let rees = Rees{
@@ -441,7 +440,7 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
                 rees_roundtrip_halfes: self.rees_roundtrip_halfes,
                 rewl_roundtrips: self.rewl_roundtrips
             };
-            Ok(
+            Some(
                 (
                     rees,
                     old_extra

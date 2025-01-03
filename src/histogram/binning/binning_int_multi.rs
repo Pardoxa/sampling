@@ -3,7 +3,6 @@ use std::{
     borrow::Borrow, fmt::Debug
 };
 use paste::paste;
-use crate::HistogramVal;
 
 use super::{
     to_u, 
