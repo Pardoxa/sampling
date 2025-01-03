@@ -239,7 +239,10 @@ macro_rules! other_binning {
                 let iter = self
                     .multi_valued_bin_iter()
                     .map(
-                        |range| Bin::InclusiveInclusive(*range.start(), *range.end())
+                        |range| {
+                            let (start, end) = range.into_inner();
+                            Bin::InclusiveInclusive(start, end)
+                        }
                     );
                 Box::new(iter)
             }
