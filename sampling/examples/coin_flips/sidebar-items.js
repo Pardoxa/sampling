@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CoinFlip"],"struct":["CoinFlipMove","CoinFlipSequence"]};

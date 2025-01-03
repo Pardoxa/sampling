@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GnuplotPalette","GnuplotTerminal","HeatmapError","Labels"],"fn":["heatmap_index"],"struct":["ColorRGB","CubeHelixParameter","GnuplotAxis","GnuplotPointSettings","GnuplotSettings","HeatmapF64","HeatmapF64Mean","HeatmapUsize","HeatmapUsizeMean","PaletteRGB"],"type":["HeatmapU"]};
