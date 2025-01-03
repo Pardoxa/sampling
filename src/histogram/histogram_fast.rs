@@ -306,10 +306,10 @@ where
         + WrappingSub
         + One,
 {
-    type Item = (T, T);
+    type Item = RangeInclusive<T>;
 
     #[inline]
-    fn next(&mut self) -> Option<(T, T)>
+    fn next(&mut self) -> Option<RangeInclusive<T>>
     {
         if self.invalid {
             return None;
@@ -320,7 +320,7 @@ where
         self.invalid = right == self.right;
         let left = std::mem::replace(&mut self.current, next);
         Some(
-            (left, right)
+            left..=right
         )
 
     }

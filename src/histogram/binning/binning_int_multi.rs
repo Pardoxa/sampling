@@ -12,7 +12,8 @@ use super::{
     GenericHist, 
     HasUnsignedVersion, 
     HistogramCombine, 
-    HistErrors
+    HistErrors,
+    Histogram
 };
 
 #[cfg(feature = "serde_support")]
@@ -107,10 +108,10 @@ macro_rules! other_binning {
                 use sampling::histogram::" [<Binning $t:upper>] ";\n\
                 let binning = " [<Binning $t:upper>] "::new_inclusive(2,7,2).unwrap();\n\
                 let vec: Vec<_> = binning.multi_valued_bin_iter().collect();\n\
-                assert_eq!(&vec, &[(2, 3), (4, 5), (6, 7)]);\n\
+                assert_eq!(&vec, &[(2..=3), (4..=5), (6..=7)]);\n\
                 ```"]
                 #[inline]
-                pub fn multi_valued_bin_iter(&self) -> impl Iterator<Item=($t, $t)>
+                pub fn multi_valued_bin_iter(&self) -> impl Iterator<Item=RangeInclusive<$t>>
                 {
                     let width = self.bin_width;
                     BinModIterHelper::new_unchecked(self.start, self.end_inclusive, width)
@@ -150,6 +151,20 @@ macro_rules! other_binning {
             pub fn to_generic_hist(self) -> GenericHist<paste!{[<Binning $t:upper>]}, $t>
             {
                 GenericHist::new(self)
+            }
+        }
+
+
+        impl GenericHist<paste!{[<Binning $t:upper>]}, $t>{
+            /// # Iterate over bins and hits
+            /// Returns an iterator, which gives yields (bin, hits), i.e.,
+            /// a RangeInclusive that represents the bin
+            /// and the corresponding number of hits
+            pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item=(RangeInclusive<$t>, usize)> + '_
+            {
+                self.binning()
+                    .multi_valued_bin_iter()
+                    .zip(self.hist().iter().copied())
             }
         }
 
@@ -224,7 +239,7 @@ macro_rules! other_binning {
                 let iter = self
                     .multi_valued_bin_iter()
                     .map(
-                        |(left, right)| Bin::InclusiveInclusive(left, right)
+                        |range| Bin::InclusiveInclusive(*range.start(), *range.end())
                     );
                 Box::new(iter)
             }
@@ -332,9 +347,13 @@ mod tests{
     { 
         let binning = BinningU8::new_inclusive(250,255,2).unwrap();
         let vec: Vec<_> = binning.multi_valued_bin_iter().collect();
-        assert_eq!(&vec, &[(250, 251), (252, 253), (254, 255)]);
+        assert_eq!(&vec, &[(250..=251), (252..=253), (254..=255)]);
         let _binning = BinningU8::new_inclusive(0,255,1).unwrap();
         let _binning = BinningU8::new_inclusive(0,255,2).unwrap();
+
+        let binning = BinningI8::new_inclusive(-128,-126,1).unwrap();
+        let vec: Vec<_> = binning.multi_valued_bin_iter().collect();
+        assert_eq!(&vec, &[(-128..=-128), (-127..=-127), (-126..=-126)]);
     }
 
     #[test]

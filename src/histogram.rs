@@ -1,10 +1,11 @@
 //! Traits for implementing histograms for Wang Landau or entropic sampling.
 //! Contains histogram implementations for all primitive numbers
 //! # Note
-//! For the histograms of integers with bin with larger than 1: you should use the newly implemented 
+//! For the histograms of integers with bin width larger than 1: you should use the newly implemented 
 //! [GenericHist]  of [BinningWithWidth].
 //! These will likely be much faster than [HistogramInt], especially if you have a lot of bins. 
-//! I did not remove the slower implementation, because then I'd have to change all the code in which I use them.
+//! I did not remove the slower implementation, because then I'd have to change all 
+//! of my other code in which I use them ^^"
 //! 
 //! Anyhow, here is an example for using a fast histogram with bin width 1 
 //! 

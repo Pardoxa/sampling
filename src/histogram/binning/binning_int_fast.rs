@@ -18,7 +18,8 @@ use super::{
     HistogramPartition,
     HistErrors,
     HistogramCombine,
-    GenericHist
+    GenericHist,
+    Histogram
 };
 use num_bigint::BigUint;
 
@@ -198,6 +199,19 @@ macro_rules! impl_binning {
             pub fn to_generic_hist(self) -> GenericHist<paste!{[<FastBinning $t:upper>]}, $t>
             {
                 GenericHist::new(self)
+            }
+        }
+
+        impl GenericHist<paste!{[<FastBinning $t:upper>]}, $t>{
+            /// # Iterate over bins and hits
+            /// Returns an iterator, which gives yields (bin, hits), i.e.,
+            /// a number that represents the bin (since the bin is of size 1)
+            /// and the corresponding number of hits
+            pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item=($t, usize)> + '_
+            {
+                self.binning()
+                    .single_valued_bin_iter()
+                    .zip(self.hist().iter().copied())
             }
         }
 
