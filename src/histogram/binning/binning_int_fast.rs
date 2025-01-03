@@ -50,11 +50,6 @@ macro_rules! impl_binning {
                 denominator: <$t as HasUnsignedVersion>::Unsigned
             ) -> Option<<$t as HasUnsignedVersion>::Unsigned>
             {
-                if a == denominator{
-                    return Some(b);
-                } else if b == denominator {
-                    return Some(a);
-                }
 
                 if let Some(val) = a.checked_mul(b){
                     return Some(val / denominator);
@@ -73,9 +68,9 @@ macro_rules! impl_binning {
                     }
                     // idea here: a/denominator *b + (a%denominator)*b/denominator
                     // if it works, this should be faster than the alternative.
-                    // this works only if (a%denominator)*b does not overflow.
+                    // This method works only if (a%denominator)*b does not overflow.
                     // Thus we check that first.
-                    let right_mul = match (a%denominator)
+                    let right_mul = match (a % denominator)
                         .checked_mul(b){
                             None => return Answer::Unknown,
                             Some(v) => v
@@ -86,19 +81,19 @@ macro_rules! impl_binning {
                         .and_then(
                             |left| 
                             {
-                                left.checked_add(right_mul/denominator)
+                                left.checked_add(right_mul / denominator)
                             }
                         );
                     Answer::Known(result)
                 }
 
-                match mul_div(a,b,denominator){
+                match mul_div(a, b, denominator){
                     Answer::Known(res) => return res,
                     Answer::Unknown => {
                         let a: BigUint = a.into();
                         let b: BigUint = b.into();
                         let denominator: BigUint = denominator.into();
-                        let res = a*b/denominator;
+                        let res = a * b / denominator;
                         res.try_into().ok()
                     } 
                 }
@@ -117,7 +112,6 @@ macro_rules! impl_binning {
             /// * each bin has width 1
             /// # Panics
             /// * if `start` is smaller than `end_inclusive`
-            /// TODO Think about if this should actually panic or return None
             #[inline(always)]
             pub const fn new_inclusive(start: $t, end_inclusive: $t) -> Self{
                 assert!(start <= end_inclusive, "Start needs to be <= end_inclusive!");
@@ -288,57 +282,33 @@ macro_rules! impl_binning {
                         .checked_add(overlap_native)
                         .ok_or(HistErrors::Overflow)?;
                     for c in 0..n_native {
-                        println!("1");
-                        let left_distance = match paste::item! { [< checked_mul_div_ $t >] }(c, right_minus_left, denominator)
-                        {
-                            Some(mul_res) => mul_res ,
-                            None => { return Err(HistErrors::Overflow)}
-                        };
-                            println!("2");
+                        let left_distance = paste::item! { [< checked_mul_div_ $t >] }(c, right_minus_left, denominator)
+                            .ok_or(HistErrors::Overflow)?;
                         let left = to_u(self.start) + left_distance;
-                        println!("3");
 
                         let right_sum = c.saturating_add(overlap_native)
                             .checked_add(1)
                             .ok_or(HistErrors::Overflow)?;
 
-                        let right_distance = match  paste::item! { [< checked_mul_div_ $t >] }(right_sum, right_minus_left, denominator)
-                        {
-                            Some(mul_res) => mul_res ,
-                            None => { return Err(HistErrors::Overflow)}
-                        };
+                        let right_distance = paste::item! { [< checked_mul_div_ $t >] }(right_sum, right_minus_left, denominator)
+                            .ok_or(HistErrors::Overflow)?;
                         let right = to_u(self.start) + right_distance;
 
                         let left = from_u(left);
                         let right = from_u(right);
-                        println!("left {left} right {right}");
-                        println!("goal: {} {}", self.start, self.end_inclusive);
                     
                         result.push(Self::new_inclusive(left, right));
                     }
-                    dbg!(&result);
-                    assert_eq!(
+                    debug_assert_eq!(
                         self.start, 
                         result[0].start, 
                         "eq1"
                     );
-                    assert_eq!(
+                    debug_assert_eq!(
                         self.end_inclusive, 
                         result.last().unwrap().end_inclusive, 
                         "eq2"
                     );
-                    for (entry_old, entry_new) in result.iter().zip(result.iter().skip(1))
-                    {
-                        assert!(
-                            entry_old.start < entry_old.end_inclusive,
-                            "Start needs to be smaller than end"
-                        );
-                        println!("entry_old.start {} <= {} entry_new.start", entry_old.end_inclusive, entry_new.start);
-                        assert!(entry_old.start <= entry_new.start);
-                        println!("entry_old.end_inclusive {} <= {} entry_new.end_inclusive", entry_old.end_inclusive, entry_new.end_inclusive);
-                        assert!(entry_old.end_inclusive <= entry_new.end_inclusive);
-                        assert!(entry_new.start <= entry_new.end_inclusive);
-                    }
                     Ok(result)
                 }
             }
@@ -372,10 +342,6 @@ mod tests{
     use std::fmt::{Display, Debug};
 
     use crate::GenericHist;
-    // use rand_pcg::Pcg64Mcg;
-    // use rand::SeedableRng;
-    // use rand::distributions::Uniform;
-    // use rand::prelude::*;
     use super::*;
     use crate::histogram::*;
     use num_traits::{PrimInt, AsPrimitive};
@@ -399,41 +365,6 @@ mod tests{
         }
         assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());   
     }
-
-    /* 
-    fn check_widening(a: u8, b: u8) 
-    {
-        let actual = (a as usize * b as usize) / 256;
-        let rest = (a as usize * b as usize) % 256;
-        let (m_a, m_r) = overflow_counting_mul_u8(a, b);
-        println!("actual overflow {actual} my {m_a}");
-        println!("actual rest {rest} mine {m_r}");
-        assert_eq!(actual as u8, m_a);
-        assert_eq!(rest as u8, m_r);
-    }
-
-    fn check_widening_u32(a: u32, b: u32) 
-    {
-        let actual = (a as u128 * b as u128) / (u32::MAX as u128 + 1);
-        let rest = (a as u128 * b as u128) % (u32::MAX as u128 + 1);
-        let (m_a, m_r) = overflow_counting_mul_u32(a, b);
-        println!("actual overflow {actual} my {m_a}");
-        println!("actual rest {rest} mine {m_r}");
-        assert_eq!(actual as u32, m_a);
-        assert_eq!(rest as u32, m_r);
-    }
-
-    #[test]
-    fn widening_testing()
-    {
-        check_widening(1, 255);
-        check_widening(3, 128);
-        check_widening(2, 255);
-        check_widening(255, 255);
-        check_widening_u32(3, u32::MAX);
-        check_widening(128, 3);
-        check_widening_u32(u32::MAX/2+1, 3);
-    }*/
 
     #[test]
     fn hist_inside()
@@ -632,9 +563,12 @@ mod tests{
     {
         let n = NonZeroUsize::new(2).unwrap();
         let h = FastBinningU8::new_inclusive(0, u8::MAX);
-        let h_part = h.overlapping_partition(n, 0).unwrap();
-        assert_eq!(h.first_border(), h_part[0].first_border());
-        assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
+        for overlap in 0..10{
+            let h_part = h.overlapping_partition(n, overlap).unwrap();
+            assert_eq!(h.first_border(), h_part[0].first_border());
+            assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
+        }
+
 
 
         let h = FastBinningI8::new_inclusive(i8::MIN, i8::MAX);
@@ -677,7 +611,9 @@ mod tests{
                 };
                 println!("iteration {i}");
                 let hist_fast = FastBinningI8::new_inclusive(left, right);
-                let overlapping = hist_fast.overlapping_partition(NonZeroUsize::new(3).unwrap(), overlap).unwrap();
+                let overlapping = hist_fast
+                    .overlapping_partition(NonZeroUsize::new(3).unwrap(), overlap)
+                    .unwrap();
 
                 assert_eq!(
                     overlapping.last().unwrap().last_border(),
@@ -690,6 +626,15 @@ mod tests{
                     hist_fast.first_border(),
                     "overlapping_partition_test2 - first border check"
                 );
+
+                for slice in overlapping.windows(2){
+                    assert!(
+                        slice[0].first_border() <= slice[1].first_border()
+                    );
+                    assert!(
+                        slice[0].last_border() <= slice[1].last_border()
+                    );
+                }
             }
         }
     }
