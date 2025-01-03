@@ -2,7 +2,7 @@
 [![Crate](https://img.shields.io/crates/v/sampling.svg)](https://crates.io/crates/sampling)
 [![Docs](https://docs.rs/sampling/badge.svg)](https://docs.rs/sampling/)
 
-Minimal Rust version: 1.60.0
+Minimal Rust version: 1.63.0
 
 ## About
 
@@ -21,7 +21,9 @@ sampling = "0.2.0"
 # for feature "serde_support" (enabled by default) also use
 serde = { version = "1.0", features = ["derive"] }
 ```
-Other features:
+Features:
+
+`serde_support`: Enabled by default. Use this if you want to use serialization with the serde crate
 
 `sweep_time_optimization`: Enables minor optimizations, which might 
 or might not benefit you for your large-deviation simulation.
@@ -36,10 +38,10 @@ the walkers of `Rewl` take.
 use any of the replica exchange types or methods.
 
 If you want to minimize build time and space requirements upon building,
-you can disable default features and only enable what you need.
+you can disable default features and only enable what you need, e.g.
 ```toml
 [dependencies]
-sampling = { version = "0.1.1", default-features = false  }
+sampling = { version = "0.2.0", default-features = false, features=["replica_exchange"]  }
 ``` 
 
 # Notes
