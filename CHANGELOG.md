@@ -11,6 +11,9 @@ so I will only do that once my current project is done, if at all
  * renamed `count_index` to `increment_index`
  * renamed `count_multiple_index` to `increment_index_by`
 
+HistogramPartition:
+ * in `overlapping_partition`: changed `n` from `usize`to `NonZeroUsize`
+
 Glue:
 New way to glue the simulations, removed the old one, see examples
 

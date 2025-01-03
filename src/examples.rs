@@ -20,10 +20,11 @@
 /// use std::fs::File;
 /// use std::io::{BufWriter, Write};
 /// use statrs::distribution::{Binomial, Discrete};
+/// use std::num::NonZeroUsize;
 ///
 /// // length of coin flip sequence
 /// let n = 20;
-/// let interval_count = 3;
+/// let interval_count = NonZeroUsize::new(3).unwrap();
 /// 
 /// // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
 /// let hist = HistUsizeFast::new_inclusive(0, n).unwrap();
@@ -39,7 +40,7 @@
 /// 
 /// // now create ensembles (could be combined with wl creation)
 /// // note: You could also create one ensemble and clone it instead of creating different ones
-/// let ensembles: Vec<_> = (0..interval_count).map(|_| {
+/// let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
 ///     CoinFlipSequence::new(
 ///         n,
 ///         Pcg64::from_rng(&mut rng).unwrap()
@@ -502,7 +503,7 @@
 /// // length of coin flip sequence
 /// let n = 20;
 /// // how many intervals do we want?
-/// let interval_count = 3;
+/// let interval_count = NonZeroUsize::new(3).unwrap();
 ///
 /// // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
 /// let hist = HistUsizeFast::new_inclusive(0, n).unwrap();

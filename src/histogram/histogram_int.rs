@@ -369,13 +369,13 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
 impl<T> HistogramPartition for HistogramInt<T> 
 where T: Clone + std::fmt::Debug
 {
-    fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
+    fn overlapping_partition(&self, n: NonZeroUsize, overlap: usize) -> Result<Vec<Self>, HistErrors>
     {
-        let mut result = Vec::with_capacity(n);
+        let mut result = Vec::with_capacity(n.get());
         let size = self.bin_count() - 1;
-        let denominator = n + overlap;
+        let denominator = n.get() + overlap;
 
-        for c in 0..n {
+        for c in 0..n.get() {
             let left_index = c.checked_mul(size)
                 .ok_or(HistErrors::Overflow)?
                 / denominator;
@@ -561,7 +561,7 @@ mod tests{
 
         for overlap in 0..=5 {
             for _ in 0..100 {
-                let n = uni_n.sample(&mut rng);
+                let n: usize = uni_n.sample(&mut rng);
                 let (left, right) = loop {
                     let mut num_1 = uni.sample(&mut rng);
                     let mut num_2 = uni.sample(&mut rng);
@@ -579,9 +579,10 @@ mod tests{
     
                 let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
                 let hist_i = HistI8::new_inclusive(left, right, hist_fast.bin_count()).unwrap();
+                let n_non_zero = NonZeroUsize::new(n).unwrap();
         
-                let overlapping_f = hist_fast.overlapping_partition(n, overlap);
-                let overlapping_i = hist_i.overlapping_partition(n, overlap);
+                let overlapping_f = hist_fast.overlapping_partition(n_non_zero, overlap);
+                let overlapping_i = hist_i.overlapping_partition(n_non_zero, overlap);
 
                 if overlapping_i.is_err() {
                     assert_eq!(overlapping_f.unwrap_err(), overlapping_i.unwrap_err());
@@ -657,7 +658,7 @@ mod tests{
         let uni_n = Uniform::new_inclusive(2, 6);
         for overlap in 0..=5 {
             for _ in 0..100 {
-                let n = uni_n.sample(&mut rng);
+                let n: usize = uni_n.sample(&mut rng);
                 let (left, right) = loop {
                     let mut num_1 = uni.sample(&mut rng);
                     let mut num_2 = uni.sample(&mut rng);
@@ -674,7 +675,8 @@ mod tests{
                 };
                 let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
                 let hist_i = HistI8::new_inclusive(left, right, hist_fast.bin_count()).unwrap();
-                let overlapping_i = hist_i.overlapping_partition(n, overlap).unwrap();
+                let overlapping_i = hist_i.overlapping_partition(NonZeroUsize::new(n).unwrap(), overlap)
+                    .unwrap();
 
                 assert_eq!(
                     overlapping_i.last().unwrap().borders().last(),
@@ -700,7 +702,7 @@ mod tests{
         for binsize in 2..=7 {
             for overlap in 0..=5 {
                 for _ in 0..100 {
-                    let n = uni_n.sample(&mut rng);
+                    let n: usize = uni_n.sample(&mut rng);
                     let (left, right) = loop {
                         let mut num_1 = uni.sample(&mut rng);
                         let mut num_2 = uni.sample(&mut rng);
@@ -721,7 +723,8 @@ mod tests{
                     };
                     let hist_fast = HistI16Fast::new_inclusive(left, right).unwrap();
                     let hist_i = HistI16::new_inclusive(left, right, hist_fast.bin_count() / binsize).unwrap();
-                    let overlapping_i = hist_i.overlapping_partition(n, overlap).unwrap();
+                    let overlapping_i = hist_i.overlapping_partition(NonZeroUsize::new(n).unwrap(), overlap)
+                        .unwrap();
                     
                     assert_eq!(
                         overlapping_i.last().unwrap().borders().last(),

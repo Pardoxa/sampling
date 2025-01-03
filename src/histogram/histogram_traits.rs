@@ -98,7 +98,7 @@ pub trait HistogramIntervalDistance<T> {
 pub trait HistogramPartition: Sized
 {
     /// # partition the interval
-    /// * returns Vector of `n` histograms, that together 
+    /// * returns Vector of `n` histograms, that together cover the entire range of the original histogram
     /// ## parameter
     /// * `n` number of resulting intervals
     /// * `overlap` How much overlap should there be?
@@ -106,7 +106,7 @@ pub trait HistogramPartition: Sized
     /// let `left` be the left border of `self` and `right` be the right border of self
     /// * left border of interval i = left + i * (right - left) / (n + overlap)
     /// * right border of interval i = left + (i + overlap) * (right - left) / (n + overlap)
-    fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>;
+    fn overlapping_partition(&self, n: NonZeroUsize, overlap: usize) -> Result<Vec<Self>, HistErrors>;
 }
 
 /// # Used to get a histogram, which contains the smaller histograms

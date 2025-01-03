@@ -36,10 +36,11 @@ pub fn benchmark2(c: &mut Criterion){
 pub fn bench_wl_step(c: &mut Criterion){
 
     use sampling::{*, examples::coin_flips::*};
+    use std::num::NonZeroUsize;
 
     // length of coin flip sequence
     let n = 2000;
-    let interval_count = 3;
+    let interval_count = NonZeroUsize::new(3).unwrap();
     let step_size = 10;
 
     // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
@@ -56,7 +57,7 @@ pub fn bench_wl_step(c: &mut Criterion){
 
     // now create ensembles (could be combined with wl creation)
     // note: You could also create one ensemble and clone it instead of creating different ones
-    let ensembles: Vec<_> = (0..interval_count).map(|_| {
+    let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
         CoinFlipSequence::new(
             n,
             Pcg64::from_rng(&mut rng).unwrap()
@@ -108,10 +109,11 @@ pub fn bench_wl_step(c: &mut Criterion){
 pub fn bench_wl_step_acc(c: &mut Criterion){
 
     use sampling::{*, examples::coin_flips::*};
+    use std::num::NonZeroUsize;
 
     // length of coin flip sequence
     let n = 2000;
-    let interval_count = 3;
+    let interval_count = NonZeroUsize::new(3).unwrap();
     let step_size = 10;
 
     // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
@@ -128,7 +130,7 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
 
     // now create ensembles (could be combined with wl creation)
     // note: You could also create one ensemble and clone it instead of creating different ones
-    let ensembles: Vec<_> = (0..interval_count).map(|_| {
+    let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
         CoinFlipSequence::new(
             n,
             Pcg64::from_rng(&mut rng).unwrap()

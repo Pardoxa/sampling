@@ -253,7 +253,7 @@ mod tests{
     fn combine()
     {
         let n = 30;
-        let intervals = 3;
+        let intervals = NonZeroUsize::new(3).unwrap();
 
         let hist1 = HistUsizeFast::new_inclusive(0, 2 * n / 3)
             .unwrap();

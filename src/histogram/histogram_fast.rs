@@ -310,12 +310,12 @@ where T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
 T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes, Unsigned=T::Unsigned> 
     + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned> + FromPrimitive + WrappingSub,
 {
-    fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
+    fn overlapping_partition(&self, n: NonZeroUsize, overlap: usize) -> Result<Vec<Self>, HistErrors>
     {
-        let mut result = Vec::with_capacity(n);
+        let mut result = Vec::with_capacity(n.get());
         let size = self.bin_count() - 1;
-        let denominator = n + overlap;
-        for c in 0..n {
+        let denominator = n.get() + overlap;
+        for c in 0..n.get() {
             let left_distance = c.checked_mul(size)
                 .ok_or(HistErrors::Overflow)?
                 / denominator;
@@ -648,24 +648,25 @@ mod tests{
     #[test]
     fn partion_test()
     {
+        let n = NonZeroUsize::new(2).unwrap();
         let h = HistU8Fast::new_inclusive(0, u8::MAX).unwrap();
-        let h_part = h.overlapping_partition(2, 0).unwrap();
+        let h_part = h.overlapping_partition(n, 0).unwrap();
         assert_eq!(h.left, h_part[0].left);
         assert_eq!(h.right, h_part.last().unwrap().right);
 
 
         let h = HistI8Fast::new_inclusive(i8::MIN, i8::MAX).unwrap();
-        let h_part = h.overlapping_partition(2, 0).unwrap();
+        let h_part = h.overlapping_partition(n, 0).unwrap();
         assert_eq!(h.left, h_part[0].left);
         assert_eq!(h.right, h_part.last().unwrap().right);
 
         let h = HistI16Fast::new_inclusive(i16::MIN, i16::MAX).unwrap();
-        let h_part = h.overlapping_partition(2, 2).unwrap();
+        let h_part = h.overlapping_partition(n, 2).unwrap();
         assert_eq!(h.left, h_part[0].left);
         assert_eq!(h.right, h_part.last().unwrap().right);
 
 
-        let _ = h.overlapping_partition(2000, 0).unwrap();
+        let _ = h.overlapping_partition(NonZeroUsize::new(2000).unwrap(), 0).unwrap();
     }
 
     #[test]
@@ -690,7 +691,7 @@ mod tests{
                     }
                 };
                 let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
-                let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
+                let overlapping = hist_fast.overlapping_partition(NonZeroUsize::new(3).unwrap(), overlap).unwrap();
 
                 assert_eq!(
                     overlapping.last().unwrap().last_border(),

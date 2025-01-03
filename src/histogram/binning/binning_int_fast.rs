@@ -3,17 +3,18 @@ use std::{
         RangeInclusive, 
         //Shl
     },
-    borrow::Borrow
+    borrow::Borrow,
+    num::NonZeroUsize
 };
 use paste::paste;
 use super::{
     Binning,
     HasUnsignedVersion,
     to_u,
-    //from_u,
+    from_u,
     Bin,
-    //HistogramPartition,
-    //HistErrors
+    HistogramPartition,
+    HistErrors
 };
 use num_bigint::BigUint;
 
@@ -261,87 +262,87 @@ macro_rules! impl_binning {
             }
         }
 
-        /*impl HistogramPartition for paste!{[<FastBinning $t:upper>]}
+        impl HistogramPartition for paste!{[<FastBinning $t:upper>]}
         {
-           
-            /// # partition the interval
-            /// * returns Vector of `n` Binnings that  
-            /// ## parameter
-            /// * `n` number of resulting intervals
-            /// * `overlap` How much overlap should there be?
-            /// ## To understand overlap, we have to look at the formula for the i_th interval in the result vector:
-            ///
-            ///    let ``left`` be the left border of ``self`` and ``right`` be the right border of self
-            ///
-            ///    * left border of interval i = left + i * (right - left) / (n + overlap)
-            ///    * right border of interval i = left + (i + overlap) * (right - left) / (n + overlap)
-            ///
-            /// ## What is it for?
-            /// * This is intended to create multiple overlapping intervals, e.g.,
-            /// for a Wang-Landau simulation
-            fn overlapping_partition(&self, n: usize, overlap: usize) -> Result<Vec<Self>, HistErrors>
-            {
-                dbg!(self, n, overlap);
-                let mut result = Vec::with_capacity(n);
-                let right_minus_left = self.bins_m1();
-                let n_native = n as <$t as HasUnsignedVersion>::Unsigned;
-                let denominator = (n + overlap) as <$t as HasUnsignedVersion>::Unsigned;
-                let overlap_native = overlap as <$t as HasUnsignedVersion>::Unsigned;
-                for c in 0..n_native {
-                    println!("1");
-                    let left_distance = match paste::item! { [< checked_mul_div_ $t >] }(c, right_minus_left, denominator)
-                    {
-                        Some(mul_res) => mul_res ,
-                        None => { return Err(HistErrors::Overflow)}
-                    };
-                        println!("2");
-                    let left = to_u(self.start) + left_distance;
-                    println!("3");
-                    
-                    let right_sum = c.saturating_add(overlap_native)
-                        .checked_add(1)
-                        .ok_or(HistErrors::Overflow)?;
-
-                    let right_distance = match  paste::item! { [< checked_mul_div_ $t >] }(right_sum, right_minus_left, denominator)
-                    {
-                        Some(mul_res) => mul_res ,
-                        None => { return Err(HistErrors::Overflow)}
-                    };
-                    let right = to_u(self.start) + right_distance;
-
-                    let left = from_u(left);
-                    let right = from_u(right);
-                    println!("left {left} right {right}");
-                    println!("goal: {} {}", self.start, self.end_inclusive);
-                
-                    result.push(Self::new_inclusive(left, right));
-                }
-                dbg!(&result);
-                assert_eq!(
-                    self.start, 
-                    result[0].start, 
-                    "eq1"
-                );
-                assert_eq!(
-                    self.end_inclusive, 
-                    result.last().unwrap().end_inclusive, 
-                    "eq2"
-                );
-                for (entry_old, entry_new) in result.iter().zip(result.iter().skip(1))
+            paste!{
+                #[doc = "# partition the interval\
+                \n* returns Vector of `n` Binnings. Though `n` will be limited by the max value that `" $t "` can hold.   \
+                ## parameter \n\
+                * `n` number of resulting intervals. \n\
+                * `overlap` How much overlap should there be? \n\
+                ## To understand overlap, we have to look at the formula for the i_th interval in the result vector: \n\
+                let ``left`` be the left border of ``self`` and ``right`` be the right border of self \n\
+                * left border of interval i = left + i * (right - left) / (n + overlap) \n\
+                 * right border of interval i = left + (i + overlap) * (right - left) / (n + overlap) \n\
+                ## What is it for? \
+                \n * This is intended to create multiple overlapping intervals, e.g., for a Wang-Landau simulation\
+                \n # Note\
+                \n * Will fail if `overlap` + `n` are not representable as `" $t "`"]
+                fn overlapping_partition(&self, n: NonZeroUsize, overlap: usize) -> Result<Vec<Self>, HistErrors>
                 {
-                    assert!(
-                        entry_old.start < entry_old.end_inclusive,
-                        "Start needs to be smaller than end"
+                    let mut result = Vec::with_capacity(n.get());
+                    let right_minus_left = self.bins_m1();
+                    let n_native = n.get() as <$t as HasUnsignedVersion>::Unsigned;
+                    let overlap_native = overlap as <$t as HasUnsignedVersion>::Unsigned;
+                    let denominator = n_native
+                        .checked_add(overlap_native)
+                        .ok_or(HistErrors::Overflow)?;
+                    for c in 0..n_native {
+                        println!("1");
+                        let left_distance = match paste::item! { [< checked_mul_div_ $t >] }(c, right_minus_left, denominator)
+                        {
+                            Some(mul_res) => mul_res ,
+                            None => { return Err(HistErrors::Overflow)}
+                        };
+                            println!("2");
+                        let left = to_u(self.start) + left_distance;
+                        println!("3");
+
+                        let right_sum = c.saturating_add(overlap_native)
+                            .checked_add(1)
+                            .ok_or(HistErrors::Overflow)?;
+
+                        let right_distance = match  paste::item! { [< checked_mul_div_ $t >] }(right_sum, right_minus_left, denominator)
+                        {
+                            Some(mul_res) => mul_res ,
+                            None => { return Err(HistErrors::Overflow)}
+                        };
+                        let right = to_u(self.start) + right_distance;
+
+                        let left = from_u(left);
+                        let right = from_u(right);
+                        println!("left {left} right {right}");
+                        println!("goal: {} {}", self.start, self.end_inclusive);
+                    
+                        result.push(Self::new_inclusive(left, right));
+                    }
+                    dbg!(&result);
+                    assert_eq!(
+                        self.start, 
+                        result[0].start, 
+                        "eq1"
                     );
-                    println!("entry_old.start {} <= {} entry_new.start", entry_old.end_inclusive, entry_new.start);
-                    assert!(entry_old.start < entry_new.start);
-                    println!("entry_old.end_inclusive {} <= {} entry_new.end_inclusive", entry_old.end_inclusive, entry_new.end_inclusive);
-                    assert!(entry_old.end_inclusive < entry_new.end_inclusive);
-                    assert!(entry_new.start < entry_new.end_inclusive);
+                    assert_eq!(
+                        self.end_inclusive, 
+                        result.last().unwrap().end_inclusive, 
+                        "eq2"
+                    );
+                    for (entry_old, entry_new) in result.iter().zip(result.iter().skip(1))
+                    {
+                        assert!(
+                            entry_old.start < entry_old.end_inclusive,
+                            "Start needs to be smaller than end"
+                        );
+                        println!("entry_old.start {} <= {} entry_new.start", entry_old.end_inclusive, entry_new.start);
+                        assert!(entry_old.start <= entry_new.start);
+                        println!("entry_old.end_inclusive {} <= {} entry_new.end_inclusive", entry_old.end_inclusive, entry_new.end_inclusive);
+                        assert!(entry_old.end_inclusive <= entry_new.end_inclusive);
+                        assert!(entry_new.start <= entry_new.end_inclusive);
+                    }
+                    Ok(result)
                 }
-                Ok(result)
             }
-        }*/
+        }
     };
     (
         $($t:ty),* $(,)?
@@ -625,33 +626,37 @@ mod tests{
     }  
   
     
-    /* 
+    
     #[test]
     fn partion_test()
     {
+        let n = NonZeroUsize::new(2).unwrap();
         let h = FastBinningU8::new_inclusive(0, u8::MAX);
-        let h_part = h.overlapping_partition(2, 0).unwrap();
+        let h_part = h.overlapping_partition(n, 0).unwrap();
         assert_eq!(h.first_border(), h_part[0].first_border());
         assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
 
         let h = FastBinningI8::new_inclusive(i8::MIN, i8::MAX);
-        let h_part = h.overlapping_partition(2, 0).unwrap();
+        let h_part = h.overlapping_partition(n, 0).unwrap();
         assert_eq!(h.first_border(), h_part[0].first_border());
         assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
         let h = FastBinningI16::new_inclusive(i16::MIN, i16::MAX);
-        let h_part = h.overlapping_partition(2, 2).unwrap();
+        let h_part = h.overlapping_partition(n, 2).unwrap();
         assert_eq!(h.first_border(), h_part[0].first_border());
         assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
 
-        let _ = h.overlapping_partition(2000, 0).unwrap();
+        let _ = h.overlapping_partition(NonZeroUsize::new(2000).unwrap(), 0).unwrap();
     }
 
     #[test]
     fn overlapping_partition_test2()
     {
+        use rand_pcg::Pcg64Mcg;
+        use rand::distributions::Uniform;
+        use rand::prelude::*;
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
         let uni = Uniform::new_inclusive(-100, 100);
         for overlap in 0..=3 {
@@ -672,7 +677,7 @@ mod tests{
                 };
                 println!("iteration {i}");
                 let hist_fast = FastBinningI8::new_inclusive(left, right);
-                let overlapping = hist_fast.overlapping_partition(3, overlap).unwrap();
+                let overlapping = hist_fast.overlapping_partition(NonZeroUsize::new(3).unwrap(), overlap).unwrap();
 
                 assert_eq!(
                     overlapping.last().unwrap().last_border(),
@@ -687,7 +692,7 @@ mod tests{
                 );
             }
         }
-    }*/
+    }
 /*Below tests test a functionality that is not yet implemented
     #[test]
     fn hist_combine()
