@@ -197,9 +197,6 @@ macro_rules! other_binning {
                     let dist = if *val < self.start {
                         to_u(self.start) - to_u(*val)
                     } else {
-                        // TODO Unit tests have to check if this is correct,
-                        // before it was  val.saturating_sub(self.end_inclusive)
-                        // but I think this here is better
                         to_u(*val) - to_u(self.end_inclusive)
                     };
                     dist as f64
@@ -295,5 +292,48 @@ mod tests{
         check(0, 254, 1);
         check(0, 253, 2);
 
+    }
+
+    #[test]
+    fn unit_test_distance()
+    {
+        // # bin width 1
+        let binning = BinningI8::new_inclusive(-50, 50, 1)
+            .unwrap();
+
+        let mut dist = binning.distance(i8::MIN);
+        for i in i8::MIN+1..-50{
+            let new_dist = binning.distance(i);
+            assert!(dist > new_dist);
+            dist = new_dist;
+        }
+        for i in -50..=50{
+            assert_eq!(binning.distance(i), 0.0);
+        }
+        dist = 0.0;
+        for i in 51..=i8::MAX{
+            let new_dist = binning.distance(i);
+            assert!(dist < new_dist);
+            dist = new_dist;
+        }
+
+        // # bin width 2
+        let binning = BinningI8::new_inclusive(-50, 49, 2)
+            .unwrap();
+        let mut dist = binning.distance(i8::MIN);
+        for i in i8::MIN+1..-50{
+            let new_dist = binning.distance(i);
+            assert!(dist > new_dist);
+            dist = new_dist;
+        }
+        for i in -50..=49{
+            assert_eq!(binning.distance(i), 0.0);
+        }
+        dist = 0.0;
+        for i in 50..=i8::MAX{
+            let new_dist = binning.distance(i);
+            assert!(dist < new_dist);
+            dist = new_dist;
+        }
     }
 }
