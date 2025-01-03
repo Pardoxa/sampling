@@ -93,16 +93,18 @@ macro_rules! other_binning {
                 self.end_inclusive
             }
 
-            /// # Returns the range covered by the bins as a `RangeInclusive<T>`
-            #[inline(always)]
-            pub const fn range_inclusive(&self) -> RangeInclusive<$t>
-            {
-                self.start..=self.end_inclusive
+            paste!{
+                #[doc="# Returns the range covered by the bins as a `RangeInclusive<" $t ">`"]           
+                #[inline(always)]
+                pub const fn range_inclusive(&self) -> RangeInclusive<$t>
+                {
+                    self.start..=self.end_inclusive
+                }
             }
 
             paste!{
                 #[doc = "# Iterator over all the bins\n\
-                Here the bins are represented as RangeInclusive \n\
+                Here the bins are represented as `RangeInclusive<" $t ">` \n\
                 # Example: \
                 \n\
                 ```
