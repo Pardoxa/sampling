@@ -180,8 +180,8 @@ pub enum HistErrors{
     /// 
     /// Example:
     /// 
-    /// Lets say we have hist one with bins [[0,1], [2,3], [4,5]]
-    /// And another one with bins [[5,6], [7,8]]. Now we cannot create 
+    /// Lets say we have hist one with bins `[[0,1], [2,3], [4,5]]`
+    /// And another one with bins `[[5,6], [7,8]]`. Now we cannot create 
     /// an encapsulating histogram, since the number 5 appears in 2 different bins!
     Alignment
 }
