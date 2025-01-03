@@ -193,6 +193,12 @@ macro_rules! impl_binning {
                     None
                 }
             }
+
+            /// Get Generic Hist from the binning
+            pub fn to_generic_hist(self) -> GenericHist<paste!{[<FastBinning $t:upper>]}, $t>
+            {
+                GenericHist::new(self)
+            }
         }
 
  
@@ -388,7 +394,7 @@ impl_binning!(
 
 #[cfg(test)]
 mod tests{
-    use std::fmt::{Display, Debug};
+    use std::fmt::{Debug, Display};
 
     use crate::GenericHist;
     use super::*;
@@ -687,27 +693,31 @@ mod tests{
             }
         }
     }
-/*Below tests test a functionality that is not yet implemented
+
     #[test]
     fn hist_combine()
     {
-        let left = HistI8Fast::new_inclusive(-5,0).unwrap();
-        let right = HistI8Fast::new_inclusive(-1, 2).unwrap();
+        let binning_left = FastBinningI8::new_inclusive(-5, 0);
+        let binning_right = FastBinningI8::new_inclusive(-1, 2);
+        let left = GenericHist::new(binning_left);
+        let right = GenericHist::new(binning_right);
 
-        let en = HistI8Fast::encapsulating_hist(&[&left, &right]).unwrap();
-
-        assert_eq!(en.left, left.left);
-        assert_eq!(en.right, right.right);
-        assert_eq!(en.bin_count(), 8);
+        let encapsulating = GenericHist::encapsulating_hist(&[&left, &right]).unwrap();
+        let enc_binning = encapsulating.binning();
+        assert_eq!(enc_binning.first_border(), binning_left.first_border());
+        assert_eq!(enc_binning.last_border(), binning_right.last_border());
+        assert_eq!(encapsulating.bin_count(), 8);
 
         let align = left.align(right).unwrap();
 
         assert_eq!(align, 4);
 
-        let left = HistI8Fast::new_inclusive(i8::MIN, 0).unwrap();
-        let right = HistI8Fast::new_inclusive(0, i8::MAX).unwrap();
+        let left = FastBinningI8::new_inclusive(i8::MIN, 0)
+            .to_generic_hist();
+        let right = FastBinningI8::new_inclusive(0, i8::MAX)
+            .to_generic_hist();
 
-        let en = HistI8Fast::encapsulating_hist(&[&left, &right]).unwrap();
+        let en = GenericHist::encapsulating_hist(&[&left, &right]).unwrap();
 
         assert_eq!(en.bin_count(), 256);
 
@@ -715,59 +725,22 @@ mod tests{
 
         assert_eq!(128, align);
 
-        let left = HistI8Fast::new_inclusive(i8::MIN, i8::MAX).unwrap();
-        let small = HistI8Fast::new_inclusive(127, 127).unwrap();
+        let left = FastBinningI8::new_inclusive(i8::MIN, i8::MAX)
+            .to_generic_hist();
+        let small = FastBinningI8::new_inclusive(127, 127)
+            .to_generic_hist();
 
         let align = left.align(&small).unwrap();
 
         assert_eq!(255, align);
 
-        let en = HistI8Fast::encapsulating_hist(&[&left]).unwrap();
+        let en = GenericHist::encapsulating_hist(&[&left]).unwrap();
         assert_eq!(en.bin_count(), 256);
         let slice = [&left];
-        let en = HistI8Fast::encapsulating_hist(&slice[1..]);
+        let en = GenericHist::encapsulating_hist(&slice[1..]);
         assert_eq!(en.err(), Some(HistErrors::EmptySlice));
-        let en = HistI8Fast::encapsulating_hist(&[small, left]).unwrap();
+        let en = GenericHist::encapsulating_hist(&[small, left]).unwrap();
 
         assert_eq!(en.bin_count(), 256);
     }
-
-    #[test]
-    fn hist_try_add()
-    {
-        let mut first = HistU8Fast::new_inclusive(0, 23)
-            .unwrap();
-        let mut second = HistU8Fast::new_inclusive(0, 23)
-            .unwrap();
-        
-        for i in 0..=23{
-            first.increment(i)
-                .unwrap();
-        }
-        for i in 0..=11{
-            second.increment(i)
-                .unwrap();
-        }
-
-        first.try_add(&second)
-            .unwrap();
-
-        let hist = first.hist();
-
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..=11{
-            assert_eq!(hist[i], 2);
-        }
-        #[allow(clippy::needless_range_loop)]
-        for i in 12..=23{
-            assert_eq!(hist[i], 1);
-        }
-
-        let third = HistU8Fast::new(0,23)
-            .unwrap();
-            
-        first.try_add(&third)
-            .expect_err("Needs to be Err because ranges do not match");
-    }
-*/
 }
