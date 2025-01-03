@@ -3,12 +3,17 @@ use std::{
     borrow::Borrow, fmt::Debug
 };
 use paste::paste;
+use crate::HistogramVal;
+
 use super::{
-    Binning,
-    HasUnsignedVersion,
-    to_u,
-    Bin,
-    BinModIterHelper
+    to_u, 
+    Bin, 
+    BinModIterHelper, 
+    Binning, 
+    GenericHist, 
+    HasUnsignedVersion, 
+    HistogramCombine, 
+    HistErrors
 };
 
 #[cfg(feature = "serde_support")]
@@ -217,6 +222,71 @@ macro_rules! other_binning {
                 Box::new(iter)
             }
         }
+
+        impl HistogramCombine for GenericHist<paste!{[<Binning $t:upper>]}, $t>
+        {
+            fn align<S>(&self, right: S)-> Result<usize, super::HistErrors>
+                where S: Borrow<Self> {
+                let self_bins = self.binning();
+                let right_bins = right.borrow().binning();
+                
+                if self_bins.bin_width != right_bins.bin_width{
+                    return Err(HistErrors::ModuloError);
+                }
+            
+                let right_first_border = right_bins.first_border();
+            
+                let idx = self_bins.get_bin_index(right_first_border)
+                    .ok_or(HistErrors::OutsideHist)?;
+            
+                // now we have the index, but we need to check the alignment!
+                let width_u = self_bins.bin_width as <$t as HasUnsignedVersion>::Unsigned;
+                let distance = to_u(right_first_border) - to_u(self_bins.first_border());
+                let modulo = distance % width_u;
+                if modulo != 0 {
+                    return Err(HistErrors::Alignment);
+                }
+                Ok(idx)
+            }
+        
+            fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, super::HistErrors>
+                where S: Borrow<Self> {
+                if hists.is_empty(){
+                    return Err(HistErrors::EmptySlice);
+                }
+                let first = hists[0].borrow().binning();
+                let width = first.bin_width;
+                let mut left = first.first_border();
+                let mut right = first.last_border();
+                for other in hists[1..].iter(){
+                    let binning = other.borrow().binning();
+                    if width != binning.bin_width{
+                        return Err(HistErrors::ModuloError);
+                    }
+                    left = left.min(binning.first_border());
+                    right = right.max(binning.last_border());
+                }
+                // now I first create the binning, then I check if all the intervals aligned properly
+                let new_binning = <paste!{[<Binning $t:upper>]}>::new_inclusive(
+                    left, 
+                    right, 
+                    width
+                ).map_err(|_| HistErrors::ModuloError)?;
+            
+                let new_first_border = to_u(new_binning.first_border());
+                let bin_width_u = width as <$t as HasUnsignedVersion>::Unsigned;
+            
+                for hist in hists.iter(){
+                    let binning = hist.borrow().binning();
+                    let distance = to_u(binning.first_border()) - new_first_border;
+                    let modulo = distance % bin_width_u;
+                    if modulo != 0 {
+                        return Err(HistErrors::Alignment);
+                    }
+                }
+                Ok(GenericHist::new(new_binning))
+            }
+        }
     };
     (
         $($t:ty),* $(,)?
@@ -335,5 +405,112 @@ mod tests{
             assert!(dist < new_dist);
             dist = new_dist;
         }
+    }
+
+    #[test]
+    fn test_combining()
+    {
+        let binning_1 = BinningI16::new_inclusive(
+            -10, 
+            9, 
+            2
+        ).unwrap();
+        let hist_1 = GenericHist::new(binning_1);
+
+        let binning_2 = BinningI16::new_inclusive(
+            10, 
+            11, 
+            2
+        ).unwrap();
+        let hist_2 = GenericHist::new(binning_2);
+
+        let encapsulating = GenericHist::encapsulating_hist(
+            &[
+                &hist_1,
+                &hist_2
+            ]
+        ).unwrap();
+
+        assert_eq!(
+            encapsulating.binning().first_border(),
+            -10
+        );
+        assert_eq!(
+            encapsulating.binning().last_border(),
+            11
+        );
+
+        let binning_3 = BinningI16::new_inclusive(
+            12, 
+            15, 
+            2
+        ).unwrap();
+        let hist_3 = GenericHist::new(binning_3);
+
+
+        let encapsulating = GenericHist::encapsulating_hist(
+            &[
+                &hist_3,
+                &hist_1
+            ]
+        ).unwrap();
+
+        assert_eq!(
+            encapsulating.binning().first_border(),
+            -10
+        );
+        assert_eq!(
+            encapsulating.binning().last_border(),
+            15
+        );
+
+        let misaligned_binning = BinningI16::new_inclusive(
+            -11, 
+            -10, 
+            2
+        ).unwrap();
+        let misaligned_hist = GenericHist::new(misaligned_binning);
+
+        match GenericHist::encapsulating_hist(
+            &[
+                &hist_3,
+                &hist_1,
+                &hist_2,
+                &misaligned_hist
+            ]
+            ){
+            Ok(_) => panic!("Bug in code! This has to give the error variant!"),
+            Err(err) => {
+                assert_eq!(
+                    HistErrors::ModuloError,
+                    err
+                );
+            }
+        };
+
+        let binning_4 = BinningI16::new_inclusive(
+            -12, 
+            -11, 
+            2
+        ).unwrap();
+        let hist_4 = GenericHist::new(binning_4);
+
+        match GenericHist::encapsulating_hist(
+            &[
+                &hist_3,
+                &hist_1,
+                &hist_2,
+                &misaligned_hist,
+                &hist_4
+            ]
+            ){
+            Ok(_) => panic!("Bug in code! This has to give the error variant!"),
+            Err(err) => {
+                assert_eq!(
+                    HistErrors::Alignment,
+                    err
+                );
+            }
+        };
     }
 }
