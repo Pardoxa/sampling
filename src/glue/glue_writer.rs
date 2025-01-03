@@ -22,8 +22,11 @@ use crate::{IntervalSimStats, AccumulatedIntervalStats};
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// Includes statistics about the intervals from which the gluing result stems from
 pub struct GlueStats{
+    /// List of the interval simulation stats of the intervals used to create the glue result
     pub interval_stats: Vec<IntervalSimStats>,
+    /// List of the round trips of the intervals used to create the glue result
     pub roundtrips: Vec<usize>
 }
 
@@ -60,6 +63,14 @@ impl GlueStats{
         Ok(())
     }
 
+    /// Writes stats to a file
+    /// 
+    /// These stats contain key data on various stuff, like the factor f or the total number of steps, the global rejection rate
+    /// and the minimum number of performed roundtrips. 
+    /// 
+    /// Information that is currently unavailable might be skipped.
+    /// 
+    /// All outputted lines have a preceding '#', to mark them as comments 
     pub fn write_accumulated<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>{
         if !self.interval_stats.is_empty(){
             let acc = AccumulatedIntervalStats::generate_stats(&self.interval_stats);
@@ -92,10 +103,12 @@ impl LogBase{
         }
     }
 
+    /// Are the results currently in Logarithm base 10?
     pub fn is_base10(self) -> bool {
         matches!(self, LogBase::Base10)
     }
 
+    /// Are the results currently in Logarithm base E?
     pub fn is_base_e(self) -> bool {
         matches!(self, LogBase::BaseE)
     }
@@ -103,11 +116,16 @@ impl LogBase{
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// Which level of verbosity do you want?
 pub enum GlueWriteVerbosity
 {
+    /// No stats at all
     NoStats,
+    /// Only accumulated stats, i.e., key stats
     AccumulatedStats,
+    /// Stats for every single interval
     IntervalStats,
+    /// Accumulated stats AND stats for every single interval
     IntervalStatsAndAccumulatedStats
 }
 

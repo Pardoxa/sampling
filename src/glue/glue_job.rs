@@ -12,13 +12,15 @@ use super::{
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
-
+/// Trait for objects that can contribute to a [GlueJob]
 pub trait GlueAble<H>{
+    /// Add `self` to the [GlueJob]
     fn push_glue_entry(&self, job: &mut GlueJob<H>)
     {
         self.push_glue_entry_ignoring(job, &[])
     }
 
+    /// Add `self`to the [GlueJob], but ignore some indices
     fn push_glue_entry_ignoring(
         &self, 
         job: &mut GlueJob<H>,
@@ -28,13 +30,21 @@ pub trait GlueAble<H>{
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// Enum to track simulation type
 pub enum SimulationType{
+    /// Simulation was a 1/t Wang-Landau simulation
     WangLandau1T = 0,
+    /// Simulation was an adaptive 1/t Wang-Landau simulation
     WangLandau1TAdaptive = 1,
+    /// Simulation was Entropic sampling
     Entropic = 2,
+    /// Simulation was adaptive Entropic sampling
     EntropicAdaptive = 3,
+    /// Simulation was Replica exchange Wang Landau (1/t)
     REWL = 4,
+    /// Simulation was Replica exchange Entropic sampling
     REES = 5,
+    /// Simulation type is unknown
     Unknown = 6
 }
 
@@ -196,9 +206,13 @@ impl AccumulatedIntervalStats{
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// Enum which contains information about the current progress of the simulation
 pub enum SimProgress{
+    /// The logarithm of the factor f. Useful, since we often want to simulate until we hit a target value for log(f)
     LogF(f64),
+    /// How many steps do we still need to perform?
     MissingSteps(u64),
+    /// The simulation progress is unknown
     Unknown
 }
 
@@ -228,6 +242,17 @@ pub struct IntervalSimStats{
 }
 
 impl IntervalSimStats{
+    /// # Write Stats to file
+    /// Use this function to output the simulation statistics of an interval to a file.
+    /// 
+    /// Every line will be preceded by an '#' to mark it as comment
+    /// 
+    /// # Contained information
+    /// * Simulation type
+    /// * Progress
+    /// * How many walkers were used for this interval?
+    /// * Rejection/Acceptance rate
+    /// * If applicable: Number of replica exchanges and acceptance rate of replica exchanges
     pub fn write<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()>
     {
         writeln!(writer, "#Simulated via: {:?}", self.interval_sim_type.name())?;
@@ -264,10 +289,15 @@ impl IntervalSimStats{
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+/// # Struct that is used to create a glue job
 pub struct GlueEntry<H>{
+    /// The histogram
     pub hist: H,
+    /// The probability density distribution
     pub prob: Vec<f64>,
+    /// Information about which logarithm base was used to store the probability density distribution
     pub log_base: LogBase,
+    /// Statistics about the intervals
     pub interval_stats: IntervalSimStats
 }
 
@@ -284,14 +314,20 @@ impl<H> Borrow<H> for GlueEntry<H>
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GlueJob<H>
 {
+    /// Contains all the Intervals to glue
     pub collection: Vec<GlueEntry<H>>,
+    /// Contains information about the number of roundtrips of the walkers used for this gluing job
     pub round_trips: Vec<usize>,
+    /// The logarithm base that we want our final output to be in
     pub desired_logbase: LogBase
 }
 
 impl<H> GlueJob<H>
     where H: Clone
 {
+    /// Create a new glue job from something GlueAble See [GlueAble]
+    /// 
+    /// You need to specify the desired Logarithm base of the final output
     pub fn new<B>(
         to_glue: &B,
         desired_logbase: LogBase
@@ -308,12 +344,18 @@ impl<H> GlueJob<H>
         job
     }
 
+    /// Create a glue job from a slice of [GlueAble] objects
+    /// 
+    /// You need to specify the desired Logarithm base of the final output
     pub fn new_from_slice<B>(to_glue: &[B], desired_logbase: LogBase) -> Self
         where B: GlueAble<H>
     {
         Self::new_from_iter(to_glue.iter(), desired_logbase)
     }
 
+    /// Create a glue job from an iterator of [GlueAble] objects
+    /// 
+    /// You need to specify the desired Logarithm base of the final output
     pub fn new_from_iter<'a, B, I>(
         to_glue: I,
         desired_logbase: LogBase
@@ -331,12 +373,14 @@ impl<H> GlueJob<H>
         job
     }
 
+    /// Add a slice of [GlueAble] objects to the glue job
     pub fn add_slice<B>(&mut self, to_glue: &[B])
         where B: GlueAble<H>
     {
         self.add_iter(to_glue.iter())
     }
 
+    /// Add [GlueAble] objects via an iterator
     pub fn add_iter<'a, I, B>(&mut self, to_glue: I)
     where B: GlueAble<H> + 'a,
         I: Iterator<Item=&'a B> 
@@ -346,6 +390,7 @@ impl<H> GlueJob<H>
         }
     }
 
+    /// Get statistics of the current glue job. See [GlueStats]
     pub fn get_stats(&self) -> GlueStats
     {
         let interval_stats = self

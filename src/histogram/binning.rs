@@ -84,6 +84,8 @@ pub trait Binning<T>{
 
 
 #[derive(Clone, Copy, Debug)]
+/// # What is the BinType?
+/// Mainly useful for generic functions
 pub enum BinType{
     /// The bin can be defined via a single value
     SingleValued,
@@ -97,6 +99,7 @@ pub enum BinType{
 /// # Trait used to display bins
 /// * This is, e.g., used by the glue writers to write the bins of the merged results
 pub trait BinDisplay {
+    /// What type does the displayable BinEntry have?
     type BinEntry;
 
     /// # Iterator over all the bins
