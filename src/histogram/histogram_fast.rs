@@ -30,6 +30,20 @@ pub enum Outcome{
     Failure
 }
 
+impl Outcome{
+    /// Check if Outcome is success variant
+    pub fn is_success(self) -> bool
+    {
+        self == Outcome::Success
+    }
+
+    /// Check if outcome is failure variant
+    pub fn is_failure(self) -> bool
+    {
+        self == Outcome::Failure
+    }
+}
+
 /// # Faster version of HistogramInt for Integers
 /// provided the bins should be: (left, left +1, ..., right - 1)
 /// then you should use this version!
@@ -775,8 +789,8 @@ mod tests{
                 .unwrap();
         }
 
-        first.try_add(&second)
-            .unwrap();
+        let outcome = first.try_add(&second);
+        assert!(outcome.is_success());
 
         let hist = first.hist();
 
@@ -792,8 +806,11 @@ mod tests{
         let third = HistU8Fast::new(0,23)
             .unwrap();
             
-        first.try_add(&third)
-            .expect_err("Needs to be Err because ranges do not match");
+        let outcome = first.try_add(&third);
+        assert!(
+            outcome.is_failure(),
+            "Needs to be Err because ranges do not match"
+        )
     }
 
 }
