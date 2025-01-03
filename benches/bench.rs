@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use sampling::{examples::coin_flips::*, *};
 use rand_pcg::Pcg64;
-use rand::SeedableRng;
+use rand::{distributions::Uniform, SeedableRng};
 
 pub fn benchmark(c: &mut Criterion){
     let rng = Pcg64::seed_from_u64(23);
@@ -183,5 +183,101 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
     );
 }
 
-criterion_group!(benches, benchmark, benchmark2, bench_wl_step, bench_wl_step_acc);
+pub fn bench_hists(c: &mut Criterion){
+    use sampling::*;
+    use rand::prelude::*;
+    use rand_pcg::Pcg64;
+
+    let mut hist = HistI16::new_inclusive(0, 10000, 10001)
+        .unwrap();
+
+    let uniform = Uniform::new_inclusive(0, 10000);
+    let mut rng = Pcg64::seed_from_u64(23894623987612);
+
+    c.bench_function(
+        "HistI16", 
+        |b|
+        {
+            b.iter(
+                || {
+                    for _ in 0..100{
+                        let num = uniform.sample(&mut rng);
+                        hist.increment_quiet(num);
+                    }
+                }
+            );
+        }
+    );
+
+    let mut hist = BinningI16::new_inclusive(
+        0, 
+        10001, 
+        1
+    ).unwrap()
+    .to_generic_hist();
+
+    let mut rng = Pcg64::seed_from_u64(23894623987612);
+
+    c.bench_function(
+        "GenericHistBinning", 
+        |b|
+        {
+            b.iter(
+                || {
+                    for _ in 0..100{
+                        let num = uniform.sample(&mut rng);
+                        let _ = hist.count_val(num);
+                    }
+                }
+            );
+        }
+    );
+
+    let mut hist = FastBinningI16::new_inclusive(
+        0, 
+        10001,
+    ).to_generic_hist();
+
+    let mut rng = Pcg64::seed_from_u64(23894623987612);
+
+    c.bench_function(
+        "GenericHistFastBinning", 
+        |b|
+        {
+            b.iter(
+                || {
+                    for _ in 0..100{
+                        let num = uniform.sample(&mut rng);
+                        let _ = hist.count_val(num);
+                    }
+                }
+            );
+        }
+    );
+
+    let mut hist = HistI16Fast::new_inclusive(
+        0, 
+        10001,
+    ).unwrap();
+
+    let mut rng = Pcg64::seed_from_u64(23894623987612);
+
+    c.bench_function(
+        "HistI16Fast", 
+        |b|
+        {
+            b.iter(
+                || {
+                    for _ in 0..100{
+                        let num = uniform.sample(&mut rng);
+                        hist.increment_quiet(num);
+                    }
+                }
+            );
+        }
+    );
+
+}
+
+criterion_group!(benches, benchmark, benchmark2, bench_wl_step, bench_wl_step_acc, bench_hists);
 criterion_main!(benches);

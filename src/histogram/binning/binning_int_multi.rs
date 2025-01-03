@@ -30,7 +30,9 @@ where T: HasUnsignedVersion
     /// right bin border, inclusive
     end_inclusive: T,
     /// how many numbers are in one bin?
-    bin_width: T
+    bin_width: T,
+    /// bin width as unsigned
+    bin_width_unsigned: T::Unsigned
 }
 
 macro_rules! other_binning {
@@ -57,18 +59,18 @@ macro_rules! other_binning {
             pub fn new_inclusive(start: $t, end_inclusive: $t, bin_width: $t) -> Result<Self, <$t as HasUnsignedVersion>::Unsigned>{
                 assert!(start <= end_inclusive);
                 assert!(bin_width > 0);
-                //
+                let bin_width_unsigned = bin_width as <$t as HasUnsignedVersion>::Unsigned;
                 let this = Self{
                     start, 
                     end_inclusive,
-                    bin_width
+                    bin_width,
+                    bin_width_unsigned
                 };
 
                 // Check if the requested bin_width makes sense
-                let u_width = bin_width as <$t as HasUnsignedVersion>::Unsigned;
                 let left = to_u(start);
                 let right = to_u(end_inclusive);
-                let res = ((right - left) % u_width + 1) % u_width;
+                let res = ((right - left) % bin_width_unsigned + 1) % bin_width_unsigned;
                 // now res needs to be 0 for this to be a valid config
                 if res != 0{
                     Err(res)
@@ -128,7 +130,7 @@ macro_rules! other_binning {
                 let left = to_u(self.start);
                 let right = to_u(self.end_inclusive);
 
-                (right - left) / to_u(self.bin_width)
+                (right - left) / self.bin_width_unsigned
             }
 
             /// # Get the respective bin in native unsigned
@@ -137,14 +139,20 @@ macro_rules! other_binning {
                 let val = *val.borrow();
                 if self.is_inside(val)
                 {
-                    let bin_width = self.bin_width as <$t as HasUnsignedVersion>::Unsigned;
-                    let index = (to_u(val) - to_u(self.start)) / bin_width;
+                    let index = (to_u(val) - to_u(self.start)) / self.bin_width_unsigned;
                     Some(index)
                 } else {
                     None
                 }
             }
+
+            /// Get Generic Hist from the binning
+            pub fn to_generic_hist(self) -> GenericHist<paste!{[<Binning $t:upper>]}, $t>
+            {
+                GenericHist::new(self)
+            }
         }
+
 
  
         impl Binning<$t> for paste!{[<Binning $t:upper>]} {
@@ -239,9 +247,8 @@ macro_rules! other_binning {
                     .ok_or(HistErrors::OutsideHist)?;
             
                 // now we have the index, but we need to check the alignment!
-                let width_u = self_bins.bin_width as <$t as HasUnsignedVersion>::Unsigned;
                 let distance = to_u(right_first_border) - to_u(self_bins.first_border());
-                let modulo = distance % width_u;
+                let modulo = distance % self_bins.bin_width_unsigned;
                 if modulo != 0 {
                     return Err(HistErrors::Alignment);
                 }
@@ -273,7 +280,7 @@ macro_rules! other_binning {
                 ).map_err(|_| HistErrors::ModuloError)?;
             
                 let new_first_border = to_u(new_binning.first_border());
-                let bin_width_u = width as <$t as HasUnsignedVersion>::Unsigned;
+                let bin_width_u = first.bin_width_unsigned;
             
                 for hist in hists.iter(){
                     let binning = hist.borrow().binning();
@@ -348,7 +355,7 @@ mod tests{
             let mut this_hist = GenericHist::new(binning);
     
             for _ in 0..1000{
-                let num = rng.gen_range(0..=9);
+                let num = rng.gen_range(left..=right);
                 this_hist.count_val(num).unwrap();
                 inefficient_hist.increment_quiet(num);
             }
@@ -360,6 +367,39 @@ mod tests{
         check(0, 9, 2);
         check(0, 254, 1);
         check(0, 253, 2);
+
+    }
+
+    #[test]
+    fn other_binning_hist_test2()
+    {
+        use crate::HistogramInt;
+
+        fn check(left: i8, right: i8, bin_width: i8)
+        {
+            let mut rng = Pcg64::seed_from_u64(23984);
+
+            let binning = BinningI8::new_inclusive(left, right, bin_width).unwrap();
+            let mut inefficient_hist = HistogramInt::new_inclusive(
+                binning.left(), 
+                binning.right(), 
+                binning.bins_m1() as usize + 1
+            ).unwrap();
+            let mut this_hist = GenericHist::new(binning);
+    
+            for _ in 0..1000{
+                let num = rng.gen_range(left..=right);
+                this_hist.count_val(num).unwrap();
+                inefficient_hist.increment_quiet(num);
+            }
+    
+            let hist = this_hist.hist();
+            let other_hist = inefficient_hist.hist();
+            assert_eq!(hist, other_hist);
+        }
+        check(0, 9, 2);
+        check(i8::MIN, i8::MAX - 1, 1);
+        check(i8::MIN, i8::MAX - 2, 2);
 
     }
 
@@ -512,4 +552,32 @@ mod tests{
             }
         };
     }
+
+    #[test]
+    fn index_test()
+    {
+        use crate::histogram::*;
+        use rand_pcg::Pcg64;
+        use rand::prelude::*;
+        use rand::distributions::*;
+        
+        // now I use one of the type aliases to first create the binning and then the histogram:
+        let mut hist = BinningI32::new_inclusive(-20,132, 3)
+            .unwrap()
+            .to_generic_hist();
+        let uniform = Uniform::new_inclusive(-20, 132);
+        let rng = Pcg64::seed_from_u64(3987612);
+        // create 10000 samples
+        let iter = uniform
+            .sample_iter(rng) 
+            .take(10000);
+        for val in iter{
+            eprintln!("{val}");
+            let res = hist.count_val(val);
+            dbg!(&res);
+            assert!(res.is_ok());
+        }
+    }
+
+
 }

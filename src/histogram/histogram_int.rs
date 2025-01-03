@@ -22,6 +22,10 @@ use serde::{Serialize, Deserialize};
 
 
 /// # Generic Histogram for integer types
+/// 
+/// If possible, consider using [GenericHist] with [FastBinningI8] etc or, 
+/// if your binwidth is not 1, with [BinningI8] etc instead. 
+/// This will likely be faster than using `HistogramInt<T>` 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct HistogramInt<T>
