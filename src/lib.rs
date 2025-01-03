@@ -17,7 +17,7 @@ pub mod histogram;
 pub mod heatmap;
 pub mod entropic_sampling;
 pub mod glue;
-#[cfg(feature="bootstrap")]
+
 pub mod bootstrap;
 
 pub mod metropolis;
@@ -43,7 +43,7 @@ pub use histogram::*;
 pub use heatmap::*;
 pub use glue::*;
 pub use traits::*;
-#[cfg(feature="bootstrap")]
+
 pub use bootstrap::*;
 
 pub mod examples;

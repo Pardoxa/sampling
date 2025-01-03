@@ -529,7 +529,6 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
         walker_a.re +=1;
 
     }
-    // TODO Double check this scope that was added
     {
         if walker_a.mode.is_mode_1_t() {
             walker_a.log_f =  walker_a.log_f_1_t();

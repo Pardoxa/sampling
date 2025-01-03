@@ -1,6 +1,5 @@
 //! Bootstrap resampling functions
 use rand::{Rng, seq::*};
-use average::Variance;
 
 
 /// returns reduced value + estimated error (as sqrt of variance).
@@ -11,8 +10,11 @@ where F: Fn (&[&N1]) -> f64,
     R: Rng,
 {
     let mut bootstrap_sample = Vec::with_capacity(data.len());
-    let variance: Variance =
-    (0..samples).map(|_|
+
+    let mut sum_sq = 0.0;
+    let mut sum = 0.0;
+    
+    (0..samples).for_each(|_|
         {
             bootstrap_sample.clear();
             bootstrap_sample.extend(
@@ -23,25 +25,31 @@ where F: Fn (&[&N1]) -> f64,
                         }
                     )
             );
-            reduction(&bootstrap_sample)
+            let value = reduction(&bootstrap_sample);
+            sum += value;
+            sum_sq += value * value;
         }
-    ).collect();
+    );
     
-    let mean = variance.mean();
-    let variance = variance.population_variance();
+    let factor = (samples as f64).recip();
+    let mean = sum * factor;
+    let variance = sum_sq * factor - mean * mean;
     (mean, variance)
 }
 
-/// Similar to [bootstrap] but for stuff that implements `Copy`. Likely more effient in these cases
-/// returns reduced value + estimated error (as sqrt of variance)
+/// Similar to [bootstrap] but for stuff that implements `Copy`. Likely more efficient in these cases
+/// returns reduced value + variance (estimated error is sqrt of variance)
 pub fn bootstrap_copyable<F, R, N1>(mut rng: R, samples: usize, data: &[N1], reduction: F) -> (f64, f64)
 where F: Fn (&mut [N1]) -> f64,
     R: Rng,
     N1: Copy
 {
     let mut bootstrap_sample = Vec::with_capacity(data.len());
-    let variance: Variance =
-    (0..samples).map(|_|
+
+    let mut sum_sq = 0.0;
+    let mut sum = 0.0;
+    
+    (0..samples).for_each(|_|
         {
             bootstrap_sample.clear();
             bootstrap_sample.extend(
@@ -52,11 +60,13 @@ where F: Fn (&mut [N1]) -> f64,
                         }
                     )
             );
-            reduction(&mut bootstrap_sample)
+            let value = reduction(&mut bootstrap_sample);
+            sum += value;
+            sum_sq += value * value;
         }
-    ).collect();
-    
-    let mean = variance.mean();
-    let variance = variance.population_variance();
+    );
+    let factor = (samples as f64).recip();
+    let mean = sum * factor;
+    let variance = sum_sq * factor - mean * mean;
     (mean, variance)
 }
