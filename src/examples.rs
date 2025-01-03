@@ -666,14 +666,17 @@ pub mod coin_flips;
 
 
 // TODO Include this test and make it work!
-/* 
+
 #[cfg(test)]
 mod tests{
     use rand::SeedableRng;
     use rand_pcg::Pcg64;
     use crate::{*, examples::coin_flips::*};
-    use std::fs::File;
-    use std::io::{BufWriter, Write};
+    use std::{
+        fs::File, 
+        io::{BufWriter, Write},
+        num::*
+    };
     use statrs::distribution::{Binomial, Discrete};
     #[test]
     fn test_exclusive_borders()
@@ -682,7 +685,7 @@ mod tests{
         
          // length of coin flip sequence
          let n = 20;
-         let interval_count = 3;
+         let interval_count = NonZeroUsize::new(3).unwrap();
             
          // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
          let hist = HistUsize::new_inclusive(0, n, n + 1).unwrap();
@@ -699,7 +702,7 @@ mod tests{
             
          // now create ensembles (could be combined with wl creation)
          // note: You could also create one ensemble and clone it instead of creating different ones
-         let ensembles: Vec<_> = (0..interval_count).map(|_| {
+         let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
              CoinFlipSequence::new(
                  n,
                  Pcg64::from_rng(&mut rng).unwrap()
@@ -753,7 +756,7 @@ mod tests{
              |_| start_time.elapsed().as_secs() <= 60
          );
          
-         // Or lets say, I want to limit the number of steps to 100_000
+         // Or lets say, I want to simulate until the number of steps reaches 100_000
          wl_list[2].wang_landau_while(
              |coin_seq| Some(coin_seq.head_count()),
              |state| state.step_counter() <= 100_000 
@@ -778,10 +781,11 @@ mod tests{
          
          // Since our simulations did all finish, lets see what our distribution looks like
          // Lets glue them together. We use our original histogram for that.
-         let glue_job = glue::GlueJob::new_from_slice(
+         let mut glue_job = glue::GlueJob::new_from_slice(
             &wl_list, 
             LogBase::Base10
         );
+         /*
          let glued = glue_job.average_merged_and_aligned()
             .expect("Unable to glue results. Look at error message");
          
@@ -936,6 +940,6 @@ mod tests{
          heatmap.gnuplot(
              buf,
              settings
-         ).unwrap();
+         ).unwrap();*/
     }
-}*/
+}

@@ -7,6 +7,8 @@ use std::{
     num::NonZeroUsize
 };
 use paste::paste;
+use crate::HistogramVal;
+
 use super::{
     Binning,
     HasUnsignedVersion,
@@ -14,7 +16,9 @@ use super::{
     from_u,
     Bin,
     HistogramPartition,
-    HistErrors
+    HistErrors,
+    HistogramCombine,
+    GenericHist
 };
 use num_bigint::BigUint;
 
@@ -175,6 +179,22 @@ macro_rules! impl_binning {
             }
         }
 
+        impl paste!{[<FastBinning $t:upper>]}
+        {
+            /// # Get the respective bin index
+            /// * Similar to get_bin_index, but without the cast to `usize`. This means that large types are not at a risk of overflow here
+            #[inline(always)]
+            pub fn get_bin_index_native<V: Borrow<$t>>(&self, val: V) -> Option<<$t as HasUnsignedVersion>::Unsigned>{
+                let val = *val.borrow();
+                if self.is_inside(val)
+                {
+                    Some(to_u(val) - to_u(self.start))
+                } else{
+                    None
+                }
+            }
+        }
+
  
         impl Binning<$t> for paste!{[<FastBinning $t:upper>]} {
             #[inline(always)]
@@ -184,17 +204,11 @@ macro_rules! impl_binning {
             }
 
             /// # Get the respective bin index
-            /// * Note: Obviously this breaks when the bin index cannot be represented as 
-            ///     `usize`
+            /// * Note: Obviously this breaks when the bin index cannot be represented as `usize`, in that case Some(usize::MAX) will be returned
             #[inline(always)]
             fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
-                let val = *val.borrow();
-                if self.is_inside(val)
-                {
-                    Some((to_u(val) - to_u(self.start)) as usize)
-                } else{
-                    None
-                }
+                self.get_bin_index_native(val)
+                    .map(|v| v as usize)
             }
 
             /// Does a value correspond to a valid bin?
@@ -317,6 +331,36 @@ macro_rules! impl_binning {
                 }
             }
         }
+
+        impl HistogramCombine for GenericHist<paste!{[<FastBinning $t:upper>]}, $t>
+        {
+            fn align<S>(&self, right: S)-> Result<usize, HistErrors>
+                where S: Borrow<Self> {
+                let right = right.borrow();
+                
+                self.get_bin_index(right.first_border())
+            }
+        
+            fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
+                where S: Borrow<Self> {
+                if hists.is_empty(){
+                    return Err(HistErrors::EmptySlice);
+                }
+                let first_binning = hists[0].borrow().binning();
+                let mut left = first_binning.first_border();
+                let mut right = first_binning.last_border();
+                for other in hists[1..].iter()
+                {
+                    let binning = other.borrow().binning();
+                    left = left.min(binning.first_border());
+                    right = right.max(binning.last_border());
+                
+                }
+                let outer_binning = <paste!{[<FastBinning $t:upper>]}>::new_inclusive(left, right);
+                let hist = GenericHist::new(outer_binning);
+                Ok(hist)
+            }
+        }
     };
     (
         $($t:ty),* $(,)?
@@ -326,6 +370,7 @@ macro_rules! impl_binning {
         )*
     }
 }
+
 impl_binning!(
     u8, 
     i8,
