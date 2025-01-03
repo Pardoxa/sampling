@@ -60,16 +60,26 @@ macro_rules! impl_binning {
                     Unknown
                 }
                 
-                
-                fn mul_div(mut a: <$t as HasUnsignedVersion>::Unsigned, mut b: <$t as HasUnsignedVersion>::Unsigned, denominator: <$t as HasUnsignedVersion>::Unsigned) -> Answer
+                #[inline(always)]
+                fn mul_div(
+                    mut a: <$t as HasUnsignedVersion>::Unsigned, 
+                    mut b: <$t as HasUnsignedVersion>::Unsigned, 
+                    denominator: <$t as HasUnsignedVersion>::Unsigned
+                ) -> Answer
                 {
                     if a < b {
                         std::mem::swap(&mut a, &mut b);
                     }
-                    // idea here: a/denominator *b + (a%denominator)*b/denominator
+                    // idea here: a / denominator * b + (a % denominator) * b / denominator
                     // if it works, this should be faster than the alternative.
-                    // This method works only if (a%denominator)*b does not overflow.
+                    // 
+                    // If (a/denominator) * b overflows we know that the result cannot be represented by the type we want.
+                    // If it does not overflow, this method works only if (a%denominator)*b does not overflow.
                     // Thus we check that first.
+                    let left = match (a / denominator).checked_mul(b){
+                        None => return Answer::Known(None),
+                        Some(val) => val
+                    };
                     let right_mul = match (a % denominator)
                         .checked_mul(b){
                             None => return Answer::Unknown,
@@ -77,13 +87,7 @@ macro_rules! impl_binning {
                         };
                     
                     
-                    let result = (a/denominator).checked_mul(b)
-                        .and_then(
-                            |left| 
-                            {
-                                left.checked_add(right_mul / denominator)
-                            }
-                        );
+                    let result = left.checked_add(right_mul / denominator);
                     Answer::Known(result)
                 }
 
