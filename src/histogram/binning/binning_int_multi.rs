@@ -110,11 +110,11 @@ macro_rules! other_binning {
                 ```
 use sampling::histogram::" [<Binning $t:upper>] ";\n\
                 let binning = " [<Binning $t:upper>] "::new_inclusive(2,7,2).unwrap();\n\
-                let vec: Vec<_> = binning.bin_iter().collect();\n\
+                let vec: Vec<_> = binning.native_bin_iter().collect();\n\
                 assert_eq!(&vec, &[(2..=3), (4..=5), (6..=7)]);\n\
                 ```"]
                 #[inline]
-                pub fn bin_iter(&self) -> impl Iterator<Item=RangeInclusive<$t>>
+                pub fn native_bin_iter(&self) -> impl Iterator<Item=RangeInclusive<$t>>
                 {
                     let width = self.bin_width;
                     BinModIterHelper::new_unchecked(self.start, self.end_inclusive, width)
@@ -160,7 +160,7 @@ use sampling::histogram::" [<Binning $t:upper>] ";\n\
             pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item=(RangeInclusive<$t>, usize)> + '_
             {
                 self.binning()
-                    .bin_iter()
+                    .native_bin_iter()
                     .zip(self.hist().iter().copied())
             }
         }
@@ -230,11 +230,11 @@ use sampling::histogram::" [<Binning $t:upper>] ";\n\
             /// # Iterates over all bins
             /// * Note: This implementation uses a more efficient representations of the bins underneath,
             ///     but is capable of returning the bins in this representation on request
-            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `multi_valued_bin_iter`.
+            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `native_bin_iter`.
             ///     Consider using that instead, as it is more efficient
             fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
                 let iter = self
-                    .bin_iter()
+                    .native_bin_iter()
                     .map(
                         |range| {
                             let (start, end) = range.into_inner();
@@ -346,13 +346,13 @@ mod tests{
     fn extreme_vals()
     { 
         let binning = BinningU8::new_inclusive(250,255,2).unwrap();
-        let vec: Vec<_> = binning.bin_iter().collect();
+        let vec: Vec<_> = binning.native_bin_iter().collect();
         assert_eq!(&vec, &[(250..=251), (252..=253), (254..=255)]);
         let _binning = BinningU8::new_inclusive(0,255,1).unwrap();
         let _binning = BinningU8::new_inclusive(0,255,2).unwrap();
 
         let binning = BinningI8::new_inclusive(-128,-126,1).unwrap();
-        let vec: Vec<_> = binning.bin_iter().collect();
+        let vec: Vec<_> = binning.native_bin_iter().collect();
         assert_eq!(&vec, &[(-128..=-128), (-127..=-127), (-126..=-126)]);
     }
 

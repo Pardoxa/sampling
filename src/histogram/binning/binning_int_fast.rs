@@ -156,10 +156,10 @@ macro_rules! impl_binning {
                 ```\n\
                 use sampling::histogram::" [<FastBinning $t:upper>] ";\n\
                 let binning = " [<FastBinning $t:upper>] "::new_inclusive(2,5);\n\
-                let vec: Vec<_> = binning.single_valued_bin_iter().collect();\n\
+                let vec: Vec<_> = binning.native_bin_iter().collect();\n\
                 assert_eq!(&vec, &[2, 3, 4, 5]);\n\
                 ```"]
-                pub fn single_valued_bin_iter(&self) -> impl Iterator<Item=$t>
+                pub fn native_bin_iter(&self) -> impl Iterator<Item=$t>
                 {
                     self.range_inclusive()
                 }
@@ -205,7 +205,7 @@ macro_rules! impl_binning {
             pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item=($t, usize)> + '_
             {
                 self.binning()
-                    .single_valued_bin_iter()
+                    .native_bin_iter()
                     .zip(self.hist().iter().copied())
             }
         }
@@ -276,7 +276,7 @@ macro_rules! impl_binning {
             /// # Iterates over all bins
             /// * Note: This implementation use more efficient representations of the bins underneath,
             ///     but are capable of returning the bins in this representation on request
-            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `single_valued_bin_iter`.
+            /// * Note also that this `Binning`  implements another method for the bin borders, i.e., `native_bin_iter`.
             ///     Consider using that instead, as it is more efficient
             fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<$t>>>{
                 Box::new(
