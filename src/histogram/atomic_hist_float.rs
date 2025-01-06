@@ -32,7 +32,11 @@ impl<T> From<HistogramFloat<T>> for AtomicHistogramFloat<T>
 }
 
 impl<T> AtomicHistogramFloat<T>{
-    /// similar to `self.borders_clone` but does not allocate memory
+    /// # Returns reference to the underlying bin borders
+    /// These are stored internally to find the correct bin via binary search.
+    /// You can access them here if you want.
+    /// 
+    /// If you want to iterate over the bins, I recommend using [Self::bin_iter] instead
     pub fn borders(&self) -> &[T]
     {
         &self.bin_borders
@@ -271,11 +275,6 @@ where T: Float + Zero + NumCast{
         else {
             Err(HistErrors::OutsideHist)
         } 
-    }
-
-    /// consider using `self.borders()`
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        Ok(self.bin_borders.clone())
     }
 }
 

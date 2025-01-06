@@ -70,7 +70,7 @@ pub trait Binning<T>{
     fn last_border(&self) -> T;
 
     /// # True if last border is inclusive, false otherwise
-    /// * For most usecases this will return a constant value,
+    /// * For most use cases this will return a constant value,
     ///     as this is likely only dependent on the underlying type and not 
     ///     on something that changes dynamically
     fn last_border_is_inclusive(&self) -> bool;
@@ -79,6 +79,21 @@ pub trait Binning<T>{
     /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
     /// * if a value corresponds to a valid bin, the distance should be zero
     fn distance<V: Borrow<T>>(&self, val: V) -> f64;
+
+    /// # Convert binning into generic histogram
+    fn to_generic_hist(self) -> GenericHist<Self, T>
+    where Self: Sized
+    {
+        GenericHist::new(self)
+    }
+
+    /// # Convert binning into a generic atomic histogram
+    /// Useful if you want to create the histogram in parallel
+    fn to_generic_atomic_hist(self) -> GenericAtomicHist<Self, T>
+    where Self: Sized
+    {
+        GenericAtomicHist::new(self)
+    }
 }
 
 

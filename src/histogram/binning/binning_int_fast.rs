@@ -194,12 +194,6 @@ macro_rules! impl_binning {
                     None
                 }
             }
-
-            /// Get Generic Hist from the binning
-            pub fn to_generic_hist(self) -> GenericHist<paste!{[<FastBinning $t:upper>]}, $t>
-            {
-                GenericHist::new(self)
-            }
         }
 
         impl GenericHist<paste!{[<FastBinning $t:upper>]}, $t>{

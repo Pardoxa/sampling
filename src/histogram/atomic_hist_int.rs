@@ -47,7 +47,11 @@ impl<T> From<HistogramInt<T>> for AtomicHistogramInt<T>
 }
 
 impl<T> AtomicHistogramInt<T>{
-    /// similar to `self.borders_clone` but does not allocate memory
+    /// # Returns reference to the underlying bin borders
+    /// These are stored internally to find the correct bin via binary search.
+    /// You can access them here if you want.
+    /// 
+    /// If you want to iterate over the bins, I recommend using [Self::bin_iter] instead
     pub fn borders(&self) -> &[T]
     {
         &self.bin_borders
@@ -401,12 +405,6 @@ pub trait AtomicHistogramVal<T>{
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
     /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
     fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
-    /// # binning borders
-    /// * the borders used to bin the values
-    /// * any val which fullfills `self.border[i] <= val < self.border[i + 1]` 
-    ///     will get index `i`.
-    /// * **Note** that the last border is exclusive
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors>;
     /// does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
     /// opposite of `is_inside`
@@ -484,10 +482,6 @@ where T: Ord + Sub<T, Output=T> + Add<T, Output=T> + One + NumCast + Copy
         self.bin_borders
             .binary_search(val.borrow())
             .or_else(|index_m1| Ok(index_m1 - 1))
-    }
-
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        Ok(self.bin_borders.clone())
     }
 }
 
@@ -652,7 +646,7 @@ mod tests{
         let one = unsafe{NonZeroUsize::new_unchecked(1)};
         assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
         assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
-        assert_eq!(hist.borders_clone().unwrap().len() - 1, hist.bin_count());
+        assert_eq!(hist.borders().len() - 1, hist.bin_count());
         assert_eq!(
             AtomicHistogramInt::<T>::new_inclusive(left, T::max_value(), bin_count).expect_err("err"),
             HistErrors::Overflow

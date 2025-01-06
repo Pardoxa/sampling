@@ -1,7 +1,8 @@
 use super::*;
 use std::{
     marker::PhantomData,
-    borrow::Borrow
+    borrow::Borrow,
+    sync::atomic::AtomicUsize
 };
 
 
@@ -9,11 +10,11 @@ use std::{
 /// * Is automatically implemented for any type that implements Binning
 pub struct GenericHist<B, T>{
     /// The binning
-    binning: B,
+    pub(crate) binning: B,
     /// Here we count the hits of the histogram
-    hits: Vec<usize>,
+    pub(crate) hits: Vec<usize>,
     /// type that is counted
-    phantom: PhantomData<T>
+    pub(crate) phantom: PhantomData<T>
 }
 
 impl<B, T> GenericHist<B, T> 
@@ -119,3 +120,26 @@ where B: Binning<T>
     }
 }
 
+impl<B, T> From<B> for GenericHist<B, T>
+where B: Binning<T>
+{
+    fn from(binning: B) -> Self {
+        GenericHist::new(binning)
+    }
+}
+
+impl<B, T> From<GenericAtomicHist<B, T>> for GenericHist<B, T>
+{
+    fn from(generic_atomic: GenericAtomicHist<B, T>) -> Self {
+        let hits = generic_atomic.hits
+            .into_iter()
+            .map(AtomicUsize::into_inner)
+            .collect();
+
+        Self { 
+            binning: generic_atomic.binning, 
+            hits, 
+            phantom: generic_atomic.phantom 
+        }
+    }
+}

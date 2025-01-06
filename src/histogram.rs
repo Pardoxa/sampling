@@ -1,6 +1,6 @@
 //! Traits for implementing histograms for Wang Landau or entropic sampling.
 //! Contains histogram implementations for all primitive numbers
-//! # Note
+//! # Using Histograms
 //! For the histograms of integers with bin width larger than 1: you should use the newly implemented 
 //! [GenericHist]  of [BinningWithWidth].
 //! These will likely be much faster than [HistogramInt], especially if you have a lot of bins. 
@@ -64,7 +64,49 @@
 //!     // let _ = hist.count_val(val);
 //! }
 //! ```
-
+//! 
+//! # Atomic Histograms
+//! 
+//! Sometimes you want to create a histograms in parallel, i.e.,
+//! from multiple threads simultaneously.
+//! In this case you can use Atomic histograms, 
+//! ```
+//! use sampling::histogram::*;
+//! use rand_pcg::Pcg64;
+//! use rand::prelude::*;
+//! use rand::distributions::*;
+//! use rayon::prelude::*;
+//! 
+//! // now I use one of the type aliases to first create the binning and then the histogram:
+//! let mut hist = BinningI16::new_inclusive(-20,132, 3)
+//!     .unwrap()
+//!     .to_generic_atomic_hist();
+//! 
+//! let uniform = Uniform::new_inclusive(-20, 132);
+//! 
+//! (0..4)
+//!     .into_par_iter()
+//!     .for_each(
+//!         |seed|
+//!         {
+//!             let mut rng = Pcg64::seed_from_u64(seed);
+//!             // create 10000 samples
+//!             let iter = uniform
+//!                 .sample_iter(rng) 
+//!                 .take(10000);
+//!             for val in iter{
+//!                 hist.count_val(val)
+//!                     .unwrap(); // will panic if a value were to be outside the hist 
+//!                 // alternatively, if you don't want the panic:
+//!                 // let _ = hist.count_val(val);
+//!             }
+//!         }
+//!     );
+//! assert_eq!(
+//!     hist.total_hits(), 
+//!     40000
+//! );
+//! ```
 
 mod histogram_traits;
 mod histogram_float;

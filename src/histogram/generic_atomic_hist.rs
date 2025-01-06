@@ -2,19 +2,22 @@ use super::*;
 use std::{
     marker::PhantomData,
     borrow::Borrow,
-    sync::atomic::AtomicUsize
+    sync::atomic::{
+        AtomicUsize,
+        Ordering
+    }
 };
 
 
-/// # Provides Histogram functionallity
+/// # Provides Histogram functionality
 /// * Is automatically implemented for any type that implements Binning
 pub struct GenericAtomicHist<B, T>{
     /// The binning
-    binning: B,
+    pub(crate) binning: B,
     /// Here we count the hits of the histogram
-    hits: Vec<AtomicUsize>,
+    pub(crate) hits: Vec<AtomicUsize>,
     /// type that is counted
-    phantom: PhantomData<T>
+    pub(crate) phantom: PhantomData<T>
 }
 
 impl<B, T> GenericAtomicHist<B, T> 
@@ -36,7 +39,44 @@ where B: Binning<T>{
     {
         &self.binning
     }
+
+    /// # Total number of hits
+    /// Iterates through [Self::hist] and calculates the total hits of the histogram.
+    /// Saturates at usize::MAX
+    pub fn total_hits(&self) -> usize
+    {
+        let mut total: usize = 0;
+        self.hist()
+            .iter()
+            .for_each(
+                 |val|
+                 {
+                    total = total.saturating_add(
+                        val.load(Ordering::Relaxed)
+                    )
+                 }
+            );
+        total
+    }
+
+    /// # Iterator over hit count of bins
+    /// Note: You can get an iterator over the corresponding bins via the underlying binning,
+    /// i.e., [Self::binning]
+    /// 
+    /// Also note: Since Atomic hist allows you to iterate in parallel, you are also able 
+    /// to call this iterator, while another thread is still incrementing the histogram.
+    /// The output of the iterator will be valid, but depending on the timings it may or may not 
+    /// include (parts of) the hits from the thread running in parallel
+    pub fn hits_iter(&'_ self) -> impl Iterator<Item=usize> + '_
+    {
+        self.hits
+            .iter()
+            .map(
+                |val| val.load(Ordering::Relaxed)
+            )
+    }
 }
+
 
 impl<B, T> AtomicHistogram for GenericAtomicHist<B, T>
 {
@@ -48,7 +88,7 @@ impl<B, T> AtomicHistogram for GenericAtomicHist<B, T>
         let element = self.hits
             .get(index)
             .ok_or(HistErrors::OutsideHist)?;
-        element.fetch_add(count, std::sync::atomic::Ordering::Relaxed);
+        element.fetch_add(count, Ordering::Relaxed);
         Ok(())
     }
 
@@ -78,11 +118,6 @@ where B: Binning<T>
             .map(|_| index)
     }
 
-    fn borders_clone(&self) -> Result<Vec<T>, HistErrors> {
-        // remove this function
-        unimplemented!()
-    }
-
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
         self.binning.distance(val)
     }
@@ -101,5 +136,29 @@ where B: Binning<T>
 
     fn last_border(&self) -> T {
         self.binning.last_border()
+    }
+}
+
+impl<B, T> From<B> for GenericAtomicHist<B, T>
+where B: Binning<T>
+{
+    fn from(binning: B) -> Self {
+        GenericAtomicHist::new(binning)
+    }
+}
+
+impl<B, T> From<GenericHist<B, T>> for GenericAtomicHist<B, T>
+{
+    fn from(generic: GenericHist<B, T>) -> Self {
+        let hits = generic.hits
+            .into_iter()
+            .map(AtomicUsize::new)
+            .collect();
+
+        GenericAtomicHist{
+            binning: generic.binning,
+            phantom: generic.phantom,
+            hits
+        }
     }
 }

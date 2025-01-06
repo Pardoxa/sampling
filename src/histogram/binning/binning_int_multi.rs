@@ -149,12 +149,6 @@ use sampling::histogram::" [<Binning $t:upper>] ";\n\
                     None
                 }
             }
-
-            /// Get Generic Hist from the binning
-            pub fn to_generic_hist(self) -> GenericHist<paste!{[<Binning $t:upper>]}, $t>
-            {
-                GenericHist::new(self)
-            }
         }
 
 
