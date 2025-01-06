@@ -122,11 +122,11 @@ impl GnuplotAxis{
 /// # Settings for gnuplot
 /// * implements default
 /// * implements builder pattern for itself
-/// # Safety
+/// # **Safety**
 /// 
 /// **These gnuplot options are not meant for production!**
 /// If you allow arbitrary user input for this, the resulting gnuplot scripts can contain 
-/// arbitrary system calls! 
+/// **arbitrary system calls!** 
 /// 
 /// Thus calling the resulting gnuplot scripts is not safe, if you have not sanitized the inputs!
 /// 
@@ -326,6 +326,15 @@ impl GnuplotSettings {
     ///     This data will be used for the heatmap.
     /// * `x_len`: The number of entries in each column, that you promise the `closure` will write
     /// * `y_len`: The number of columns you promise that the `closure` will write
+    /// # **Safety**
+    /// 
+    /// **These gnuplot options are not meant for production!**
+    /// If you allow arbitrary user input for the gnuplot settings, the resulting gnuplot scripts can contain 
+    /// **arbitrary system calls!** 
+    /// 
+    /// Thus calling the resulting gnuplot scripts is not safe, if you have not sanitized the inputs!
+    /// 
+    /// This is not an issue if you only create scripts for yourself, i.e., if you are your own user.
     pub fn write_heatmap<F, W>(
         &self, 
         mut writer: W, 
@@ -353,6 +362,15 @@ impl GnuplotSettings {
 
     /// Same as write_heatmap but it assumes that the heatmap 
     /// matrix is available in the file "heatmap"
+    /// # **Safety**
+    /// 
+    /// **These gnuplot options are not meant for production!**
+    /// If you allow arbitrary user input for the gnuplot settings, the resulting gnuplot scripts can contain 
+    /// **arbitrary system calls!** 
+    /// 
+    /// Thus calling the resulting gnuplot scripts is not safe, if you have not sanitized the inputs!
+    /// 
+    /// This is not an issue if you only create scripts for yourself, i.e., if you are your own user.
     pub fn write_heatmap_external_matrix<W, P>(
         &self,
         mut writer: W,
