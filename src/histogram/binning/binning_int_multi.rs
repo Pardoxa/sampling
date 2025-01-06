@@ -348,8 +348,12 @@ mod tests{
         let binning = BinningU8::new_inclusive(250,255,2).unwrap();
         let vec: Vec<_> = binning.native_bin_iter().collect();
         assert_eq!(&vec, &[(250..=251), (252..=253), (254..=255)]);
-        let _binning = BinningU8::new_inclusive(0,255,1).unwrap();
-        let _binning = BinningU8::new_inclusive(0,255,2).unwrap();
+        let binning = BinningU8::new_inclusive(0,255,1).unwrap();
+        assert_eq!(binning.bins_m1(), 255);
+        let binning = BinningU8::new_inclusive(0,255,2).unwrap();
+        assert_eq!(binning.bins_m1(), 127);
+        let binning = BinningI8::new_inclusive(i8::MIN,i8::MAX,2).unwrap();
+        assert_eq!(binning.bins_m1(), 127);
 
         let binning = BinningI8::new_inclusive(-128,-126,1).unwrap();
         let vec: Vec<_> = binning.native_bin_iter().collect();
