@@ -38,7 +38,7 @@ pub struct GnuplotAxis{
 
 impl GnuplotAxis{
     /// Set the rotation value. 
-    /// Tics will be displayed rotaded to the right by the requested amount
+    /// Tics will be displayed rotated to the right by the requested amount
     pub fn set_rotation(&mut self, rotation_degrees: f32)
     {
         self.rotation = rotation_degrees;
@@ -122,6 +122,15 @@ impl GnuplotAxis{
 /// # Settings for gnuplot
 /// * implements default
 /// * implements builder pattern for itself
+/// # Safety
+/// 
+/// **These gnuplot options are not meant for production!**
+/// If you allow arbitrary user input for this, the resulting gnuplot scripts can contain 
+/// arbitrary system calls! 
+/// 
+/// Thus calling the resulting gnuplot scripts is not safe, if you have not sanitized the inputs!
+/// 
+/// This is not an issue if you only create scripts for yourself, i.e., if you are your own user.
 pub struct GnuplotSettings{
     /// x label for gnuplot
     pub x_label: String,
@@ -960,11 +969,17 @@ set palette functions red(map(gray)), green(map(gray)), blue(map(gray))\n")
 /// # Options for choosing gnuplot Terminal
 pub enum GnuplotTerminal{
     /// # Use EpsLatex as terminal in gnuplot
-    /// * the created gnuplotscript assumes, you have `latexmk` installed
-    /// * if you do not have latexmk, you can still use this, but you have to manually edit the 
-    ///     gnuplotscrip later on
-    /// * gnuplot script will create `.tex` file and `.pdf` file created from the tex file
     /// * The String here is the output name, i.e., the filepath of the output of gnuplot (without the .tex)
+    ///   Only alphanumeric characters, space and underscore are allowed,
+    ///   all other characters will be ignored
+    /// * the created gnuplot script assumes, you have `latexmk` installed
+    /// * if you do not have latexmk, you can still use this, but you have to manually edit the 
+    ///     gnuplot scrip later on
+    /// * gnuplot script will create `.tex` file and `.pdf` file created from the tex file
+    /// 
+    /// ## WARNING
+    /// The created gnuplot script will contain a system call to latexmk, such that a pdf file is generated from a tex file
+    /// without the need for calling latexmk afterwards. 
     EpsLatex(String),
     /// # Use pdf as gnuplot terminal
     /// * gnuplot script will create a `.pdf` file
@@ -974,6 +989,18 @@ pub enum GnuplotTerminal{
     Empty,
 }
 
+fn get_valid_filename(name: &str) -> String 
+{
+    name.chars()
+        .filter(
+            |c|
+            {
+                c.is_alphabetic() || *c == ' ' || *c == '_'
+            }
+        ).take(255)
+        .collect()
+}
+
 impl GnuplotTerminal{
     pub(crate) fn write_terminal<W: Write>(
         &self,
@@ -981,6 +1008,9 @@ impl GnuplotTerminal{
         size: &str
     ) -> std::io::Result<()>
     {
+        writeln!(writer, "reset session")?;
+        writeln!(writer, "set encoding utf8")?;
+
         let size = if size.is_empty(){
             size.to_owned()
         } else {
@@ -989,42 +1019,24 @@ impl GnuplotTerminal{
 
         match self{
             Self::EpsLatex(name) => {
+                let name = get_valid_filename(name);
                 writeln!(writer, "set t epslatex 9 standalone color{} header \"\\\\usepackage{{amsmath}}\\n\"\nset font \",9\"", size)?;
                 writeln!(writer, "set output \"{name}.tex\"")
             },
             Self::PDF(name) => {
+                let name = get_valid_filename(name);
                 writeln!(writer, "set t pdf {}", size)?;
                 writeln!(writer, "set output \"{name}.pdf\"")
             },
             Self::Empty => Ok(())
         }
     }
-    
-    //pub(crate) fn output<W: Write>(&self, name: &str, mut writer: W) -> std::io::Result<()>
-    //{
-    //    match self {
-    //        Self::EpsLatex => {
-    //            if name.ends_with(".tex") {
-    //                write!(writer, "{}", name)
-    //            } else {
-    //                write!(writer, "{}.tex", name)
-    //            }
-    //        },
-    //        Self::PDF => {
-    //            if name.ends_with(".pdf") {
-    //                write!(writer, "{}", name)
-    //            } else {
-    //                write!(writer, "{}.pdf", name)
-    //            }
-    //        },
-    //        Self::Empty => Ok(())
-    //    }
-    //}
 
     pub(crate) fn finish<W: Write>(&self, mut w: W) -> std::io::Result<()>
     {
         match self {
             Self::EpsLatex(name) => {
+                let name = get_valid_filename(name);
                 writeln!(w, "set output")?;
                 write!(w, "system('latexmk {name}.tex")?;
                 writeln!(w, " -pdf -f')")
