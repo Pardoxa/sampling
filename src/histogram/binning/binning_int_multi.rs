@@ -356,6 +356,7 @@ mod tests{
         assert_eq!(&vec, &[(-128..=-128), (-127..=-127), (-126..=-126)]);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn other_binning_hist_test()
     {
@@ -389,6 +390,7 @@ mod tests{
 
     }
 
+    #[allow(deprecated)]
     #[test]
     fn other_binning_hist_test2()
     {

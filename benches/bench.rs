@@ -188,10 +188,11 @@ pub fn bench_hists(c: &mut Criterion){
     use rand::prelude::*;
     use rand_pcg::Pcg64;
 
-    let mut hist = HistI16::new_inclusive(0, 10000, 10001)
+    let max_val = 100;
+    let mut hist = HistI16::new_inclusive(0, max_val, (max_val+1) as usize)
         .unwrap();
 
-    let uniform = Uniform::new_inclusive(0, 10000);
+    let uniform = Uniform::new_inclusive(0, max_val);
     let mut rng = Pcg64::seed_from_u64(23894623987612);
 
     c.bench_function(
@@ -211,7 +212,7 @@ pub fn bench_hists(c: &mut Criterion){
 
     let mut hist = BinningI16::new_inclusive(
         0, 
-        10001, 
+        max_val, 
         1
     ).unwrap()
     .to_generic_hist();
@@ -235,7 +236,7 @@ pub fn bench_hists(c: &mut Criterion){
 
     let mut hist = FastBinningI16::new_inclusive(
         0, 
-        10001,
+        max_val,
     ).to_generic_hist();
 
     let mut rng = Pcg64::seed_from_u64(23894623987612);
@@ -257,7 +258,7 @@ pub fn bench_hists(c: &mut Criterion){
 
     let mut hist = HistI16Fast::new_inclusive(
         0, 
-        10001,
+        max_val,
     ).unwrap();
 
     let mut rng = Pcg64::seed_from_u64(23894623987612);

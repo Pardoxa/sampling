@@ -8,9 +8,13 @@ use std::{
     }
 };
 
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
+
 
 /// # Provides Histogram functionality
 /// * Is automatically implemented for any type that implements Binning
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct AtomicGenericHist<B, T>{
     /// The binning
     pub(crate) binning: B,

@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use{
     crate::histogram::*,
     num_traits::{
@@ -22,10 +23,11 @@ use serde::{Serialize, Deserialize};
 
 /// # Generic Histogram for integer types
 /// 
-/// If possible, consider using [GenericHist] with [FastBinningI8] etc or, 
-/// if your binwidth is not 1, with [BinningI8] etc instead. 
+/// If possible, consider using [GenericHist] with [FastSingleIntBinning] or, 
+/// if your bin width is not 1, with [BinningWithWidth] instead (see [Binning::to_generic_hist]).
 /// This will likely be faster than using `HistogramInt<T>` 
 #[derive(Debug, Clone)]
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningWithWidth instead")]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct HistogramInt<T>
 {
@@ -411,41 +413,89 @@ where T: Ord
 
 
 /// # Histogram for binning `usize` - alias for `HistogramInt<usize>`
-/// * you should use `HistUsizeFast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistUsizeFast] or [GenericHist] of [FastBinningUSIZE] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningUSIZE] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningUSIZE instead")]
 pub type HistUsize = HistogramInt<usize>;
 /// # Histogram for binning `u128` - alias for `HistogramInt<u128>`
-/// * you should use `HistU128Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistU128Fast] or [GenericHist] of [FastBinningU128] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningU128] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningU128 instead")]
 pub type HistU128 = HistogramInt<u128>;
 /// # Histogram for binning `u64` - alias for `HistogramInt<u64>`
-/// * you should use `HistU64Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistU64Fast] or [GenericHist] of [FastBinningU64] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningU64] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningU64 instead")]
 pub type HistU64 = HistogramInt<u64>;
 /// # Histogram for binning `u32` - alias for `HistogramInt<u32>`
-/// * you should use `HistU32Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistU32Fast] or [GenericHist] of [FastBinningU32] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningU32] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningU32 instead")]
 pub type HistU32 = HistogramInt<u32>;
 /// # Histogram for binning `u16` - alias for `HistogramInt<u16>`
-/// * you should use `HistU16Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistU16Fast] or [GenericHist] of [FastBinningU16] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningU16] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningU16 instead")]
 pub type HistU16 = HistogramInt<u16>;
 /// # Histogram for binning `u8` - alias for `HistogramInt<u8>`
-/// * you should use `HistU8Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistU8Fast] or [GenericHist] of [FastBinningU8] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningU8] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningU8 instead")]
 pub type HistU8 = HistogramInt<u8>;
 
 /// # Histogram for binning `isize` - alias for `HistogramInt<isize>`
-/// * you should use `HistIsizeFast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistIsizeFast] or [GenericHist] of [FastBinningISIZE] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningISIZE] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningISIZE instead")]
 pub type HistIsize = HistogramInt<isize>;
 /// # Histogram for binning `i128` - alias for `HistogramInt<i128>`
-/// * you should use `HistI128Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistI128Fast] or [GenericHist] of [FastBinningI128] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningI128] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningI128 instead")]
 pub type HistI128 = HistogramInt<i128>;
 /// # Histogram for binning `i64` - alias for `HistogramInt<i64>`
-/// * you should use `HistI64Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistI64Fast] or [GenericHist] of [FastBinningI64] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningI64] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningI64 instead")]
 pub type HistI64 = HistogramInt<i64>;
 /// # Histogram for binning `i32` - alias for `HistogramInt<i32>`
-/// * you should use `HistI32Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistI32Fast] or [GenericHist] of [FastBinningI32] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningI32] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningI32 instead")]
 pub type HistI32 = HistogramInt<i32>;
 /// # Histogram for binning `i16` - alias for `HistogramInt<i16>`
-/// * you should use `HistI16Fast` instead, if your bins are `[left, left+1,..., right]`
+/// * you should use [HistI16Fast] or [GenericHist] of [FastBinningI16] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningI16] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningI16 instead")]
 pub type HistI16 = HistogramInt<i16>;
-/// # Histogram for binning `i8` - alias for `HistogramIntiu8>`
-/// * you should use `HistI8Fast` instead, if your bins are `[left, left+1,..., right]`
+/// # Histogram for binning `i8` - alias for `HistogramInt<i8>`
+/// * you should use [HistI8Fast] or [GenericHist] of [FastBinningI8] instead, if your bin width is 1
+/// * Otherwise use [GenericHist] of [BinningI8] instead (see [Binning::to_generic_hist])
+/// * This type still works fine, but is slower than the alternative. 
+/// * This type alias might be removed in future releases 
+#[deprecated(since="0.2.0", note="Use GenericHist of BinningI8 instead")]
 pub type HistI8 = HistogramInt<i8>;
 
 #[cfg(test)]
@@ -539,6 +589,7 @@ mod tests{
 
     /// This test makes sure, that HistogramInt and HistogramFast return the same partitions,
     /// when the histograms are equivalent
+    #[allow(deprecated)]
     #[test]
     fn overlapping_partition_test()
     {
@@ -638,6 +689,7 @@ mod tests{
     }
 
     /// Check, that the range of the overlapping intervals contain the whole original interval
+    #[allow(deprecated)]
     #[test]
     fn overlapping_partition_test2()
     {
@@ -681,6 +733,7 @@ mod tests{
 
     /// Check, that the range of the overlapping intervals contain the whole original interval
     /// Different binsize than the other test
+    #[allow(deprecated)]
     #[test]
     fn overlapping_partition_test3()
     {
@@ -729,6 +782,7 @@ mod tests{
         
     }
 
+    #[allow(deprecated)]
     #[test]
     fn bin_iter_test()
     {

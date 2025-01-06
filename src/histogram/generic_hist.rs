@@ -5,9 +5,13 @@ use std::{
     sync::atomic::AtomicUsize
 };
 
+#[cfg(feature = "serde_support")]
+use serde::{Serialize, Deserialize};
 
 /// # Provides Histogram functionality
 /// * Is automatically implemented for any type that implements Binning
+#[derive(Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GenericHist<B, T>{
     /// The binning
     pub(crate) binning: B,
