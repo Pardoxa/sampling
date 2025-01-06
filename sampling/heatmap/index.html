@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate heatmaps. Create Gnuplot scripts to plot said heatmaps"><title>sampling::heatmap - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-b0742ba02757f159.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sampling" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0 (90b35a623 2024-11-26)" data-channel="1.83.0" data-search-js="search-f0d225181b97f9a4.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-f070b9041d14864c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sampling/index.html">sampling</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module heatmap</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#generate-heatmaps-create-gnuplot-scripts-to-plot-said-heatmaps" title="Generate heatmaps. Create Gnuplot scripts to plot said heatmaps">Generate heatmaps. Create Gnuplot scripts to plot said heatmaps</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate sampling</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">sampling</a></span><h1>Module <span>heatmap</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sampling/heatmap.rs.html#1-98">source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="generate-heatmaps-create-gnuplot-scripts-to-plot-said-heatmaps"><a class="doc-anchor" href="#generate-heatmaps-create-gnuplot-scripts-to-plot-said-heatmaps">§</a>Generate heatmaps. Create Gnuplot scripts to plot said heatmaps</h2>
+<p>Note, you can use <a href="struct.HeatmapUsize.html" title="struct sampling::heatmap::HeatmapUsize"><code>HeatmapUsize</code></a>
+and <a href="struct.HeatmapF64.html" title="struct sampling::heatmap::HeatmapF64"><code>HeatmapF64</code></a> for <strong>all</strong> types, for which you have
+implemented a histogram</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Here a simple Heatmap is created.
+I am using random data for the heatmap, to show how it works.</p>
+<p><strong>Note</strong>: both the x and y axis will be going from 0 to 10,
+even though the y axis should go from 10 to 20.
+The reason is, that the Histograms, which the Heatmap is based upon
+do not have to be numbers at all. Therefore the default axis
+are the bin indices.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>{
+    sampling::{HistUsizeFast, HeatmapU, GnuplotSettings, GnuplotAxis, GnuplotPalette, GnuplotTerminal},
+    rand_pcg::Pcg64,
+    rand::{SeedableRng, distributions::{Uniform, Distribution}},
+    std::{fs::File, io::BufWriter}
+};
+ 
+<span class="comment">// random number generator for data creation
+</span><span class="kw">let </span><span class="kw-2">mut </span>rng = Pcg64::seed_from_u64(<span class="number">2972398345698734489</span>);
+<span class="kw">let </span>dist_x = Uniform::from(<span class="number">0</span>..<span class="number">11</span>); <span class="comment">// creates random numbers between 0 and 10
+</span><span class="kw">let </span>dist_y = Uniform::from(<span class="number">10</span>..<span class="number">21</span>); <span class="comment">// creates random numbers between 10 and 20
+ 
+// I am now creating two histograms, which will be 
+// defining the x and y axis of the heatmap
+</span><span class="kw">let </span>hist_x = HistUsizeFast::new_inclusive(<span class="number">0</span>, <span class="number">10</span>)
+    .unwrap();
+<span class="kw">let </span>hist_y = HistUsizeFast::new_inclusive(<span class="number">10</span>, <span class="number">20</span>)
+    .unwrap();
+<span class="comment">// create the Heatmap
+</span><span class="kw">let </span><span class="kw-2">mut </span>heat = HeatmapU::new(hist_x, hist_y);
+ 
+<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10000 </span>{
+    <span class="kw">let </span>x = dist_x.sample(<span class="kw-2">&amp;mut </span>rng);
+    <span class="kw">let </span>y = dist_y.sample(<span class="kw-2">&amp;mut </span>rng);
+    <span class="comment">// counting the values
+    </span>heat.count(x, y).unwrap();
+}
+ 
+<span class="comment">// creating a file to store the gnuplot script in
+</span><span class="kw">let </span>heatmap_file = File::create(<span class="string">"HeatmapU01.gp"</span>)
+    .expect(<span class="string">"unable to create file"</span>);
+<span class="kw">let </span>heatmap_writer = BufWriter::new(heatmap_file);
+<span class="kw">let </span><span class="kw-2">mut </span>settings = GnuplotSettings::default();
+settings.terminal(GnuplotTerminal::PDF(<span class="string">"HeatmapU01"</span>.to_owned()));
+ 
+<span class="comment">// creating the gnuplot script
+</span>heat.gnuplot(
+    heatmap_writer,
+    <span class="kw-2">&amp;</span>settings
+).unwrap();
+ 
+<span class="comment">// for correct axis, you have to set them yourself,
+// since the histograms do not even need to be numeric
+</span><span class="kw">let </span>x_axis = GnuplotAxis::new(<span class="number">0.0</span>, <span class="number">10.0</span>, <span class="number">6</span>);
+<span class="kw">let </span>y_axis = GnuplotAxis::new(<span class="number">10.0</span>, <span class="number">20.0</span>, <span class="number">6</span>);
+settings.x_axis(x_axis)
+    .y_axis(y_axis)
+<span class="comment">// you can also change the color space, if you like
+    </span>.palette(GnuplotPalette::PresetRGB)
+    .terminal(GnuplotTerminal::PDF(<span class="string">"HeatmapU02"</span>.to_owned()));
+ 
+<span class="comment">// creating a file to store the gnuplot script in
+</span><span class="kw">let </span>heatmap_file = File::create(<span class="string">"HeatmapU02.gp"</span>)
+    .expect(<span class="string">"unable to create file"</span>);
+<span class="kw">let </span>heatmap_writer = BufWriter::new(heatmap_file);
+
+heat.gnuplot(
+    heatmap_writer,
+    settings
+).unwrap();</code></pre></div>
+<p>Now you can create the plots by calling</p>
+<div class="example-wrap"><pre class="language-bash"><code>gnuplot HeatmapU01.gp HeatmapU02.gp</code></pre></div>
+<p>which will create <code>HeatmapU01.pdf</code> and  <code>HeatmapU02.pdf</code></p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ColorRGB.html" title="struct sampling::heatmap::ColorRGB">ColorRGB</a></div><div class="desc docblock-short">RGB value</div></li><li><div class="item-name"><a class="struct" href="struct.CubeHelixParameter.html" title="struct sampling::heatmap::CubeHelixParameter">Cube<wbr>Helix<wbr>Parameter</a></div><div class="desc docblock-short">Implements color palett from <a href="https://arxiv.org/abs/1108.5083">https://arxiv.org/abs/1108.5083</a></div></li><li><div class="item-name"><a class="struct" href="struct.GnuplotAxis.html" title="struct sampling::heatmap::GnuplotAxis">Gnuplot<wbr>Axis</a></div><div class="desc docblock-short">For labeling the gnuplot plots axis</div></li><li><div class="item-name"><a class="struct" href="struct.GnuplotPointSettings.html" title="struct sampling::heatmap::GnuplotPointSettings">Gnuplot<wbr>Point<wbr>Settings</a></div><div class="desc docblock-short">Defines gnuplot point</div></li><li><div class="item-name"><a class="struct" href="struct.GnuplotSettings.html" title="struct sampling::heatmap::GnuplotSettings">Gnuplot<wbr>Settings</a></div><div class="desc docblock-short">Settings for gnuplot</div></li><li><div class="item-name"><a class="struct" href="struct.HeatmapF64.html" title="struct sampling::heatmap::HeatmapF64">Heatmap<wbr>F64</a></div><div class="desc docblock-short">Heatmap</div></li><li><div class="item-name"><a class="struct" href="struct.HeatmapF64Mean.html" title="struct sampling::heatmap::HeatmapF64Mean">Heatmap<wbr>F64Mean</a></div><div class="desc docblock-short">Heatmap with mean of y-axis</div></li><li><div class="item-name"><a class="struct" href="struct.HeatmapUsize.html" title="struct sampling::heatmap::HeatmapUsize">Heatmap<wbr>Usize</a></div><div class="desc docblock-short">Heatmap</div></li><li><div class="item-name"><a class="struct" href="struct.HeatmapUsizeMean.html" title="struct sampling::heatmap::HeatmapUsizeMean">Heatmap<wbr>Usize<wbr>Mean</a></div><div class="desc docblock-short">Heatmap with mean of y-axis</div></li><li><div class="item-name"><a class="struct" href="struct.PaletteRGB.html" title="struct sampling::heatmap::PaletteRGB">PaletteRGB</a></div><div class="desc docblock-short">A color palette in RGB space</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.GnuplotPalette.html" title="enum sampling::heatmap::GnuplotPalette">Gnuplot<wbr>Palette</a></div><div class="desc docblock-short">defines presets for different color palettes</div></li><li><div class="item-name"><a class="enum" href="enum.GnuplotTerminal.html" title="enum sampling::heatmap::GnuplotTerminal">Gnuplot<wbr>Terminal</a></div><div class="desc docblock-short">Options for choosing gnuplot Terminal</div></li><li><div class="item-name"><a class="enum" href="enum.HeatmapError.html" title="enum sampling::heatmap::HeatmapError">Heatmap<wbr>Error</a></div><div class="desc docblock-short">Errors of Heatmap</div></li><li><div class="item-name"><a class="enum" href="enum.Labels.html" title="enum sampling::heatmap::Labels">Labels</a></div><div class="desc docblock-short">For labeling the gnuplot plots axis</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.heatmap_index.html" title="fn sampling::heatmap::heatmap_index">heatmap_<wbr>index</a></div><div class="desc docblock-short">Get index of heatmap corresponding to a coordinate</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.HeatmapU.html" title="type sampling::heatmap::HeatmapU">HeatmapU</a></div><div class="desc docblock-short">Shorthand for HeatmapUsize</div></li></ul></section></div></main></body></html>
