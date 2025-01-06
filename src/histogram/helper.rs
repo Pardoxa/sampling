@@ -1,5 +1,6 @@
 use num_traits::{ops::wrapping::*, Bounded};
 use std::mem;
+use std::marker::PhantomData;
 
 /// Helper trait for efficient calculations in other implementations
 pub trait HasUnsignedVersion {
@@ -75,6 +76,86 @@ where T: num_traits::Bounded + HasUnsignedVersion + WrappingSub + Bounded,
 {
     let u = u.wrapping_sub(&T::from_le_bytes(V::min_value().to_le_bytes()));
     V::from_le_bytes(u.to_le_bytes())
+}
+
+
+/// This is basically ArrayWindows from the standard library
+/// This will be replaced by a call to ArrayWindows as soon 
+/// as ArrayWindows is no longer behind a feature gate
+/// (see https://doc.rust-lang.org/std/slice/struct.ArrayWindows.html)
+pub(crate) struct BorderWindow<'a, T: 'a>{
+    slice_head: *const T,
+    num: usize,
+    marker: PhantomData<&'a [T;2]>
+}
+
+impl<'a, T: 'a> BorderWindow<'a, T>{
+    pub(crate) fn new(slice: &'a [T]) -> Self
+    {
+        let num_windows = slice.len().saturating_sub(1);
+        Self{
+            slice_head: slice.as_ptr(),
+            num: num_windows,
+            marker: PhantomData
+        }
+    }
+}
+
+impl<'a, T> Iterator for BorderWindow<'a, T>
+{
+    type Item = &'a [T;2];
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item>
+    {
+        if self.num == 0 {
+            return None;
+        }
+
+        let ret = unsafe {
+            &*self.slice_head.cast::<[T;2]>()
+        };
+
+        self.slice_head = unsafe{
+            self.slice_head.add(1)
+        };
+
+        self.num -= 1;
+        Some(ret)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>)
+    {
+        (self.num, Some(self.num))
+    }
+
+    #[inline]
+    fn count(self) -> usize
+    {
+        self.num
+    }
+
+    #[inline]
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        if self.num <= n {
+            self.num = 0;
+            return None;
+        }
+        // SAFETY:
+        // This is safe because it's indexing into a slice guaranteed to be length > N.
+        let ret = unsafe { &*self.slice_head.add(n).cast::<[T; 2]>() };
+        // SAFETY: Guaranteed that there are at least n items remaining
+        self.slice_head = unsafe { self.slice_head.add(n + 1) };
+
+        self.num -= n + 1;
+        Some(ret)
+    }
+
+    #[inline]
+    fn last(mut self) -> Option<Self::Item> {
+        self.nth(self.num.checked_sub(1)?)
+    }
 }
 
 

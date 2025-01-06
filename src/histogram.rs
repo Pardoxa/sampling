@@ -7,7 +7,7 @@
 //! I did not remove the slower implementation, because then I'd have to change all 
 //! of my other code in which I use them ^^"
 //! 
-//! Anyhow, here is an example for using a fast histogram with bin width 1 
+//! Anyhow, here is an example for using a fast histogram with bin width 3
 //! 
 //! ```
 //! use sampling::histogram::*;
@@ -28,7 +28,7 @@
 //!     .take(10000);
 //! for val in iter{
 //!     hist.count_val(val)
-//!         .unwrap(); // will panic if a value were to be outside the hist 
+//!         .unwrap(); // would panic if a value were to be outside the hist 
 //!     // alternatively, if you don't want the panic:
 //!     // let _ = hist.count_val(val);
 //! }
@@ -59,7 +59,7 @@
 //! for val in iter{
 //! 
 //!     hist.count_val(val)
-//!         .unwrap(); // will panic if a value were to be outside the hist 
+//!         .unwrap(); // would panic if a value were to be outside the hist 
 //!     // alternatively, if you don't want the panic:
 //!     // let _ = hist.count_val(val);
 //! }
@@ -96,7 +96,7 @@
 //!                 .take(10000);
 //!             for val in iter{
 //!                 atomic_hist.count_val(val)
-//!                     .unwrap(); // will panic if a value were to be outside the hist 
+//!                     .unwrap(); // would panic if a value were to be outside the hist 
 //!                 // alternatively, if you don't want the panic:
 //!                 // let _ = hist.count_val(val);
 //!             }
@@ -109,7 +109,7 @@
 //! 
 //! // You can also convert the generic atomic histogram into a normal histogram.
 //! let hist = atomic_hist.into_generic_hist();
-//! // You can also convert it back:
+//! // You can also convert it the other way round
 //! let atomic_hist = hist.into_atomic_generic_hist();
 //! ```
 
@@ -118,7 +118,7 @@ mod histogram_float;
 mod histogram_int;
 mod helper;
 mod histogram_fast;
-mod atomic_hist_int;
+
 mod atomic_hist_float;
 mod binning;
 mod generic_hist;
@@ -129,7 +129,7 @@ pub use histogram_float::*;
 pub use histogram_int::*;
 pub use helper::*;
 pub use histogram_fast::*;
-pub use atomic_hist_int::*;
+
 pub use atomic_hist_float::*;
 pub use binning::*;
 pub use generic_hist::*;

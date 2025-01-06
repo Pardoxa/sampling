@@ -26,7 +26,9 @@ use num_bigint::BigUint;
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
 
-/// Generic binning meant for any integer type
+/// # Generic binning meant for any integer type
+/// The bin width of this binning is always 1, so we can optimize it a bit.
+/// There are type aliases for all the common integer types, e.g. [FastBinningU8]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct FastSingleIntBinning<T>{
@@ -48,7 +50,6 @@ macro_rules! impl_binning {
             The operation is: a * b / denominator.\n\n \
             However this function guards against an overflow of a * b. \n\n As long as the mathematical result of a * b / denominator \
             is representable as unsigned version of `<" $t " as HasUnsignedVersion>::Unsigned` then the mathematical answer is returned. Otherwise, None is returned\n\n ## Note: \n\n `denominator` is not allowed to be 0"]
-
             pub fn [< checked_mul_div_ $t >] (
                 a: <$t as HasUnsignedVersion>::Unsigned, 
                 b: <$t as HasUnsignedVersion>::Unsigned,

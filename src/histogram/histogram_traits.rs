@@ -1,4 +1,9 @@
-use std::{borrow::*,num::NonZeroUsize, cmp::Ordering};
+use std::{
+    borrow::*,
+    num::NonZeroUsize, 
+    cmp::Ordering,
+    sync::atomic::AtomicUsize
+};
 
 #[cfg(feature = "serde_support")]
 use serde::{Serialize, Deserialize};
@@ -184,4 +189,64 @@ pub enum HistErrors{
     /// And another one with bins `[[5,6], [7,8]]`. Now we cannot create 
     /// an encapsulating histogram, since the number 5 appears in 2 different bins!
     Alignment
+}
+
+/// # Implements histogram
+/// * anything that implements `Histogram` should also implement the trait `HistogramVal`
+pub trait AtomicHistogram {
+    /// # `self.hist[index] += 1`, `Err()` if `index` out of bounds
+    #[inline(always)]
+    fn count_index(&self, index: usize) -> Result<(), HistErrors>{
+        self.count_multiple_index(index, 1)
+    }
+
+    /// # `self.hist[index] += count`, `Err()` if `index` out of bounds
+    fn count_multiple_index(&self, index: usize, count: usize) -> Result<(), HistErrors>;
+
+    /// # the created histogram
+    /// Since this uses atomics, you can also write to the underlying hist yourself,
+    /// if you so desire
+    fn hist(&self) -> &[AtomicUsize];
+
+    /// # How many bins the histogram contains
+    #[inline(always)]
+    fn bin_count(&self) -> usize
+    {
+        self.hist().len()
+    }
+    /// reset the histogram to zero
+    fn reset(&mut self);
+
+    /// # check if any bin was not hit yet
+    /// * Uses SeqCst Ordering
+    fn any_bin_zero(&self) -> bool
+    {
+        self.hist()
+            .iter()
+            .any(|val| val.load(std::sync::atomic::Ordering::SeqCst) == 0)
+    }
+}
+
+
+/// * trait used for mapping values of arbitrary type `T` to bins
+/// * used to create a histogram
+pub trait AtomicHistogramVal<T>{
+    /// convert val to the respective histogram index
+    fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
+    /// count val. `Ok(index)`, if inside of hist, `Err(_)` if val is invalid
+    fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>;
+    /// does a value correspond to a valid bin?
+    fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    /// opposite of `is_inside`
+    fn not_inside<V: Borrow<T>>(&self, val: V) -> bool;
+    /// get the left most border (inclusive)
+    fn first_border(&self) -> T;
+
+    /// # Get border on the right
+    /// * Note: This border might be inclusive or exclusive
+    fn last_border(&self) -> T;
+    /// # calculates some sort of absolute distance to the nearest valid bin
+    /// * any invalid numbers (like NAN or INFINITY) should have the highest distance possible
+    /// * if a value corresponds to a valid bin, the distance should be zero
+    fn distance<V: Borrow<T>>(&self, val: V) -> f64;
 }

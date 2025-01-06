@@ -35,12 +35,11 @@ pub enum Bin<T>
 
 
 /// # Implements Binning
-/// * Part of a histogram, but without the capability of counting stuff
+/// Part of a histogram, but without the capability of counting stuff, i.e.,
+/// you can use this to iterate through the bins or to get the bin index that a certain value would 
+/// correspond to, but it does not contain counters to track this.
 /// 
-/// # Note
-/// * Currently binning is not used in this lib. But I plan to Refactor the histograms 
-///     in the next breaking release such that one only has to implement Binning 
-///     and can create a histogram from that
+/// You can use this to create histograms, see [GenericHist] or [AtomicGenericHist]
 pub trait Binning<T>{
     /// convert val to the respective binning index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Option<usize>;
@@ -50,29 +49,28 @@ pub trait Binning<T>{
     fn get_bin_len(&self) -> usize;
 
     /// # Iterates over all bins
-    /// * Note: Most (currently all) implementations use more efficient representations of the bins underneath,
-    ///     but are capable of returning the bins in this representation on request
-    /// * Also look if the Binning you use implements another method for the bin borders, e.g., `single_valued_bin_iter`,
-    ///     as that is more efficient
+    /// Note: Most (currently all) implementations use more efficient representations of the bins underneath,
+    ///     but are capable of returning the bins in this representation on request. 
+    ///     So it's better to use the native iterator instead, if you can.
     fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<T>>>;
 
     /// Does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
 
-    /// Opposite of `is_inside`
+    /// Opposite of `is_inside`, so: is the value outside the valid range?
     fn not_inside<V: Borrow<T>>(&self, val: V) -> bool;
 
-    /// get the left most border (inclusive)
+    /// get the left most border (inclusive). This is the first value that lies inside the binning
     fn first_border(&self) -> T;
 
-    /// * get last border from the right
-    /// * Note: this border might be inclusive or exclusive
+    /// * If the last border is inclusive, this returns the largest value that is still inside the binning.
+    /// * If the last border is exclusive, this is the first value which is **not** inside the binning.
     fn last_border(&self) -> T;
 
     /// # True if last border is inclusive, false otherwise
-    /// * For most use cases this will return a constant value,
-    ///     as this is likely only dependent on the underlying type and not 
-    ///     on something that changes dynamically
+    /// For most use cases this will return a constant value,
+    /// as this is likely only dependent on the underlying type and not 
+    /// on something that changes dynamically
     fn last_border_is_inclusive(&self) -> bool;
 
     /// # calculates some sort of absolute distance to the nearest valid bin
@@ -80,36 +78,24 @@ pub trait Binning<T>{
     /// * if a value corresponds to a valid bin, the distance should be zero
     fn distance<V: Borrow<T>>(&self, val: V) -> f64;
 
-    /// # Convert binning into generic histogram
+    /// # Convert binning into [GenericHist]
+    /// Useful histogram for single threaded context's. 
+    /// Otherwise [AtomicGenericHist] might be more useful (see also [Binning::to_generic_atomic_hist])
     fn to_generic_hist(self) -> GenericHist<Self, T>
     where Self: Sized
     {
         GenericHist::new(self)
     }
 
-    /// # Convert binning into a generic atomic histogram
-    /// Useful if you want to create the histogram in parallel
+    /// # Convert binning into a [AtomicGenericHist]
+    /// Useful histogram if you want to create the histogram in parallel, but otherwise has less functionality 
+    /// than [GenericHist] (see also [Binning::to_generic_hist])
     fn to_generic_atomic_hist(self) -> AtomicGenericHist<Self, T>
     where Self: Sized
     {
         AtomicGenericHist::new(self)
     }
 }
-
-
-
-#[derive(Clone, Copy, Debug)]
-/// # What is the BinType?
-/// Mainly useful for generic functions
-pub enum BinType{
-    /// The bin can be defined via a single value
-    SingleValued,
-    /// the bin is defined by a left inclusive and a right exclusive border
-    InclusiveExclusive,
-    /// The bin is defined by a left exclusive and a left inclusive border
-    ExclusiveInclusive
-}
-
 
 /// # Trait used to display bins
 /// * This is, e.g., used by the glue writers to write the bins of the merged results

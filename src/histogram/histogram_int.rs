@@ -12,8 +12,7 @@ use{
     std::{
         borrow::*,
         ops::*,
-        num::*,
-        sync::atomic::*
+        num::*
     }
 };
 
@@ -32,21 +31,6 @@ pub struct HistogramInt<T>
 {
     pub(crate) bin_borders: Vec<T>,
     pub(crate) hist: Vec<usize>,
-}
-
-impl<T> From<AtomicHistogramInt<T>> for HistogramInt<T>
-{
-    fn from(other: AtomicHistogramInt<T>) -> Self
-    {
-        let hist = other.hist
-            .into_iter()
-            .map(AtomicUsize::into_inner)
-            .collect();
-        Self{
-            hist, 
-            bin_borders: other.bin_borders
-        }
-    }
 }
 
 impl<T> HistogramInt<T>{
