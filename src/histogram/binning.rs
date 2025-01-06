@@ -89,10 +89,10 @@ pub trait Binning<T>{
 
     /// # Convert binning into a generic atomic histogram
     /// Useful if you want to create the histogram in parallel
-    fn to_generic_atomic_hist(self) -> GenericAtomicHist<Self, T>
+    fn to_generic_atomic_hist(self) -> AtomicGenericHist<Self, T>
     where Self: Sized
     {
-        GenericAtomicHist::new(self)
+        AtomicGenericHist::new(self)
     }
 }
 

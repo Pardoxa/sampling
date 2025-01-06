@@ -11,7 +11,7 @@ use std::{
 
 /// # Provides Histogram functionality
 /// * Is automatically implemented for any type that implements Binning
-pub struct GenericAtomicHist<B, T>{
+pub struct AtomicGenericHist<B, T>{
     /// The binning
     pub(crate) binning: B,
     /// Here we count the hits of the histogram
@@ -20,7 +20,7 @@ pub struct GenericAtomicHist<B, T>{
     pub(crate) phantom: PhantomData<T>
 }
 
-impl<B, T> GenericAtomicHist<B, T> 
+impl<B, T> AtomicGenericHist<B, T> 
 where B: Binning<T>{
     /// Create a new histogram from an arbitrary binning
     pub fn new(binning: B) -> Self{
@@ -75,10 +75,17 @@ where B: Binning<T>{
                 |val| val.load(Ordering::Relaxed)
             )
     }
+
+    /// Converts self into a Generic hist, i.e., a histogram without the atomic part.
+    /// This can be easier to deal with when you are single threaded and might have more functionality
+    pub fn into_generic_hist(self) -> GenericHist<B, T>
+    {
+        self.into()
+    }
 }
 
 
-impl<B, T> AtomicHistogram for GenericAtomicHist<B, T>
+impl<B, T> AtomicHistogram for AtomicGenericHist<B, T>
 {
     fn hist(&self) -> &[AtomicUsize] {
         &self.hits
@@ -99,7 +106,7 @@ impl<B, T> AtomicHistogram for GenericAtomicHist<B, T>
     }
 }
 
-impl<B, T> AtomicHistogramVal<T> for GenericAtomicHist<B, T>
+impl<B, T> AtomicHistogramVal<T> for AtomicGenericHist<B, T>
 where B: Binning<T>
 
 {
@@ -139,15 +146,15 @@ where B: Binning<T>
     }
 }
 
-impl<B, T> From<B> for GenericAtomicHist<B, T>
+impl<B, T> From<B> for AtomicGenericHist<B, T>
 where B: Binning<T>
 {
     fn from(binning: B) -> Self {
-        GenericAtomicHist::new(binning)
+        AtomicGenericHist::new(binning)
     }
 }
 
-impl<B, T> From<GenericHist<B, T>> for GenericAtomicHist<B, T>
+impl<B, T> From<GenericHist<B, T>> for AtomicGenericHist<B, T>
 {
     fn from(generic: GenericHist<B, T>) -> Self {
         let hits = generic.hits
@@ -155,7 +162,7 @@ impl<B, T> From<GenericHist<B, T>> for GenericAtomicHist<B, T>
             .map(AtomicUsize::new)
             .collect();
 
-        GenericAtomicHist{
+        AtomicGenericHist{
             binning: generic.binning,
             phantom: generic.phantom,
             hits

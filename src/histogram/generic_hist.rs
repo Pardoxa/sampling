@@ -6,7 +6,7 @@ use std::{
 };
 
 
-/// # Provides Histogram functionallity
+/// # Provides Histogram functionality
 /// * Is automatically implemented for any type that implements Binning
 pub struct GenericHist<B, T>{
     /// The binning
@@ -32,6 +32,13 @@ where B: Binning<T>{
     pub fn binning(&self) -> &B
     {
         &self.binning
+    }
+
+    /// Converts self into an atomic histogram,
+    /// such that you may parallelize your operations
+    pub fn into_atomic_generic_hist(self) -> AtomicGenericHist<B, T>
+    {
+        self.into()
     }
 }
 
@@ -128,9 +135,9 @@ where B: Binning<T>
     }
 }
 
-impl<B, T> From<GenericAtomicHist<B, T>> for GenericHist<B, T>
+impl<B, T> From<AtomicGenericHist<B, T>> for GenericHist<B, T>
 {
-    fn from(generic_atomic: GenericAtomicHist<B, T>) -> Self {
+    fn from(generic_atomic: AtomicGenericHist<B, T>) -> Self {
         let hits = generic_atomic.hits
             .into_iter()
             .map(AtomicUsize::into_inner)

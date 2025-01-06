@@ -78,7 +78,7 @@
 //! use rayon::prelude::*;
 //! 
 //! // now I use one of the type aliases to first create the binning and then the histogram:
-//! let mut hist = BinningI16::new_inclusive(-20,132, 3)
+//! let mut atomic_hist = BinningI16::new_inclusive(-20,132, 3)
 //!     .unwrap()
 //!     .to_generic_atomic_hist();
 //! 
@@ -95,7 +95,7 @@
 //!                 .sample_iter(rng) 
 //!                 .take(10000);
 //!             for val in iter{
-//!                 hist.count_val(val)
+//!                 atomic_hist.count_val(val)
 //!                     .unwrap(); // will panic if a value were to be outside the hist 
 //!                 // alternatively, if you don't want the panic:
 //!                 // let _ = hist.count_val(val);
@@ -103,9 +103,14 @@
 //!         }
 //!     );
 //! assert_eq!(
-//!     hist.total_hits(), 
+//!     atomic_hist.total_hits(), 
 //!     40000
 //! );
+//! 
+//! // You can also convert the generic atomic histogram into a normal histogram.
+//! let hist = atomic_hist.into_generic_hist();
+//! // You can also convert it back:
+//! let atomic_hist = hist.into_atomic_generic_hist();
 //! ```
 
 mod histogram_traits;
@@ -117,7 +122,7 @@ mod atomic_hist_int;
 mod atomic_hist_float;
 mod binning;
 mod generic_hist;
-mod generic_atomic_hist;
+mod atomic_generic_hist;
 
 pub use histogram_traits::*;
 pub use histogram_float::*;
@@ -128,4 +133,4 @@ pub use atomic_hist_int::*;
 pub use atomic_hist_float::*;
 pub use binning::*;
 pub use generic_hist::*;
-pub use generic_atomic_hist::*;
+pub use atomic_generic_hist::*;
