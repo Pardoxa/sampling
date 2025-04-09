@@ -56,7 +56,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// # Create a new Histogram
     /// * right exclusive, left inclusive
     /// * if you want `right` to behave (almost) the same as an inclusive border,
-    ///     consider using `new(left, right + T::EPSILON, bins)` (make sure, that adding Epsilon actually changes the value!)
+    ///   consider using `new(left, right + T::EPSILON, bins)` (make sure, that adding Epsilon actually changes the value!)
     pub fn new(left: T, right: T, bins: usize) -> Result<Self, HistErrors>
     {
         if left >= right {

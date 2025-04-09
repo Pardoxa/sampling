@@ -61,15 +61,15 @@ pub trait Entropic
     
     /// # Current (non normalized) estimate of ln(P(E))
     /// * i.e., of the natural logarithm of the 
-    ///     probability density function
-    ///     for the requested interval
+    ///   probability density function
+    ///   for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density(&self) -> Vec<f64>;
 
     /// # Current (non normalized) estimate of log10(P(E))
     /// * i.e., of logarithm with base 10 of the 
-    ///     probability density function
-    ///     for the requested interval
+    ///   probability density function
+    ///   for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density_base10(&self) -> Vec<f64>{
         let mut density = self.log_density();
@@ -82,8 +82,8 @@ pub trait Entropic
 
     /// # Current (non normalized) estimate of log_base(P(E))
     /// * i.e., of logarithm with arbitrary base of the 
-    ///     probability density function
-    ///     for the requested interval
+    ///   probability density function
+    ///   for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density_base(&self, base: f64) -> Vec<f64>{
         let factor = std::f64::consts::E.log(base);
@@ -110,8 +110,8 @@ pub trait EntropicEnsemble<E> : Entropic
     /// # returns mutable reference to ensemble
     /// ## Safety
     /// * If, whatever you do with the ensemble, changes the 
-    ///     energy of the current state, 
-    ///     you cannot trust the results of entropic sampling anymore
+    ///   energy of the current state, 
+    ///   you cannot trust the results of entropic sampling anymore
     /// * use with care
     unsafe fn ensemble_mut(&mut self) -> &mut E;
 }

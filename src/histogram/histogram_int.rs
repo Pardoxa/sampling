@@ -171,7 +171,7 @@ where T: PartialOrd + ToPrimitive + FromPrimitive + CheckedAdd + One + HasUnsign
     /// * `bins`: how many bins do you need?
     /// # Note
     /// * `(right - left) % bins == 0` has to be true, otherwise
-    ///     the bins cannot all have the same length!
+    ///   the bins cannot all have the same length!
     pub fn new(left: T, right: T, bins: usize) -> Result<Self, HistErrors> {
         if left >= right {
             return Err(HistErrors::IntervalWidthZero);
@@ -213,10 +213,10 @@ where T: PartialOrd + ToPrimitive + FromPrimitive + CheckedAdd + One + HasUnsign
     }
     /// # Create a new histogram
     /// * equivalent to [`Self::new(left, right + 1, bins)`](#method.new)
-    ///     (except that this method checks for possible overflow)
+    ///   (except that this method checks for possible overflow)
     /// # Note:
     /// * Due to implementation details, `right` cannot be `T::MAX` - 
-    ///     if you try, you will get `Err(HistErrors::Overflow)`
+    ///   if you try, you will get `Err(HistErrors::Overflow)`
     pub fn new_inclusive(left: T, right: T, bins: usize) -> Result<Self, HistErrors>
     {
         let right = match right.checked_add(&T::one()){

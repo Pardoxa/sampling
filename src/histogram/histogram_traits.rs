@@ -73,8 +73,8 @@ pub trait HistogramVal<T>{
 
     /// # True if last border is inclusive, false otherwise
     /// * For most usecases this will return a constant value,
-    ///     as this is likely only dependent on the underlying type and not 
-    ///     on something that changes dynamically
+    ///   as this is likely only dependent on the underlying type and not 
+    ///   on something that changes dynamically
     fn last_border_is_inclusive(&self) -> bool;
 
     /// # calculates some sort of absolute distance to the nearest valid bin
@@ -90,7 +90,7 @@ pub trait HistogramVal<T>{
 pub trait HistogramIntervalDistance<T> {
     /// # Distance metric for how far a value is from a valid interval
     /// * partitions in more intervals, checks which bin interval a bin corresponds to 
-    ///     and returns distance of said interval to the target interval
+    ///   and returns distance of said interval to the target interval
     /// * used for heuristics
     /// * overlap should be bigger 0, otherwise it will be set to 1
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize;

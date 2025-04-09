@@ -26,7 +26,7 @@ pub type GluedResult<Hist, Energy> = Result<Glued<Hist, Energy>, HistErrors>;
 /// Use the short hand [`Rewl`](crate::Rewl)  
 /// ## Citations
 /// * the following paper were used to program this - you should cite them, if you use 
-///     this library for a publication!
+///   this library for a publication!
 /// 
 /// > Y. W. Li, T. Vogel, T. Wüst and D. P. Landau,
 /// > “A new paradigm for petascale Monte Carlo simulation: Replica exchange Wang-Landau sampling,”
@@ -191,9 +191,9 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// # read access to your ensembles
     /// * `None` if `index` out of range
     /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
-    ///     you can just pretend it is `&Ensemble` and everything will work out fine,
-    ///     since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
-    ///     Of course, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
+    ///   you can just pretend it is `&Ensemble` and everything will work out fine,
+    ///   since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+    ///   Of course, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
     pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
     {
         self.ensembles
@@ -205,7 +205,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * if possible, prefer [`ensemble_iter`](Self::ensemble_iter)
     /// ## Safety
     /// * it is assumed, that whatever you change has no effect on the 
-    ///     Markov Chain, the result of the energy function etc. 
+    ///   Markov Chain, the result of the energy function etc. 
     /// * might **panic** if a thread is poisoned
     pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=&mut Ensemble>
     {
@@ -219,7 +219,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// * None if `index` out of range
     /// ## Safety
     /// * it is assumed, that whatever you change has no effect on the 
-    ///     Markov Chain, the result of the energy function etc. 
+    ///   Markov Chain, the result of the energy function etc. 
     /// * might **panic** if a thread is poisoned
     pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<&mut Ensemble>
     {
@@ -590,7 +590,7 @@ impl<Ensemble, R, Hist, Energy, S, Res> Rewl<Ensemble, R, Hist, Energy, S, Res>
     /// 
     /// # Important
     /// * The vector `extra` must be exactly as long as the walker slice and 
-    ///     each walker is assigned the corresponding entry from the vector `extra`
+    ///   each walker is assigned the corresponding entry from the vector `extra`
     /// * You can look at the walker slice with the [walkers](`crate::rewl::Rewl::walkers`) method
     #[allow(clippy::type_complexity, clippy::result_large_err)]
     pub fn into_rees_with_extra<Extra>(self, extra: Vec<Extra>) -> Result<Rees<Extra, Ensemble, R, Hist, Energy, S, Res>, (Self, Vec<Extra>)>
@@ -644,7 +644,7 @@ where R: Send + Sync + Rng + SeedableRng,
 
     /// # Perform the Replica exchange wang landau simulation
     /// * will simulate until **all** walkers have factors `log_f`
-    ///     that are below the threshold you chose
+    ///   that are below the threshold you chose
     pub fn simulate_until_convergence<F>(
         &mut self,
         energy_fn: F
@@ -662,7 +662,7 @@ where R: Send + Sync + Rng + SeedableRng,
 
     /// # Perform the Replica exchange wang landau simulation
     /// * will simulate until **all** walkers have factors `log_f`
-    ///     that are below the threshold you chose **or**
+    ///   that are below the threshold you chose **or**
     /// * until condition returns false
     pub fn simulate_while<F, C>(
         &mut self,
@@ -683,7 +683,7 @@ where R: Send + Sync + Rng + SeedableRng,
 
     /// # Sanity check
     /// * checks if the stored (i.e., last) energy(s) of the system
-    ///     match with the result of energy_fn
+    ///   match with the result of energy_fn
     pub fn check_energy_fn<F>(
         &mut self,
         energy_fn: F
@@ -701,7 +701,7 @@ where R: Send + Sync + Rng + SeedableRng,
     /// # Sweep
     /// * Performs one sweep of the Replica exchange wang landau simulation
     /// * You can make a complete simulation, by repeatedly calling this method
-    ///     until `self.is_finished()` returns true
+    ///   until `self.is_finished()` returns true
     pub fn sweep<F>(&mut self, energy_fn: F)
     where Ensemble: Send + Sync,
         R: Send + Sync,

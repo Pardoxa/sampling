@@ -131,9 +131,9 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     /// # read access to your ensembles
     /// * None if index out of range
     /// * If you do not know what `RwLockReadGuard<Ensemble>` is - do not worry.
-    ///     you can just pretend it is `&Ensemble` and everything will work out fine,
-    ///     since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
-    ///     Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
+    ///   you can just pretend it is `&Ensemble` and everything will work out fine,
+    ///   since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+    ///   Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
     pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
     {
         self.ensembles
@@ -148,7 +148,7 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     /// ## Safety
     /// * might **panic** if a thread is poisoned
     /// * it is assumed, that whatever you change has no effect on the 
-    ///     Markov Chain, the result of the energy function etc. 
+    ///   Markov Chain, the result of the energy function etc. 
     pub unsafe fn get_ensemble_mut(&mut self, index: usize) -> Option<&mut Ensemble>
     {
         self.ensembles
@@ -160,7 +160,7 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     /// * if possible, prefer [`ensemble_iter`](Self::ensemble_iter)
     /// ## Safety
     /// * it is assumed, that whatever you change has no effect on the 
-    ///     Markov Chain, the result of the energy function etc. 
+    ///   Markov Chain, the result of the energy function etc. 
     /// * might **panic** if a thread is poisoned
     pub unsafe fn ensemble_iter_mut(&mut self) -> impl Iterator<Item=&mut Ensemble>
     {
@@ -276,9 +276,9 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
     /// # Returns internal walkers
     /// * access to internal slice of walkers
     /// * the walkers are sorted and neighboring walker are either 
-    ///     sampling the same interval, or a neighboring 
-    ///     (and if the replica exchange makes any sense overlapping)
-    ///     interval
+    ///   sampling the same interval, or a neighboring 
+    ///   (and if the replica exchange makes any sense overlapping)
+    ///   interval
     pub fn walkers(&self) -> &[ReesWalker<R, Hist, Energy, S, Res>]
     {
         &self.walker
@@ -394,7 +394,7 @@ impl<Extra, Ensemble, R, Hist, Energy, S, Res> Rees<Extra, Ensemble, R, Hist, En
 
     /// # Remove extra vector
     /// * returns tuple of Self (without extra, i.e., `Rees<(), Ensemble, R, Hist, Energy, S, Res>`)
-    ///     and vector of Extra
+    ///   and vector of Extra
     #[allow(clippy::type_complexity)]
     pub fn unpack_extra(self) -> (Rees<(), Ensemble, R, Hist, Energy, S, Res>, Vec<Extra>)
     {
@@ -573,7 +573,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
     /// # Sweep
     /// * Performs one sweep of the Replica exchange entropic sampling simulation
     /// * You can make a complete simulation, by repeatedly calling this method
-    ///     until `self.is_finished()` returns true
+    ///   until `self.is_finished()` returns true
     pub fn sweep<F, P>
     (
         &mut self,
@@ -718,7 +718,7 @@ where Ensemble: Send + Sync + MarkovChain<S, Res>,
 
     /// # Sanity check
     /// * checks if the stored (i.e., last) energy(s) of the system
-    ///     match with the result of energy_fn
+    ///   match with the result of energy_fn
     pub fn check_energy_fn<F>(
         &mut self,
         energy_fn: F

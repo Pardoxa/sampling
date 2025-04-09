@@ -485,7 +485,7 @@ where R: Rng,
 impl<R, E, S, Res, Hist, Energy> WangLandauAdaptive<Hist, R, E, S, Res, Energy> 
 {
     /// * `samples_per_trial` - how often a specific step_size should be tried before
-    ///     estimating the fraction of accepted steps resulting from the step size
+    ///   estimating the fraction of accepted steps resulting from the step size
     /// * This number was used to create a trial list of appropriate length
     pub fn samples_per_trial(&self) -> usize
     {
@@ -506,7 +506,7 @@ where R: Rng,
     /// * `ensemble` ensemble used for the simulation
     /// * `rng` - random number generator used
     /// * `samples_per_trial` - how often a specific step_size should be tried before
-    ///     estimating the fraction of accepted steps resulting from the step size
+    ///   estimating the fraction of accepted steps resulting from the step size
     /// * `trial_step_min` and `trial_step_max`: The step sizes tried are: [trial_step_min, trial_step_min + 1, ..., trial_step_max]
     /// * `min_best_of_count`: After estimating, use at least the best `min_best_of_count` step sizes found
     /// * `best_of_threshold`: After estimating, use all steps for which abs(acceptance_rate -0.5) <= best_of_threshold holds true
@@ -690,20 +690,20 @@ where R: Rng,
 
     /// # Find a valid starting Point
     /// * if the ensemble is already at a valid starting point,
-    ///     the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
+    ///   the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
     /// * `overlap` - see trait HistogramIntervalDistance. 
-    ///     Should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
+    ///   Should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// * `mid` - should be something like `128u8`, `0i8` or `0i16`. It is very unlikely that using a type with more than 16 bit makes sense for mid
     /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
-    ///     a valid state is found or forever
+    ///   a valid state is found or forever
     /// * alternates between greedy and interval heuristic every time a wrapping counter passes `mid` or `U::min_value()`
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    ///     or rather the Parameter of which you wish to obtain the probability distribution.
-    ///     Has to be the same function as used for the wang landau simulation later.
-    ///     If there are any states, for which the calculation is invalid, `None` should be returned
+    ///   or rather the Parameter of which you wish to obtain the probability distribution.
+    ///   Has to be the same function as used for the wang landau simulation later.
+    ///   If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    ///     will always be rejected 
+    ///   will always be rejected 
     pub fn init_mixed_heuristik<F, U>
     (
         &mut self,
@@ -776,18 +776,18 @@ where R: Rng,
 
     /// # Find a valid starting Point
     /// * if the ensemble is already at a valid starting point,
-    ///     the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
+    ///   the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
     /// * Uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
-    ///     or it is in an interval closer to the target interval
+    ///   or it is in an interval closer to the target interval
     /// # Parameter
     /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
-    ///     a valid state is found or forever
+    ///   a valid state is found or forever
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    ///     or rather the Parameter of which you wish to obtain the probability distribution.
-    ///     Has to be the same function as used for the wang landau simulation later.
-    ///     If there are any states, for which the calculation is invalid, `None` should be returned
+    ///   or rather the Parameter of which you wish to obtain the probability distribution.
+    ///   Has to be the same function as used for the wang landau simulation later.
+    ///   If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    ///     will always be rejected 
+    ///   will always be rejected 
     pub fn init_interval_heuristik<F>(
         &mut self,
         overlap: NonZeroUsize,
@@ -826,18 +826,18 @@ where R: Rng,
 
     /// # Find a valid starting Point
     /// * if the ensemble is already at a valid starting point,
-    ///     the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
+    ///   the ensemble is left unchanged (as long as your energy calculation does not change the ensemble)
     /// * Uses a greedy heuristic. Performs markov steps. If that brought us closer to the target interval,
-    ///     the step is accepted. Otherwise it is rejected
+    ///   the step is accepted. Otherwise it is rejected
     /// # Parameter
     /// * `step_limit`: Some(val) -> val is max number of steps tried, if no valid state is found, it will return an Error. None -> will loop until either 
-    ///     a valid state is found or forever
+    ///   a valid state is found or forever
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    ///     or rather the Parameter of which you wish to obtain the probability distribution.
-    ///     Has to be the same function as used for the wang landau simulation later.
-    ///     If there are any states, for which the calculation is invalid, `None` should be returned
+    ///   or rather the Parameter of which you wish to obtain the probability distribution.
+    ///   Has to be the same function as used for the wang landau simulation later.
+    ///   If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    ///     will always be rejected 
+    ///   will always be rejected 
     pub fn init_greedy_heuristic<F>(
         &mut self,
         energy_fn: F,
@@ -872,7 +872,7 @@ where R: Rng,
     /// # Wang Landau
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn)` until `self.is_finished()` 
-    ///     or `condition(&self)` is false
+    ///   or `condition(&self)` is false
     /// # Important
     /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
     /// * **will panic otherwise, at least in debug mode**
@@ -910,15 +910,15 @@ where R: Rng,
     /// # Wang Landau
     /// * if possible, use `self.wang_landau_while()` instead - it is safer
     /// * You have mutable access to your ensemble 
-    ///     If you do anything, which changes the future outcome of the energy function, the results will be wrong!
+    ///   If you do anything, which changes the future outcome of the energy function, the results will be wrong!
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step(energy_fn)` until `self.is_finished()` 
-    ///     or `condition(&self)` is false
+    ///   or `condition(&self)` is false
     /// # Safety
     /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
     /// * **will panic otherwise, at least in debug mode**
     /// * Be careful of the mutable access of your energy, it has the potential to break
-    ///     logical things in the wang-landau etc. simulations
+    ///   logical things in the wang-landau etc. simulations
     pub unsafe fn wang_landau_while_unsafe<F, W>(
         &mut self,
         mut energy_fn: F,
@@ -969,7 +969,7 @@ where R: Rng,
     /// # Wang Landau
     /// * if possible, use `self.wang_landau_convergence()` instead - it is safer
     /// * You have mutable access to your ensemble
-    ///     If you do anything, which changes the future outcome of the energy function, the results will be wrong!
+    ///   If you do anything, which changes the future outcome of the energy function, the results will be wrong!
     /// * perform Wang Landau simulation
     /// * calls `self.wang_landau_step_unsafe(energy_fn, valid_ensemble)` until `self.is_finished()` 
     /// # Safety
@@ -1038,10 +1038,10 @@ where R: Rng,
     /// * performs a single Wang Landau step
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    ///     or rather the Parameter of which you wish to obtain the probability distribution.
-    ///     If there are any states, for which the calculation is invalid, `None` should be returned
+    ///   or rather the Parameter of which you wish to obtain the probability distribution.
+    ///   If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    ///     will always be rejected 
+    ///   will always be rejected 
     /// # Important
     /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
     /// * **will panic otherwise, at least in debug mode**
@@ -1061,16 +1061,16 @@ where R: Rng,
     /// * performs a single Wang Landau step
     /// # Parameter
     /// * `energy_fn` function calculating `Some(energy)` of the system
-    ///     or rather the Parameter of which you wish to obtain the probability distribution.
-    ///     If there are any states, for which the calculation is invalid, `None` should be returned
+    ///   or rather the Parameter of which you wish to obtain the probability distribution.
+    ///   If there are any states, for which the calculation is invalid, `None` should be returned
     /// * steps resulting in ensembles for which `energy_fn(&mut ensemble)` is `None`
-    ///     will always be rejected 
+    ///   will always be rejected 
     /// # Safety
     /// * You have to call one of the `self.init*` functions before calling this one - you can check with `self.is_initialized()`
     /// * **will panic otherwise, at least in debug mode**
     /// * unsafe, because you have to make sure, that the `energy_fn` function 
-    ///     does not change the state of the ensemble in such a way, that the result of
-    ///     `energy_fn` changes when called again. Maybe do cleanup at the beginning of the energy function?
+    ///   does not change the state of the ensemble in such a way, that the result of
+    ///   `energy_fn` changes when called again. Maybe do cleanup at the beginning of the energy function?
     pub unsafe fn wang_landau_step_unsafe<F>(
         &mut self,
         mut energy_fn: F,
@@ -1098,10 +1098,10 @@ where R: Rng,
     /// * similar to [`wang_landau_step`](`crate::WangLandauAdaptive::wang_landau_step`)
     /// ## Difference
     /// * this uses accumulating markov steps, i.e., it calculates the Energy during each markov step,
-    ///     which can be more efficient. This assumes, that cloning the Energy is cheap, which is true for 
-    ///     primitive types like usize or f64
+    ///   which can be more efficient. This assumes, that cloning the Energy is cheap, which is true for 
+    ///   primitive types like usize or f64
     /// * parameter of `energy_fn`: `&E` Ensemble after the markov step `&S` was performed.
-    ///     `&mut Energy` is the old energy, which has to be changed to the new energy of the system
+    ///   `&mut Energy` is the old energy, which has to be changed to the new energy of the system
     pub fn wang_landau_step_acc<F>(
         &mut self,
         energy_fn: F

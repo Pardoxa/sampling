@@ -16,7 +16,7 @@ pub fn heatmap_index(width: usize, x: usize, y: usize) -> usize
 
 /// # Heatmap
 /// * stores heatmap in row-major order: the rows of the heatmap are contiguous,
-///     and the columns are strided
+///   and the columns are strided
 /// * enables you to quickly create a heatmap
 /// * you can create gnuplot scripts to plot the heatmap
 /// * you can transpose the heatmap
@@ -110,7 +110,7 @@ impl <HistWidth, HistHeight> HeatmapUsize<HistWidth, HistHeight>
     /// * otherwise it is a slice of the row at height `y`
     /// # Note
     /// *  there is no `get_column` method, because, due to implementation details,
-    ///     it is way less efficient, and could not be returned as slice
+    ///    it is way less efficient, and could not be returned as slice
     pub fn get_row(&self, y: usize) -> Option<&[usize]>
     {
         let fin = self.index(self.width, y);
@@ -172,9 +172,9 @@ where
 
     /// # Create a new Heatmap
     /// * heatmap will have width `width_hist.bin_count()` 
-    ///     and height `height_hist.bin_count()`
+    ///   and height `height_hist.bin_count()`
     /// * histograms will be reset (zeroed) here, so it does not matter, if they 
-    ///     were used before and contain Data
+    ///   were used before and contain Data
     pub fn new(mut width_hist: HistWidth, mut height_hist: HistHeight) -> Self {
         let width = width_hist.bin_count();
         let height = height_hist.bin_count();
@@ -300,7 +300,7 @@ where
     /// * an entry is 0 if it was never hit
     /// # Access indices; understanding how the data is mapped
     /// * A specific heatmap location `(x,y)`
-    ///     corresponds to the index `y * self.width() + x`
+    ///   corresponds to the index `y * self.width() + x`
     /// * you can use the `heatmap_index` function to calculate the index
     pub fn heatmap(&self) -> &Vec<usize>
     {
@@ -313,7 +313,7 @@ where
     /// * otherwise the sum of this Vector is 1.0 (or at least very close to 1.0)
     /// # Access indices; understanding how the data is mapped
     /// * A specific heatmap location (x,y)
-    ///     corresponds to the index `y * self.width() + x`
+    ///   corresponds to the index `y * self.width() + x`
     /// * you can use the function `heatmap_index(width, x, y)` for calculating the index
     pub fn vec_normalized(&self) -> Vec<f64>
     {
@@ -376,7 +376,7 @@ where
     /// # returns vector representing heatmap, normalized column wise
     /// * Vector contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each column (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///     If it did not, the column will only consist of 0.0
+    ///   If it did not, the column will only consist of 0.0
     /// # Access indices; understanding how the data is mapped
     /// A specific heatmap location (x,y)
     /// corresponds to the index `y * self.width() + x`
@@ -410,7 +410,7 @@ where
     /// * returns normalized heatmap as `HeatmapF64` 
     /// * Heatmap vector `self.heatmap_normalized().heatmap()` contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each column (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///     If it did not, the column will only consist of 0.0
+    ///   If it did not, the column will only consist of 0.0
     /// * otherwise the sum of this Vector is 1.0 
     pub fn heatmap_normalized_columns(&self) -> HeatmapF64<HistWidth, HistHeight>
     where HistHeight: Clone,
@@ -432,7 +432,7 @@ where
     /// * returns normalized heatmap as `HeatmapF64` 
     /// * Heatmap vector `self.heatmap_normalized().heatmap()` contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each column (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///     If it did not, the column will only consist of 0.0
+    ///   If it did not, the column will only consist of 0.0
     /// * otherwise the sum of this Vector is 1.0 
     pub fn into_heatmap_normalized_columns(self) -> HeatmapF64<HistWidth, HistHeight>
     {
@@ -451,7 +451,7 @@ where
     /// # returns vector representing heatmap, normalized row wise
     /// * Vector contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each row (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///     If it did not, the row will only consist of 0.0
+    ///   If it did not, the row will only consist of 0.0
     /// # Access indices; understanding how the data is mapped
     /// A specific heatmap location (x,y)
     /// corresponds to the index `y * self.width() + x`
@@ -488,7 +488,7 @@ where
     /// * returns normalized heatmap as `HeatmapF64` 
     /// * Heatmap vector `self.heatmap_normalized().heatmap()` contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each row (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///     If it did not, the row will only consist of 0.0
+    ///   If it did not, the row will only consist of 0.0
     /// * otherwise the sum of this Vector is 1.0 
     pub fn heatmap_normalized_rows(&self) -> HeatmapF64<HistWidth, HistHeight>
     where HistHeight: Clone,
@@ -510,7 +510,7 @@ where
     /// * returns normalized heatmap as `HeatmapF64` 
     /// * Heatmap vector `self.heatmap_normalized().heatmap()` contains only 0.0, if nothing was in the heatmap
     /// * otherwise the sum of each row (fixed x) will be 1.0 (within numerical errors), if it contained at least one hit.
-    ///     If it did not, the row will only consist of 0.0
+    ///   If it did not, the row will only consist of 0.0
     /// * otherwise the sum of this Vector is 1.0 
     pub fn into_heatmap_normalized_rows(self) -> HeatmapF64<HistWidth, HistHeight>
     {
@@ -528,9 +528,9 @@ where
 
     /// # update the heatmap
     /// * calculates the coordinates `(x, y)` of the bin corresponding
-    ///     to the given values pair `(width_iter_entry, height_val)`
+    ///   to the given values pair `(width_iter_entry, height_val)`
     /// * as soon as a coordinate is encountered that is out of bounds, it counts a "miss" and returns the HeatmapError,
-    ///     aborting further execution
+    ///   aborting further execution
     /// * otherwise it counts the "hits" and returns the total number of hits added `usize`
     pub fn count_multiple<A, B, X, Y, I>(&mut self, width_val_iter: I, height_val: B) -> Result<usize, HeatmapError>
     where 
@@ -576,7 +576,7 @@ where
 
     /// # update the heatmap
     /// * calculates the coordinate `(x, y)` of the bin corresponding
-    ///     to the given value pair `(width_val, height_val)`
+    ///   to the given value pair `(width_val, height_val)`
     /// * if coordinate is out of bounds, it counts a "miss" and returns the HeatmapError
     /// * otherwise it counts the "hit" and returns the coordinate `(x, y)`
     pub fn count<A, B, X, Y>(&mut self, width_val: A, height_val: B) -> Result<(usize, usize), HeatmapError>
@@ -642,12 +642,12 @@ where
     /// # Create a gnuplot script to plot your heatmap
     /// * `writer`: The gnuplot script will be written to this
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, 
-    ///     be called? Ending of file will be set automatically
+    ///   be called? Ending of file will be set automatically
     /// # Note
     /// * This is the same as calling [`gnuplot`](Self::gnuplot) with default
-    ///     `GnuplotSettings`
+    ///   `GnuplotSettings`
     /// * The default axis are the bin indices, which, e.g, means they always 
-    ///     begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///   begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)
     pub fn gnuplot_quick<W>(
         &self,
         writer: W
@@ -670,7 +670,7 @@ where
     /// * `gnuplot_writer`: writer gnuplot script will be written to
     /// * `gnuplot_output_name`: how shall the file, created by executing gnuplot, be called? Ending of file will be set automatically
     /// * `settings`: Here you can set the axis, choose between terminals and more. 
-    ///     I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
+    ///   I recommend that you take a look at [GnuplotSettings](crate::heatmap::GnuplotSettings)
     /// ## Note
     /// The default axis are the bin indices, which, e.g, means they always 
     /// begin at 0. You have to set the axis via the [GnuplotSettings](crate::heatmap::GnuplotSettings)

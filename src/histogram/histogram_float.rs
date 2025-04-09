@@ -50,7 +50,7 @@ where T: Float + PartialOrd + FromPrimitive {
     /// # Create a new Histogram
     /// * right exclusive, left inclusive
     /// * if you want `right` to behave (almost) the same as an inclusive border,
-    ///     consider using `new(left, right + T::EPSILON, bins)` (make sure, that adding Epsilon actually changes the value!)
+    ///   consider using `new(left, right + T::EPSILON, bins)` (make sure, that adding Epsilon actually changes the value!)
     pub fn new(left: T, right: T, bins: usize) -> Result<Self, HistErrors>
     {
         if left >= right {
@@ -279,7 +279,7 @@ where T: Float + Zero + NumCast + PartialOrd + FromPrimitive
     /// # consider using `self.bin_iter()` instead
     /// * This gives you a dynamic iterator over all bins-
     /// * For this type all bins are InclusiveExclusive -> Usage of `self.bin_iter`
-    ///     is more efficient
+    ///   is more efficient
     fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>> + '_> {
         let iter = self
             .bin_iter()

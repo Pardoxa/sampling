@@ -323,7 +323,7 @@ impl GnuplotSettings {
 
     /// # Write a heatmap with the given gnuplot Settings
     /// * `closure` has to write the heatmap. It must write `y_len` rows with `x_len` values each, where the latter values are separated by a space.
-    ///     This data will be used for the heatmap.
+    ///   This data will be used for the heatmap.
     /// * `x_len`: The number of entries in each column, that you promise the `closure` will write
     /// * `y_len`: The number of columns you promise that the `closure` will write
     /// # **Safety**
@@ -774,7 +774,7 @@ impl PaletteRGB{
 
 /// # Defines gnuplot point
 /// * Note that most of the fields are public and
-///     can be accessed directly
+///   can be accessed directly
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct GnuplotPointSettings
@@ -992,7 +992,7 @@ pub enum GnuplotTerminal{
     ///   all other characters will be ignored
     /// * the created gnuplot script assumes, you have `latexmk` installed
     /// * if you do not have latexmk, you can still use this, but you have to manually edit the 
-    ///     gnuplot scrip later on
+    ///   gnuplot scrip later on
     /// * gnuplot script will create `.tex` file and `.pdf` file created from the tex file
     /// 
     /// ## WARNING

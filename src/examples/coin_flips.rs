@@ -88,10 +88,10 @@ impl<R> CoinFlipSequence<R>
     }
 
     /// * Calculate the head count, if a previous head count of the ensemble and the 
-    ///     markov steps leading to the current state are known
+    ///   markov steps leading to the current state are known
     /// * `head_count` is updated
     /// * might **panic** if `step` was not the markov step leading from the ensemble with `head_count`
-    ///     to the current ensemble - if it does not panic, the result will be wrong
+    ///   to the current ensemble - if it does not panic, the result will be wrong
     pub fn update_head_count(&self, step: &CoinFlipMove, head_count: &mut usize)
     {
         match step.previous {

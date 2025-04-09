@@ -12,7 +12,7 @@ pub use binning_int_multi::*;
 
 /// # Definition of a Bin
 /// * Note: Most (currently all) implementations use more efficient representations of the bins underneath,
-///     but are capable of returning the bins in this representation on request
+///   but are capable of returning the bins in this representation on request
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum Bin<T>
@@ -106,18 +106,18 @@ pub trait BinDisplay {
     /// # Iterator over all the bins
     /// * you might require to use this if you are working with generics
     /// * if you are working with a specific type there is usually a more efficient implementation
-    ///     that did not require the usage of dynamic traits (`dyn`) and that are thus more efficient,
-    ///     consider using those instead
+    ///   that did not require the usage of dynamic traits (`dyn`) and that are thus more efficient,
+    ///   consider using those instead
     fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=Self::BinEntry> + '_>;
 
     /// # For writing a bin
     /// * How to write a bin to a file? If a bin consists, e.g., of an exclusive and inclusive border this 
-    ///     might require the writing of two values. It could also be a single value instead.
-    ///     It should be something the user expects from your binning, see write header
+    ///   might require the writing of two values. It could also be a single value instead.
+    ///   It should be something the user expects from your binning, see write header
     fn write_bin<W: std::io::Write>(entry: &Self::BinEntry, writer: W) -> std::io::Result<()>;
 
     /// # Writing the header of the bin
     /// * This is intended to name, e.g., a column in a file. Output could be "SingleBin" or "BinBorderExclusive BinBorderInclusive"
-    ///     and so on
+    ///   and so on
     fn write_header<W: std::io::Write>(&self, writer: W) -> std::io::Result<()>;
 }

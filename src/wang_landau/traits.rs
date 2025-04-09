@@ -6,8 +6,8 @@ use{
 /// # Traits for quantities that all Wang Landau simulations have
 /// * see also: `WangLandauHist`
 /// * this trait is for convenience, so that you do not have
-///     to write all the trait bounds of, e.g.,  `WangLandauHist`, if you are
-///     not using functionality, that requires it
+///   to write all the trait bounds of, e.g.,  `WangLandauHist`, if you are
+///   not using functionality, that requires it
 pub trait WangLandau
 {
     /// get current value of log_f
@@ -31,15 +31,15 @@ pub trait WangLandau
     
     /// # Current (non normalized) estimate of ln(P(E))
     /// * i.e., of the natural logarithm of the 
-    ///     probability density function
-    ///     for the requested interval
+    ///   probability density function
+    ///   for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density(&self) -> &Vec<f64>;
 
     /// # Current (non normalized) estimate of log10(P(E))
     /// * i.e., of logarithm with base 10 of the 
-    ///     probability density function
-    ///     for the requested interval
+    ///   probability density function
+    ///   for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density_base10(&self) -> Vec<f64>{
         self.log_density()
@@ -50,8 +50,8 @@ pub trait WangLandau
 
     /// # Current (non normalized) estimate of log_base(P(E))
     /// * i.e., of logarithm with arbitrary base of the 
-    ///     probability density function
-    ///     for the requested interval
+    ///   probability density function
+    ///   for the requested interval
     /// * this is what we are doing the simulations for
     fn log_density_base(&self, base: f64) -> Vec<f64>{
         let factor = std::f64::consts::E.log(base);
@@ -128,7 +128,7 @@ pub trait WangLandauEnsemble<E> : WangLandau
 
     /// # mutable reference to current state
     /// * Intended for usecases where mutable access allows for a much more 
-    ///     efficient calculation of your calculations
+    ///   efficient calculation of your calculations
     /// # Safety
     /// *you should not make any changes, that effect the 'energy' state of the system.
     /// otherwise the WangLandau simulations will give false results!

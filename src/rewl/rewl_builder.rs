@@ -42,7 +42,7 @@ pub type RewlBuilder<Ensemble, Hist, S, Res> = ReplicaExchangeWangLandauBuilder<
 pub enum RewlBuilderErr{
     /// * The threshold for `log_f` needs to be a normal number.
     /// * That basically means: the number is neither zero, infinite, subnormal, or NaN. 
-    ///     For more info, see the [Documentation](`std::primitive::f64::is_normal`)
+    ///   For more info, see the [Documentation](`std::primitive::f64::is_normal`)
     NonNormalThreshold,
     /// log_f_threshold must not be negative
     Negative,
@@ -71,8 +71,8 @@ where Hist: Histogram,
     /// * which fraction of the intervals has found valid starting configurations?
     /// ## Note
     /// * even if every interval has a valid configuration directly after using one of 
-    ///     the `from_…` methods, it fill show a fraction of 0.0 - the fraction 
-    ///     will only be correct after calling one of the `…build` methods (on the Error of the result)
+    ///   the `from_…` methods, it fill show a fraction of 0.0 - the fraction 
+    ///   will only be correct after calling one of the `…build` methods (on the Error of the result)
     pub fn finished_fraction(&self) -> f64
     {
         let done = self.finished
@@ -87,9 +87,9 @@ where Hist: Histogram,
     /// Check which intervals have valid starting points
     /// ## Note
     /// * in the beginning the RewlBuilder has no way of knowing, if the intervals have
-    ///     valid starting configuration - as it does not know the energy function yet.
-    ///     Therefore this will only be correct after calling one of the `…build` methods 
-    ///     (on the Error of the result)
+    ///   valid starting configuration - as it does not know the energy function yet.
+    ///   Therefore this will only be correct after calling one of the `…build` methods 
+    ///   (on the Error of the result)
     pub fn finished_slice(&self) -> &[bool]
     {
         &self.finished
@@ -136,9 +136,9 @@ where Hist: Histogram,
     /// # new rewl builder
     /// * used to create a **R**eplica **e**xchange **w**ang **l**andau simulation.
     /// * use this method, if you want to have fine control over each walker, i.e., if you can
-    ///     provide ensembles, who's energy is already inside the corresponding intervals `hists`
+    ///   provide ensembles, who's energy is already inside the corresponding intervals `hists`
     /// * you might want to use [from_ensemble](crate::ReplicaExchangeWangLandauBuilder::from_ensemble) or
-    ///     [from_ensemble_tuple](crate::ReplicaExchangeWangLandauBuilder::from_ensemble_tuple) instead
+    ///   [from_ensemble_tuple](crate::ReplicaExchangeWangLandauBuilder::from_ensemble_tuple) instead
     ///
     /// | Parameter             | meaning                                                                                                                                                  |
     /// |-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -151,10 +151,10 @@ where Hist: Histogram,
     ///
     /// ## Notes
     /// * for proper statistics, you should seed the random number generators (used for the markov chain) of all ensembles 
-    ///     differently!
+    ///   differently!
     /// * `log_f_threshold` has to be a [normal](`std::primitive::f64::is_normal`) and non negative number
     /// * each entry of `ensembles` will be cloned `walker_per_interval - 1` times and their respective rng's will be 
-    ///     seeded via the `HasRng` trait
+    ///   seeded via the `HasRng` trait
     pub fn from_ensemble_vec(
         ensembles: Vec<Ensemble>,
         hists: Vec<Hist>,
@@ -211,7 +211,7 @@ where Hist: Histogram,
     /// # Create a builder to create a replica exchange wang landau (Rewl) simulation
     /// * creates vector of ensembles and (re)seeds their respective rngs (by using the `HasRng` trait)
     /// * calls [`Self::from_ensemble_vec(…)`](`crate::ReplicaExchangeWangLandauBuilder::from_ensemble_vec`) afterwards,
-    ///     look there for more information about the parameter
+    ///   look there for more information about the parameter
     pub fn from_ensemble<R>(
         ensemble: Ensemble,
         hists: Vec<Hist>,
@@ -249,13 +249,13 @@ where Hist: Histogram,
 
     /// # Create a builder to create a replica exchange wang landau (Rewl) simulation
     /// * creates vector of ensembles and (re)seeds their respective rng's (by using the `HasRng` trait).
-    ///     The vector is created by cloning `ensemble_tuple.0` for everything up to the middle of the vector and 
-    ///     `ensemble_tuple.1` for the rest. The length of the vector will be the same as `hists.len()`.
-    ///     If It is an uneven number, the middle element will be a clone of `ensemble_tuple.1`
+    ///   The vector is created by cloning `ensemble_tuple.0` for everything up to the middle of the vector and 
+    ///   `ensemble_tuple.1` for the rest. The length of the vector will be the same as `hists.len()`.
+    ///   If It is an uneven number, the middle element will be a clone of `ensemble_tuple.1`
     /// * calls [`Self::from_ensemble_vec(…)`](`crate::ReplicaExchangeWangLandauBuilder::from_ensemble_vec`) afterwards,
-    ///     look there for more information about the parameter
+    ///   look there for more information about the parameter
     /// * use this, if you know configurations, that would be good starting points for finding 
-    ///     configurations at either end of the intervals. 
+    ///   configurations at either end of the intervals. 
     pub fn from_ensemble_tuple<R>(
         ensemble_tuple: (Ensemble, Ensemble),
         hists: Vec<Hist>,
@@ -405,10 +405,10 @@ where Hist: Histogram,
 
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * uses a greedy heuristic to find valid configurations, meaning configurations that 
-    ///     are within the required intervals, i.e., histograms
+    ///   are within the required intervals, i.e., histograms
     /// ## Note
     /// * Depending on how complex your energy landscape is, this can take a very long time,
-    ///     maybe not even terminating at all.
+    ///   maybe not even terminating at all.
     /// * You can use `self.try_greedy_choose_rng_build` to limit the time of the search
     pub fn greedy_build<R, F, Energy>(self, energy_fn: F) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy>,
@@ -427,7 +427,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`greedy_build`](`crate::ReplicaExchangeWangLandauBuilder::greedy_build`)
     /// * `condition` can be used to limit the time of the search - it will end when `condition`
-    ///     returns false.
+    ///   returns false.
     /// ## Note
     /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
     #[allow(clippy::result_large_err)]
@@ -446,7 +446,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`greedy_build`](`crate::ReplicaExchangeWangLandauBuilder::greedy_build`)
     /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
-    ///     acceptance of the replica exchange moves etc.)
+    ///   acceptance of the replica exchange moves etc.)
     /// * usage: `self.greedy_choose_rng_build::<RNG,_,_,_>(energy_fn)`
     pub fn greedy_choose_rng_build<R, R2, F, Energy>(self, energy_fn: F) -> Rewl<Ensemble, R, Hist, Energy, S, Res>
     where Hist: HistogramVal<Energy>,
@@ -467,7 +467,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`try_greedy_build`](`crate::ReplicaExchangeWangLandauBuilder::try_greedy_build`)
     /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
-    ///     acceptance of the replica exchange moves etc.)
+    ///   acceptance of the replica exchange moves etc.)
     /// * usage: `self.try_greedy_choose_rng_build::<RNG,_,_,_,_>(energy_fn, condition)`
     #[allow(clippy::result_large_err)]
     pub fn try_greedy_choose_rng_build<R, R2, F, C, Energy>(self, energy_fn: F, condition: C) -> Result<Rewl<Ensemble, R, Hist, Energy, S, Res>, Self>
@@ -563,15 +563,15 @@ where Hist: Histogram,
 
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * uses an interval heuristic to find valid configurations, meaning configurations that 
-    ///     are within the required intervals, i.e., histograms
+    ///   are within the required intervals, i.e., histograms
     /// * Uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
-    ///     or it is in an interval closer to the target interval. 
-    ///     Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
+    ///   or it is in an interval closer to the target interval. 
+    ///   Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
     /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// 
     /// ## Note
     /// * Depending on how complex your energy landscape is, this can take a very long time,
-    ///     maybe not even terminating at all.
+    ///   maybe not even terminating at all.
     /// * You can use [`try_interval_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_interval_heuristik_build`) to limit the time of the search
     pub fn interval_heuristik_build<R, R2, F, Energy>
     (
@@ -596,7 +596,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`interval_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::interval_heuristik_build`)
     /// * `condition` can be used to limit the time of the search - it will end when `condition`
-    ///     returns false.
+    ///   returns false.
     /// ## 
     /// * condition will only be checked once every sweep, i.e., every `sweep_size` markov steps
     #[allow(clippy::result_large_err)]
@@ -621,7 +621,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`try_interval_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_interval_heuristik_build`)
     /// * Difference: You can choose a different `Rng` for the Wang Landau walkers (i.e., the
-    ///     acceptance of the replica exchange moves etc.)
+    ///   acceptance of the replica exchange moves etc.)
     /// * usage: `self.try_interval_heuristik_build::<RNG,_,_,_,_>(energy_fn, overlap)`
     pub fn interval_heuristik_choose_rng_build<R, R2, F, Energy>
     (
@@ -646,7 +646,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`interval_heuristik_choose_rng_build`](`crate::ReplicaExchangeWangLandauBuilder::interval_heuristik_choose_rng_build`)
     /// * Difference: You can choose the Random number generator used for the Rewl Walkers, i.e., for 
-    ///     accepting or rejecting the markov steps and replica exchanges. 
+    ///   accepting or rejecting the markov steps and replica exchanges. 
     /// * usage: `self.try_interval_heuristik_choose_rng_build<RNG, _,_,_,_>(energy_fn, condition, overlap)]
     #[allow(clippy::result_large_err)]
     pub fn try_interval_heuristik_choose_rng_build<R, R2, F, C, Energy>
@@ -744,8 +744,8 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * alternates between interval-heuristik and greedy-heuristik
     /// * The interval heuristik uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
-    ///     or it is in an interval closer to the target interval. 
-    ///     Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
+    ///   or it is in an interval closer to the target interval. 
+    ///   Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
     /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// 
     ///
@@ -753,7 +753,7 @@ where Hist: Histogram,
     /// * interval_steps: How many steps to perform with interval heuristik before switching back to greedy heuristik?
     /// ## Note
     /// * Depending on how complex your energy landscape is, this can take a very long time,
-    ///     maybe not even terminating at all.
+    ///   maybe not even terminating at all.
     /// * You can use [`try_mixed_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_mixed_heuristik_build`) to limit the time of the search
     pub fn mixed_heuristik_build<R, F, Energy>
     (
@@ -779,8 +779,8 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * alternates between interval-heuristik and greedy-heuristik
     /// * The interval heuristik uses overlapping intervals. Accepts a step, if the resulting ensemble is in the same interval as before,
-    ///     or it is in an interval closer to the target interval. 
-    ///     Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
+    ///   or it is in an interval closer to the target interval. 
+    ///   Take a look at the [`HistogramIntervalDistance` trait](`crate::HistogramIntervalDistance`)
     /// * `overlap` should smaller than the number of bins in your histogram. E.g. `overlap = 3` if you have 200 bins
     /// 
     /// * greedy_steps: How many steps to perform with greedy heuristik before switching to interval heuristik?
@@ -788,7 +788,7 @@ where Hist: Histogram,
     /// 
     /// ## Note
     /// * `condition` can be used to limit the time of the search - it will end when `condition`
-    ///     returns false (or a valid solution is found)
+    ///   returns false (or a valid solution is found)
     /// * condition will be checked each time the heuristik switches between greedy and interval heuristik
     #[allow(clippy::result_large_err)]
     pub fn try_mixed_heuristik_build<R, F, C, Energy>
@@ -814,7 +814,7 @@ where Hist: Histogram,
     /// # Create `Rewl`, i.e., Replica exchange wang landau simulation
     /// * similar to [`try_mixed_heuristik_build`](`crate::ReplicaExchangeWangLandauBuilder::try_mixed_heuristik_build`)
     /// * difference: Lets you choose the rng type for the Rewl simulation, i.e., the rng used for 
-    ///     accepting or rejecting markov steps and replica exchange moves
+    ///   accepting or rejecting markov steps and replica exchange moves
     /// * usage: `self.try_mixed_heuristik_choose_rng_build<RNG_TYPE, _, _, _, _>(energy_fn, condition, overlap, greedy_steps, interval_steps)`
     /// 
     /// * greedy_steps: How many steps to perform with greedy heuristik before switching to interval heuristik?
