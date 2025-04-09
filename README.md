@@ -2,7 +2,8 @@
 [![Crate](https://img.shields.io/crates/v/sampling.svg)](https://crates.io/crates/sampling)
 [![Docs](https://docs.rs/sampling/badge.svg)](https://docs.rs/sampling/)
 
-Minimal Rust version: 1.63.0
+Minimal Rust version to compile this crate: 1.66.0
+Minimal Rust version: for benchmarks of this crate 1.74.0
 
 ## About
 
@@ -17,7 +18,7 @@ The Documentation of the working branch can be found [here](https://pardoxa.gith
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-sampling = "0.2.0"
+sampling = "0.3.0"
 # for feature "serde_support" (enabled by default) also use
 serde = { version = "1.0", features = ["derive"] }
 ```
@@ -41,7 +42,7 @@ If you want to minimize build time and space requirements upon building,
 you can disable default features and only enable what you need, e.g.
 ```toml
 [dependencies]
-sampling = { version = "0.2.0", default-features = false, features=["replica_exchange"]  }
+sampling = { version = "0.3.0", default-features = false, features=["replica_exchange"]  }
 ``` 
 
 # Notes
