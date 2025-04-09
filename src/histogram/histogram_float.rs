@@ -324,14 +324,15 @@ pub type HistF64 = HistogramFloat<f64>;
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64Mcg;
-    use rand::{distributions::*, SeedableRng};
+    use rand::{distr::*, SeedableRng};
     use super::*;
     use num_traits::Bounded;
     #[test]
     fn f64_hist()
     {
         let rng = Pcg64Mcg::new(0xcafef00dd15ea5e5);
-        let dist = Uniform::new(f64::EPSILON, 1.0);
+        let dist = Uniform::new(f64::EPSILON, 1.0)
+            .unwrap();
         let mut iter = dist.sample_iter(rng);
 
         for i in 1..100 {
@@ -422,16 +423,18 @@ mod tests{
     fn hist_float()
     { 
         let mut rng = Pcg64Mcg::new(0xcafef00dd15ea5e5);
-        let dist = Uniform::new(1usize, 111);
+        let dist = Uniform::new(1usize, 111)
+            .unwrap();
         let mut iter = dist.sample_iter(
-            Pcg64Mcg::from_rng(&mut rng).unwrap()
+            Pcg64Mcg::from_rng(&mut rng)
         );
         hist_test_float(20.0, 31.0, iter.next().unwrap());
         hist_test_float(-23.0f32, 31.1232f32, iter.next().unwrap());
         hist_test_float(-13.0f32, 31.4657f32, iter.next().unwrap());
         hist_test_float(1.0f64, 3f64, iter.next().unwrap());
 
-        let dist2 = Uniform::new(0.0, 76257f64);
+        let dist2 = Uniform::new(0.0, 76257f64)
+            .unwrap();
         for _ in 0..10 {
             let (left, right) = loop{
                 let left = dist2.sample(&mut rng);

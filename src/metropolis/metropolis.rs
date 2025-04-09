@@ -277,7 +277,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
 
         let a_prob = (self.m_beta * (new_energy.as_() - self.energy.as_())).exp();
 
-        let rejected = self.rng.gen::<f64>() > a_prob;
+        let rejected = self.rng.random::<f64>() > a_prob;
 
         if rejected {
             self.ensemble.undo_steps_quiet(&self.steps);

@@ -43,7 +43,7 @@
 /// let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
 ///     CoinFlipSequence::new(
 ///         n,
-///         Pcg64::from_rng(&mut rng).unwrap()
+///         Pcg64::from_rng(&mut rng)
 ///     )
 /// }).collect();
 /// 
@@ -53,10 +53,10 @@
 ///     .zip(hist_list.into_iter())
 ///     .map(|(ensemble, histogram)| {
 ///         WangLandau1T::new(
-///             0.00001, // arbitrary threshold for `log_f`(see paper), 
+///             0.000001, // arbitrary threshold for `log_f`(see paper), 
 ///                      // you have to try what is good for your model
 ///             ensemble,
-///             Pcg64::from_rng(&mut rng).unwrap(),
+///             Pcg64::from_rng(&mut rng),
 ///             1,  // stepsize 1 is sufficient for this problem
 ///             histogram,
 ///             100 // every 100 steps: check if WL can refine factor f
@@ -523,7 +523,7 @@
 ///     1,                                  // step size for the markov steps
 ///     NonZeroUsize::new(3000).unwrap(),   // sweep size, i.e., how many steps will be performed before a replica exchange will be tried
 ///     NonZeroUsize::new(4).unwrap(),      // How many random walkers should sample each interval (independently)?
-///     0.0000025                           // Threshold for the simulation
+///     0.000001                            // Threshold for the simulation
 /// ).unwrap();
 ///
 /// // Note: You can now change the sweep size and the step sizes for the different 

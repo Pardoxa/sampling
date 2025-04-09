@@ -1,7 +1,10 @@
 # Changelog
 
+## v0.3.0
+* Updating rand to ^0.9.0 -> making required updates to sampling
+* Note: Switching to the new rand may lead to other randomness than before, i.e., both should be statistically sound but the same seed may lead to different results in the different library versions
 
-## v0.2.0 (pending)
+## v0.2.0
 
 Histogram:
 * Added Binning trait, which automatically generates histograms

@@ -1,6 +1,6 @@
 use{
     crate::{*, rewl::*},
-    rand::{Rng, SeedableRng, Error},
+    rand::{Rng, SeedableRng},
     rayon::prelude::*,
     std::{
         marker::PhantomData, 
@@ -51,9 +51,6 @@ pub enum RewlBuilderErr{
     /// Each histogram needs to have **at least** two bins. Though more than two bins are 
     /// strongly recommended
     HistBinCount,
-
-    /// Unable to seed random number generator 
-    SeedError(Error),
 
     /// Length of histogram vector and ensemble vector has to be the same!
     LenMissmatch
@@ -226,25 +223,24 @@ where Hist: Histogram,
     {
         let len = NonZeroUsize::new(hists.len())
             .ok_or(RewlBuilderErr::Empty)?;
-        let ensembles = Self::clone_and_seed_ensembles(ensemble, len)?;
+        let ensembles = Self::clone_and_seed_ensembles(ensemble, len);
         Self::from_ensemble_vec(ensembles, hists, step_size, sweep_size, walker_per_interval, log_f_threshold)
     }
 
-    fn clone_and_seed_ensembles<R>(mut ensemble: Ensemble, size: NonZeroUsize) -> Result<Vec<Ensemble>, RewlBuilderErr>
+    fn clone_and_seed_ensembles<R>(mut ensemble: Ensemble, size: NonZeroUsize) -> Vec<Ensemble>
     where Ensemble: Clone + HasRng<R>,
         R: SeedableRng + Rng
     {
          let mut ensembles = (1..size.get())
                 .map(|_| {
                     let mut e = ensemble.clone();
-                    let mut rng = R::from_rng(ensemble.rng())?;
+                    let mut rng = R::from_rng(ensemble.rng());
                     e.swap_rng(&mut rng);
-                    Ok(e)
+                    e
                 })
-                .collect::<Result<Vec<_>,Error>>()
-                .map_err(RewlBuilderErr::SeedError)?;
+                .collect::<Vec<_>>();
         ensembles.push(ensemble);
-        Ok(ensembles)
+        ensembles
     }
 
     /// # Create a builder to create a replica exchange wang landau (Rewl) simulation
@@ -278,8 +274,7 @@ where Hist: Histogram,
 
         for _ in 1..mid {
             let mut e = left.clone();
-            let mut rng = R::from_rng(right.rng())
-               .map_err(RewlBuilderErr::SeedError)?;
+            let mut rng = R::from_rng(right.rng());
             e.swap_rng(&mut rng);
             ensembles.push(e);
         }
@@ -287,8 +282,7 @@ where Hist: Histogram,
         for _ in mid..len.get()-1
         {
             let mut e = right.clone();
-            let mut rng = R::from_rng(right.rng())
-               .map_err(RewlBuilderErr::SeedError)?;
+            let mut rng = R::from_rng(right.rng());
             e.swap_rng(&mut rng);
             ensembles.push(e);
         }
@@ -347,13 +341,11 @@ where Hist: Histogram,
             h.reset();
             for _ in 0..walker_per_interval.get()-1 {
                 let mut ensemble = e.clone();
-                let mut rng = R2::from_rng(e.rng())
-                    .expect("unable to seed Rng");
+                let mut rng = R2::from_rng(e.rng());
                 ensemble.swap_rng(&mut rng);
                 
                 ensembles_rw_lock.push(RwLock::new(ensemble));
-                let rng = R::from_rng(e.rng())
-                   .expect("unable to seed Rng");
+                let rng = R::from_rng(e.rng());
                 walker.push(
                     RewlWalker::<R, Hist, Energy, S, Res>::new(
                         counter,
@@ -366,8 +358,7 @@ where Hist: Histogram,
                 );
                 counter += 1;
             }
-            let rng = R::from_rng(e.rng())
-                .expect("unable to seed Rng");
+            let rng = R::from_rng(e.rng());
             walker.push(
                 RewlWalker::new(
                     counter,

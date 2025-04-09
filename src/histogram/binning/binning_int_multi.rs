@@ -584,13 +584,14 @@ mod tests{
         use crate::histogram::*;
         use rand_pcg::Pcg64;
         use rand::prelude::*;
-        use rand::distributions::*;
+        use rand::distr::*;
         
         // now I use one of the type aliases to first create the binning and then the histogram:
         let mut hist = BinningI32::new_inclusive(-20,132, 3)
             .unwrap()
             .to_generic_hist();
-        let uniform = Uniform::new_inclusive(-20, 132);
+        let uniform = Uniform::new_inclusive(-20, 132)
+            .unwrap();
         let rng = Pcg64::seed_from_u64(3987612);
         // create 10000 samples
         let iter = uniform

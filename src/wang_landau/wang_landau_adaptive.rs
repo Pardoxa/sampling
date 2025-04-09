@@ -1011,7 +1011,7 @@ where R: Rng,
             Ok(current_bin) => {
                 let accept_prob = self.metropolis_acception_prob(old_bin, current_bin);
 
-                if self.rng.gen::<f64>() > accept_prob {
+                if self.rng.random::<f64>() > accept_prob {
                     // reject step
                     self.count_rejected(step_size);
                     self.ensemble.undo_steps_quiet(&self.steps);
@@ -1143,7 +1143,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn wl_simulations_equal() {
         let mut rng = Pcg64Mcg::seed_from_u64(2239790);
-        let ensemble = CoinFlipSequence::new(50, Pcg64Mcg::from_rng(&mut rng).unwrap());
+        let ensemble = CoinFlipSequence::new(50, Pcg64Mcg::from_rng(&mut rng));
         let histogram = HistogramFast::new_inclusive(0, 50).unwrap();
         let mut wl= WangLandauAdaptive::new(
             0.075,

@@ -354,7 +354,7 @@ where Hist: HistogramVal<Energy>,
                     // metropolis hastings
                     let acception_prob = (self.log_density[self.bin] - self.log_density[current_bin])
                         .exp();
-                    if self.rng.gen::<f64>() > acception_prob 
+                    if self.rng.random::<f64>() > acception_prob 
                     {
                         self.count_rejected();
                         e.steps_rejected(&self.markov_steps);
@@ -420,7 +420,7 @@ pub(crate) fn replica_exchange<R, Hist, Energy, S, Res>
     let prob = log_prob.exp();
 
     // if exchange is accepted
-    if walker_b.rng.gen::<f64>() < prob 
+    if walker_b.rng.random::<f64>() < prob 
     {
         swap(&mut walker_b.id, &mut walker_a.id);
         swap(&mut walker_b.old_energy, &mut walker_a.old_energy);

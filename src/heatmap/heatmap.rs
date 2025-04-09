@@ -677,7 +677,7 @@ where
     /// ## Example
     /// ```
     /// use rand_pcg::Pcg64;
-    /// use rand::{SeedableRng, distributions::*};
+    /// use rand::{SeedableRng, distr::*};
     /// use sampling::*;
     /// use std::fs::File;
     /// use std::io::BufWriter;
@@ -691,8 +691,10 @@ where
     /// heatmap.count(10, 0).unwrap();
     ///
     /// let mut rng = Pcg64::seed_from_u64(27456487);
-    /// let x_distr = Uniform::new_inclusive(0, 10_usize);
-    /// let y_distr = Uniform::new_inclusive(0, 10_u8);
+    /// let x_distr = Uniform::new_inclusive(0, 10_usize)
+    ///     .unwrap();
+    /// let y_distr = Uniform::new_inclusive(0, 10_u8)
+    ///     .unwrap();
     ///
     /// for _ in 0..100000 {
     ///     let x = x_distr.sample(&mut rng);
@@ -748,7 +750,7 @@ where
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64;
-    use rand::distributions::*;
+    use rand::distr::*;
     use rand::SeedableRng;
     use super::*;
 
@@ -763,7 +765,8 @@ mod tests{
 
         let mut rng = Pcg64::seed_from_u64(27456487);
 
-        let uniform = Uniform::new_inclusive(0, 16);
+        let uniform = Uniform::new_inclusive(0, 16)
+            .unwrap();
         for i in 0..10
         {
             let vals: Vec<_> = (&uniform).sample_iter(&mut rng).take(100).collect();
@@ -800,8 +803,10 @@ mod tests{
         let mut heatmap = HeatmapUsize::new(h_x, h_y);
 
         let mut rng = Pcg64::seed_from_u64(27456487);
-        let x_distr = Uniform::new_inclusive(0, 10_usize);
-        let y_distr = Uniform::new_inclusive(0, 6_u8);
+        let x_distr = Uniform::new_inclusive(0, 10_usize)
+            .unwrap();
+        let y_distr = Uniform::new_inclusive(0, 6_u8)
+            .unwrap();
 
         for _ in 0..100 {
             let x = x_distr.sample(&mut rng);
@@ -830,8 +835,10 @@ mod tests{
         let mut heatmap = HeatmapUsize::new(h_x, h_y);
 
         let mut rng = Pcg64::seed_from_u64(27456487);
-        let x_distr = Uniform::new_inclusive(0, 10_usize);
-        let y_distr = Uniform::new_inclusive(0, 6_u8);
+        let x_distr = Uniform::new_inclusive(0, 10_usize)
+            .unwrap();
+        let y_distr = Uniform::new_inclusive(0, 6_u8)
+            .unwrap();
 
         for _ in 0..100 {
             let x = x_distr.sample(&mut rng);
@@ -853,8 +860,10 @@ mod tests{
         let mut heatmap = HeatmapUsize::new(h_x, h_y);
 
         let mut rng = Pcg64::seed_from_u64(27456487);
-        let x_distr = Uniform::new_inclusive(0, 10_usize);
-        let y_distr = Uniform::new_inclusive(0, 10_u8);
+        let x_distr = Uniform::new_inclusive(0, 10_usize)
+            .unwrap();
+        let y_distr = Uniform::new_inclusive(0, 10_u8)
+            .unwrap();
 
         for _ in 0..100000 {
             let x = x_distr.sample(&mut rng);
@@ -919,8 +928,10 @@ mod tests{
         let mut heatmap = HeatmapUsize::new(h_x, h_y);
 
         let mut rng = Pcg64::seed_from_u64(27456487);
-        let x_distr = Uniform::new_inclusive(0, 10_usize);
-        let y_distr = Uniform::new_inclusive(0, 5_u8);
+        let x_distr = Uniform::new_inclusive(0, 10_usize)
+            .unwrap();
+        let y_distr = Uniform::new_inclusive(0, 5_u8)
+            .unwrap();
 
         for _ in 0..10 {
             let x = x_distr.sample(&mut rng);

@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use sampling::{examples::coin_flips::*, *};
 use rand_pcg::Pcg64;
-use rand::{distributions::Uniform, SeedableRng};
+use rand::{distr::Uniform, SeedableRng};
 
 pub fn benchmark(c: &mut Criterion){
     let rng = Pcg64::seed_from_u64(23);
@@ -60,7 +60,7 @@ pub fn bench_wl_step(c: &mut Criterion){
     let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
         CoinFlipSequence::new(
             n,
-            Pcg64::from_rng(&mut rng).unwrap()
+            Pcg64::from_rng(&mut rng)
         )
     }).collect();
     
@@ -73,7 +73,7 @@ pub fn bench_wl_step(c: &mut Criterion){
                 0.0000000000000000001, // arbitrary threshold for `log_f`(see paper), 
                          // you have to try what is good for your model
                 ensemble,
-                Pcg64::from_rng(&mut rng).unwrap(),
+                Pcg64::from_rng(&mut rng),
                 step_size,  // stepsize 1 is sufficient for this problem
                 histogram,
                 100 // every 100 steps: check if WL can refine factor f
@@ -133,7 +133,7 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
     let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
         CoinFlipSequence::new(
             n,
-            Pcg64::from_rng(&mut rng).unwrap()
+            Pcg64::from_rng(&mut rng)
         )
     }).collect();
     
@@ -146,7 +146,7 @@ pub fn bench_wl_step_acc(c: &mut Criterion){
                 0.0000000000000000001, // arbitrary threshold for `log_f`(see paper), 
                          // you have to try what is good for your model
                 ensemble,
-                Pcg64::from_rng(&mut rng).unwrap(),
+                Pcg64::from_rng(&mut rng),
                 step_size,  // stepsize 1 is sufficient for this problem
                 histogram,
                 100 // every 100 steps: check if WL can refine factor f
@@ -192,7 +192,8 @@ pub fn bench_hists(c: &mut Criterion){
     let mut hist = HistI16::new_inclusive(0, max_val, (max_val+1) as usize)
         .unwrap();
 
-    let uniform = Uniform::new_inclusive(0, max_val);
+    let uniform = Uniform::new_inclusive(0, max_val)
+        .unwrap();
     let mut rng = Pcg64::seed_from_u64(23894623987612);
 
     c.bench_function(

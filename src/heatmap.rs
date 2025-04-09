@@ -15,14 +15,14 @@
 //! use {
 //!     sampling::{HistUsizeFast, HeatmapU, GnuplotSettings, GnuplotAxis, GnuplotPalette, GnuplotTerminal},
 //!     rand_pcg::Pcg64,
-//!     rand::{SeedableRng, distributions::{Uniform, Distribution}},
+//!     rand::{SeedableRng, distr::{Uniform, Distribution}},
 //!     std::{fs::File, io::BufWriter}
 //! };
 //! 
 //! // random number generator for data creation
 //! let mut rng = Pcg64::seed_from_u64(2972398345698734489);
-//! let dist_x = Uniform::from(0..11); // creates random numbers between 0 and 10
-//! let dist_y = Uniform::from(10..21); // creates random numbers between 10 and 20
+//! let dist_x = Uniform::new(0, 11).unwrap(); // creates random numbers between 0 and 10
+//! let dist_y = Uniform::new(10, 21).unwrap(); // creates random numbers between 10 and 20
 //! 
 //! // I am now creating two histograms, which will be 
 //! // defining the x and y axis of the heatmap

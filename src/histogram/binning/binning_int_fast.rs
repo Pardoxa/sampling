@@ -505,7 +505,8 @@ mod tests{
             let dist = binning.distance(i);
             assert!(dist > 0.0);
             println!("{i}, {:?}", right+T::one()..=T::max_value());
-            assert_eq!(dist, dist_counter.as_());
+            let dist_counter_float: f64 = dist_counter.as_();
+            assert_eq!(dist, dist_counter_float);
             match last_dist{
                 None => last_dist = Some(dist),
                 Some(d) => {
@@ -569,7 +570,7 @@ mod tests{
     {
         use rand_pcg::Pcg64Mcg;
         use rand::SeedableRng;
-        use rand::distributions::Uniform;
+        use rand::distr::Uniform;
         use rand::prelude::*;
         macro_rules! mul_t {
             (
@@ -579,8 +580,8 @@ mod tests{
                 paste::item!{ fn [< mul_tests_ $t >]()
                     {
                         let mut rng = Pcg64Mcg::seed_from_u64(314668);
-                        let uni_one = Uniform::new_inclusive(1, $t::MAX);
-                        let uni_all = Uniform::new_inclusive(0, $t::MAX);
+                        let uni_one = Uniform::new_inclusive(1, $t::MAX).unwrap();
+                        let uni_all = Uniform::new_inclusive(0, $t::MAX).unwrap();
                         let max = <$t as HasUnsignedVersion>::Unsigned::MAX.into();
                         for _ in 0..100 {
                             let a = uni_all.sample(&mut rng);
@@ -650,10 +651,11 @@ mod tests{
     fn overlapping_partition_test2()
     {
         use rand_pcg::Pcg64Mcg;
-        use rand::distributions::Uniform;
+        use rand::distr::Uniform;
         use rand::prelude::*;
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
-        let uni = Uniform::new_inclusive(-100, 100);
+        let uni = Uniform::new_inclusive(-100, 100)
+            .unwrap();
         for overlap in 0..=3 {
             for i in 0..100 {
                 let (left, right) = loop {

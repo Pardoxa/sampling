@@ -609,7 +609,7 @@ where T: PrimInt
 #[cfg(test)]
 mod tests{
     use super::*;
-    use rand::{distributions::*, SeedableRng};
+    use rand::{distr::*, SeedableRng};
     use rand_pcg::Pcg64Mcg;
 
     fn hist_test_fast<T>(left: T, right: T)
@@ -695,7 +695,8 @@ mod tests{
     fn overlapping_partition_test2()
     {
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
-        let uni = Uniform::new_inclusive(-100, 100);
+        let uni = Uniform::new_inclusive(-100, 100)
+            .unwrap();
         for overlap in 0..=3 {
             for _ in 0..100 {
                 let (left, right) = loop {

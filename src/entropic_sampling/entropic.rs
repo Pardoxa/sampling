@@ -629,7 +629,7 @@ where Hist: Histogram + HistogramVal<T>,
             Ok(current_bin) => {
                 let accept_prob = self.metropolis_acception_prob(current_bin);
 
-                if self.rng.gen::<f64>() > accept_prob {
+                if self.rng.random::<f64>() > accept_prob {
                     // reject step
                     self.ensemble.steps_rejected(&self.steps);
                     self.count_rejected();

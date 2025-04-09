@@ -58,7 +58,7 @@ impl<R> CoinFlipSequence<R>
         let mut seq = Vec::with_capacity(n);
         seq.extend(
             (0..n).map(|_| {
-                if rng.gen::<bool>() {
+                if rng.random::<bool>() {
                     CoinFlip::Tail
                 } else {
                     CoinFlip::Head
@@ -130,7 +130,7 @@ where R: Rng
     /// Perform a markov step
     fn m_step(&mut self) -> CoinFlipMove {
         // draw a random position
-        let pos = self.rng.gen_range(0..self.seq.len());
+        let pos = self.rng.random_range(0..self.seq.len());
         let previouse = self.seq[pos];
         // flip coin at that position
         self.seq[pos].turn();
@@ -265,7 +265,7 @@ mod tests{
         let ensemble1 = CoinFlipSequence::new
         (
             n,
-            Pcg64::from_rng(&mut rng).unwrap()
+            Pcg64::from_rng(&mut rng)
         );
 
         let rewl_builder1 = RewlBuilder::from_ensemble(
@@ -281,7 +281,7 @@ mod tests{
 
         let ensemble2 = CoinFlipSequence::new(
             n,
-            Pcg64::from_rng(rng).unwrap()
+            Pcg64::from_rng(&mut rng)
         );
 
         let hist2 = HistUsizeFast::new_inclusive(n / 3, n)
@@ -296,7 +296,7 @@ mod tests{
             1,
             NonZeroUsize::new(1999).unwrap(),
             NonZeroUsize::new(2).unwrap(),
-            0.0000022
+            0.000001
         ).unwrap();
 
         let mut rewl2 = rewl_builder2.greedy_build(|e| Some(e.head_count()));
@@ -415,6 +415,7 @@ mod tests{
 
         assert!(max_difference_rewl < 0.0006);
         assert!(max_difference_rees < 0.0005);
+        dbg!(frac_difference_max_rewl);
         assert!(frac_difference_max_rewl - 1.0 < 0.02);
         assert!(frac_difference_max_rees - 1.0 < 0.02);
         assert!((frac_difference_min_rewl - 1.0).abs() < 0.018);

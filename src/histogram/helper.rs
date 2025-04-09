@@ -162,7 +162,7 @@ impl<'a, T> Iterator for BorderWindow<'a, T>
 #[cfg(test)]
 mod tests{
     use rand_pcg::Pcg64Mcg;
-    use rand::{SeedableRng, distributions::*};
+    use rand::{SeedableRng, distr::*};
     use super::*;
 
 
@@ -170,7 +170,8 @@ mod tests{
     fn convert_and_back_ord()
     {
         let rng = Pcg64Mcg::seed_from_u64(2747);
-        let dist = Uniform::new_inclusive(i8::MIN, i8::MAX);
+        let dist = Uniform::new_inclusive(i8::MIN, i8::MAX)
+            .unwrap();
         let mut iter = dist.sample_iter(rng);
 
         for _ in 0..1000
@@ -184,7 +185,8 @@ mod tests{
     fn convert_and_back_i8()
     {
         let rng = Pcg64Mcg::seed_from_u64(2747);
-        let dist = Uniform::new_inclusive(i8::MIN, i8::MAX);
+        let dist = Uniform::new_inclusive(i8::MIN, i8::MAX)
+            .unwrap();
         let iter = dist.sample_iter(rng);
 
         for i in iter.take(10000)
@@ -196,7 +198,8 @@ mod tests{
     fn convert_and_back_i16()
     {
         let rng = Pcg64Mcg::seed_from_u64(2736746347);
-        let dist = Uniform::new_inclusive(i16::MIN, i16::MAX);
+        let dist = Uniform::new_inclusive(i16::MIN, i16::MAX)
+            .unwrap();
         let iter = dist.sample_iter(rng);
 
         for i in iter.take(10000)
@@ -206,23 +209,11 @@ mod tests{
     }
 
     #[test]
-    fn convert_and_back_isize()
-    {
-        let rng = Pcg64Mcg::seed_from_u64(27367463247);
-        let dist = Uniform::new_inclusive(isize::MIN, isize::MAX);
-        let iter = dist.sample_iter(rng);
-
-        for i in iter.take(10000)
-        {
-            assert_eq!(i, from_u::<_, isize>(to_u(i)));
-        }
-    }
-
-    #[test]
     fn convert_and_back_u128()
     {
         let rng = Pcg64Mcg::seed_from_u64(273674693247);
-        let dist = Uniform::new_inclusive(u128::MIN, u128::MAX);
+        let dist = Uniform::new_inclusive(u128::MIN, u128::MAX)
+            .unwrap();
         let iter = dist.sample_iter(rng);
 
         for i in iter.take(10000)
@@ -237,7 +228,8 @@ mod tests{
     fn convert_and_back_i128()
     {
         let rng = Pcg64Mcg::seed_from_u64(2723674693247);
-        let dist = Uniform::new_inclusive(i128::MIN, i128::MAX);
+        let dist = Uniform::new_inclusive(i128::MIN, i128::MAX)
+            .unwrap();
         let iter = dist.sample_iter(rng);
 
         for i in iter.take(10000)

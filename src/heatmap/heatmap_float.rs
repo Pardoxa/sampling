@@ -478,7 +478,7 @@ where
     /// ## Example
     /// ```
     /// use rand_pcg::Pcg64;
-    /// use rand::{SeedableRng, distributions::*};
+    /// use rand::{SeedableRng, distr::*};
     /// use sampling::*;
     /// use std::fs::File;
     /// use std::io::BufWriter;
@@ -492,8 +492,10 @@ where
     /// heatmap.count(10, 0).unwrap();
     ///
     /// let mut rng = Pcg64::seed_from_u64(27456487);
-    /// let x_distr = Uniform::new_inclusive(0, 10_usize);
-    /// let y_distr = Uniform::new_inclusive(0, 10_u8);
+    /// let x_distr = Uniform::new_inclusive(0, 10_usize)
+    ///     .unwrap();
+    /// let y_distr = Uniform::new_inclusive(0, 10_u8)
+    ///     .unwrap();
     ///
     /// for _ in 0..100000 {
     ///     let x = x_distr.sample(&mut rng);

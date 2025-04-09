@@ -1,6 +1,6 @@
 [package]
 name = "sampling"
-version = "0.2.0"
+version = "0.3.0"
 rust-version = "1.63.0"
 authors = ["Yannick Feld <yannick.feld@uol.de>"]
 edition = "2021"
@@ -32,20 +32,20 @@ exclude = [
 description = "Large-deviation Algorithms like Wang-Landau, Entropic sampling and Replica-Exchange Wang-Landau. Also contains Binning, Histograms, Heatmaps and bootstrap resampling. This is intended for scientific simulations"
 
 [dependencies]
-rand = { version = "^0.8.2"}
+rand = { version = "^0.9.0"}
 serde = { version = "^1.0", optional = true, features = ["derive"] }
 num-traits = "^0.2"
 transpose = "^0.2"
-rayon = { version = "^1.5", optional = true }
-paste = "1.0"
+rayon = { version = "^1.10", optional = true }
+paste = "^1.0"
 num-bigint = "^0.4.6"
 average = { version = "0.15.1", default-features = false, features = ["serde1"]}
 
 [dev-dependencies]
-serde_json = "1.0"
+serde_json = "^1.0"
 criterion = "0.5.1"
 statrs = "0.18.0"
-rand_pcg = { version = "^0.3.0", features = ["serde1"]}
+rand_pcg = { version = "^0.9.0", features = ["serde"]}
 rayon = { version = "^1.5" }
 
 [features]

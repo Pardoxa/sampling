@@ -501,7 +501,7 @@ pub type HistI8 = HistogramInt<i8>;
 #[cfg(test)]
 mod tests{
     use super::*;
-    use rand::{SeedableRng, distributions::*};
+    use rand::{SeedableRng, distr::*};
     use rand_pcg::Pcg64Mcg;
     use num_traits::Bounded;
     fn hist_test_normal<T>(left: T, right: T)
@@ -595,8 +595,10 @@ mod tests{
     {
 
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
-        let uni = Uniform::new_inclusive(-100, 100);
-        let uni_n = Uniform::new_inclusive(1, 16);
+        let uni = Uniform::new_inclusive(-100, 100)
+            .unwrap();
+        let uni_n = Uniform::new_inclusive(1, 16)
+            .unwrap();
 
         for overlap in 0..=5 {
             for _ in 0..100 {
@@ -694,8 +696,10 @@ mod tests{
     fn overlapping_partition_test2()
     {
         let mut rng = Pcg64Mcg::seed_from_u64(231468);
-        let uni = Uniform::new_inclusive(-100, 100);
-        let uni_n = Uniform::new_inclusive(2, 6);
+        let uni = Uniform::new_inclusive(-100, 100)
+            .unwrap();
+        let uni_n = Uniform::new_inclusive(2, 6)
+            .unwrap();
         for overlap in 0..=5 {
             for _ in 0..100 {
                 let n: usize = uni_n.sample(&mut rng);
@@ -738,8 +742,10 @@ mod tests{
     fn overlapping_partition_test3()
     {
         let mut rng = Pcg64Mcg::seed_from_u64(23148);
-        let uni = Uniform::new_inclusive(-300, 300);
-        let uni_n = Uniform::new_inclusive(2, 4);
+        let uni = Uniform::new_inclusive(-300, 300)
+            .unwrap();
+        let uni_n = Uniform::new_inclusive(2, 4)
+            .unwrap();
         for binsize in 2..=7 {
             for overlap in 0..=5 {
                 for _ in 0..100 {
