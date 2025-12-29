@@ -625,8 +625,8 @@ mod tests{
                 let overlapping_f = hist_fast.overlapping_partition(n_non_zero, overlap);
                 let overlapping_i = hist_i.overlapping_partition(n_non_zero, overlap);
 
-                if overlapping_i.is_err() {
-                    assert_eq!(overlapping_f.unwrap_err(), overlapping_i.unwrap_err());
+                if let Err(overlapping_i) = overlapping_i {
+                    assert_eq!(overlapping_f.unwrap_err(), overlapping_i);
                     continue;
                 }
 

@@ -134,7 +134,7 @@ impl<Ensemble, R, Hist, Energy, S, Res, Extra>  Rees<Extra, Ensemble, R, Hist, E
     ///   you can just pretend it is `&Ensemble` and everything will work out fine,
     ///   since it implements [`Deref`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
     ///   Of cause, you can also take a look at [`RwLockReadGuard`](https://doc.rust-lang.org/std/sync/struct.RwLockReadGuard.html)
-    pub fn get_ensemble(&self, index: usize) -> Option<RwLockReadGuard<Ensemble>>
+    pub fn get_ensemble<'a>(&'a self, index: usize) -> Option<RwLockReadGuard<'a, Ensemble>>
     {
         self.ensembles
             .get(index)

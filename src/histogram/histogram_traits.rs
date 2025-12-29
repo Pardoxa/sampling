@@ -37,8 +37,7 @@ pub trait Histogram {
     fn any_bin_zero(&self) -> bool
     {
         self.hist()
-            .iter()
-            .any(|&val| val == 0)
+            .contains(&0)
     }
 }
 

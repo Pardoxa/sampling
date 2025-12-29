@@ -189,6 +189,7 @@ pub fn bench_hists(c: &mut Criterion){
     use rand_pcg::Pcg64;
 
     let max_val = 100;
+    #[allow(deprecated)]
     let mut hist = HistI16::new_inclusive(0, max_val, (max_val+1) as usize)
         .unwrap();
 

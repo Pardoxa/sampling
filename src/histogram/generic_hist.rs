@@ -54,7 +54,7 @@ where B: Binning<T> {
 
     #[inline]
     fn any_bin_zero(&self) -> bool {
-        self.hits.iter().any(|h| *h == 0)
+        self.hits.contains(&0)
     }
 
     fn bin_count(&self) -> usize {

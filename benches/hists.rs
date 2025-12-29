@@ -56,6 +56,7 @@ pub fn bench_hist_new_multi(c: &mut Criterion){
 
 pub fn bench_hist_old_multi(c: &mut Criterion){
     let mut rng = Pcg64::seed_from_u64(black_box(23));
+    #[allow(deprecated)]
     let mut hist = HistU32::new_inclusive(21,200, 90)
         .unwrap();
     let sampler = rand::distr::Uniform::new_inclusive(0, 220)
