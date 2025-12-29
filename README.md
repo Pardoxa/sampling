@@ -2,8 +2,8 @@
 [![Crate](https://img.shields.io/crates/v/sampling.svg)](https://crates.io/crates/sampling)
 [![Docs](https://docs.rs/sampling/badge.svg)](https://docs.rs/sampling/)
 
-Minimal Rust version to compile this crate: 1.66.0
-Minimal Rust version: for benchmarks of this crate 1.74.0
+Minimal Rust version to compile this crate: 1.80.0
+Minimal Rust version: for benchmarks of this crate 1.81.0
 
 ## About
 
