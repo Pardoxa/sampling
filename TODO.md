@@ -2,10 +2,10 @@
 
 
 
-* [ ] Documentation of bootstrap_copyable (and bootstrap) is currently wrong (sqrt of variance) - fix that!
 
 # Finished TODOs
 
+- [x] Documentation of bootstrap_copyable (and bootstrap) is currently wrong (sqrt of variance) - fix that!
 - [x] `is_initialized()` function for WL
 - [x] Documentation for WangLandau acc methods
 - [x] Documentation for entropic  acc methods

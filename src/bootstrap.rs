@@ -1,7 +1,7 @@
 //! Bootstrap resampling functions
 use rand::{seq::*, Rng};
 
-/// returns reduced value + estimated error (as sqrt of variance).
+/// returns reduced value + variance (estimated error is sqrt of variance)
 /// Note, that you can use [bootstrap_copyable]
 /// if your `N1` implements Copy
 pub fn bootstrap<F, R, N1>(mut rng: R, samples: usize, data: &[N1], reduction: F) -> (f64, f64)
