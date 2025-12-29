@@ -1,57 +1,48 @@
+use crate::HistogramVal;
+use paste::paste;
 use std::{
+    borrow::Borrow,
+    num::NonZeroUsize,
     ops::{
-        RangeInclusive, 
+        RangeInclusive,
         //Shl
     },
-    borrow::Borrow,
-    num::NonZeroUsize
 };
-use paste::paste;
-use crate::HistogramVal;
 
 use super::{
-    Binning,
-    HasUnsignedVersion,
-    to_u,
-    from_u,
-    Bin,
-    HistogramPartition,
-    HistErrors,
-    HistogramCombine,
-    GenericHist,
-    Histogram
+    from_u, to_u, Bin, Binning, GenericHist, HasUnsignedVersion, HistErrors, Histogram,
+    HistogramCombine, HistogramPartition,
 };
 use num_bigint::BigUint;
 
 #[cfg(feature = "serde_support")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// # Generic binning meant for any integer type
 /// The bin width of this binning is always 1, so we can optimize it a bit.
 /// There are type aliases for all the common integer types, e.g. [FastBinningU8]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct FastSingleIntBinning<T>{
+pub struct FastSingleIntBinning<T> {
     /// left bin border, inclusive
     start: T,
     /// right bin border, inclusive
-    end_inclusive: T
+    end_inclusive: T,
 }
-
 
 macro_rules! impl_binning {
     (
         $t:ty
     ) => {
-        
-        
+
+
         paste::item! {
             #[doc = "# Checked multiply divide\n\
             The operation is: a * b / denominator.\n\n \
             However this function guards against an overflow of a * b. \n\n As long as the mathematical result of a * b / denominator \
             is representable as unsigned version of `<" $t " as HasUnsignedVersion>::Unsigned` then the mathematical answer is returned. Otherwise, None is returned\n\n ## Note: \n\n `denominator` is not allowed to be 0"]
             pub fn [< checked_mul_div_ $t >] (
-                a: <$t as HasUnsignedVersion>::Unsigned, 
+                a: <$t as HasUnsignedVersion>::Unsigned,
                 b: <$t as HasUnsignedVersion>::Unsigned,
                 denominator: <$t as HasUnsignedVersion>::Unsigned
             ) -> Option<<$t as HasUnsignedVersion>::Unsigned>
@@ -65,11 +56,11 @@ macro_rules! impl_binning {
                     Known(Option<<$t as HasUnsignedVersion>::Unsigned>),
                     Unknown
                 }
-                
+
                 #[inline(always)]
                 fn mul_div(
-                    mut a: <$t as HasUnsignedVersion>::Unsigned, 
-                    mut b: <$t as HasUnsignedVersion>::Unsigned, 
+                    mut a: <$t as HasUnsignedVersion>::Unsigned,
+                    mut b: <$t as HasUnsignedVersion>::Unsigned,
                     denominator: <$t as HasUnsignedVersion>::Unsigned
                 ) -> Answer
                 {
@@ -78,7 +69,7 @@ macro_rules! impl_binning {
                     }
                     // idea here: a / denominator * b + (a % denominator) * b / denominator
                     // if it works, this should be faster than the alternative.
-                    // 
+                    //
                     // If (a/denominator) * b overflows we know that the result cannot be represented by the type we want.
                     // If it does not overflow, this method works only if (a%denominator)*b does not overflow.
                     // Thus we check that first.
@@ -91,8 +82,8 @@ macro_rules! impl_binning {
                             None => return Answer::Unknown,
                             Some(v) => v
                         };
-                    
-                    
+
+
                     let result = left.checked_add(right_mul / denominator);
                     Answer::Known(result)
                 }
@@ -105,12 +96,12 @@ macro_rules! impl_binning {
                         let denominator: BigUint = denominator.into();
                         let res = a * b / denominator;
                         res.try_into().ok()
-                    } 
+                    }
                 }
 
             }
         }
-        
+
         paste!{
             #[doc = "Efficient binning for `" $t "` with bins of width 1"]
             pub type [<FastBinning $t:upper>] = FastSingleIntBinning<$t>;
@@ -168,9 +159,9 @@ macro_rules! impl_binning {
             /// # The amount of bins -1
             /// * minus 1 because if the bins are going over the entire range of the type,
             ///   then I cannot represent the number of bins as this type
-            /// 
+            ///
             /// # Example
-            /// If we look at an u8 and the range from 0 to 255, then this is 256 bins, which 
+            /// If we look at an u8 and the range from 0 to 255, then this is 256 bins, which
             /// cannot be represented as u8. To combat this, I return bins - 1.
             /// This works, because we always have at least 1 bin
             pub fn bins_m1(&self) -> <$t as HasUnsignedVersion>::Unsigned{
@@ -210,10 +201,10 @@ macro_rules! impl_binning {
             }
         }
 
- 
+
         impl Binning<$t> for paste!{[<FastBinning $t:upper>]} {
             #[inline(always)]
-            fn get_bin_len(&self) -> usize 
+            fn get_bin_len(&self) -> usize
             {
                 (self.bins_m1() as usize).saturating_add(1)
             }
@@ -326,17 +317,17 @@ macro_rules! impl_binning {
 
                         let left = from_u(left);
                         let right = from_u(right);
-                    
+
                         result.push(Self::new_inclusive(left, right));
                     }
                     debug_assert_eq!(
-                        self.start, 
-                        result[0].start, 
+                        self.start,
+                        result[0].start,
                         "eq1"
                     );
                     debug_assert_eq!(
-                        self.end_inclusive, 
-                        result.last().unwrap().end_inclusive, 
+                        self.end_inclusive,
+                        result.last().unwrap().end_inclusive,
                         "eq2"
                     );
                     Ok(result)
@@ -349,10 +340,10 @@ macro_rules! impl_binning {
             fn align<S>(&self, right: S)-> Result<usize, HistErrors>
                 where S: Borrow<Self> {
                 let right = right.borrow();
-                
+
                 self.get_bin_index(right.first_border())
             }
-        
+
             fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
                 where S: Borrow<Self> {
                 if hists.is_empty(){
@@ -366,7 +357,7 @@ macro_rules! impl_binning {
                     let binning = other.borrow().binning();
                     left = left.min(binning.first_border());
                     right = right.max(binning.last_border());
-                
+
                 }
                 let outer_binning = <paste!{[<FastBinning $t:upper>]}>::new_inclusive(left, right);
                 let hist = GenericHist::new(outer_binning);
@@ -383,40 +374,30 @@ macro_rules! impl_binning {
     }
 }
 
-impl_binning!(
-    u8, 
-    i8,
-    u16,
-    i16,
-    u32,
-    i32,
-    u64,
-    i64,
-    u128,
-    i128,
-    usize,
-    isize
-);
+impl_binning!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use std::fmt::{Debug, Display};
 
-    use crate::GenericHist;
     use super::*;
     use crate::histogram::*;
-    use num_traits::{PrimInt, AsPrimitive};
+    use crate::GenericHist;
+    use num_traits::{AsPrimitive, PrimInt};
 
     fn hist_test_generic_all_inside<T>(left: T, right: T)
-    where FastSingleIntBinning::<T>: Binning::<T>,
-        GenericHist::<FastSingleIntBinning::<T>, T>: Histogram,
+    where
+        FastSingleIntBinning<T>: Binning<T>,
+        GenericHist<FastSingleIntBinning<T>, T>: Histogram,
         T: PrimInt,
-        std::ops::RangeInclusive<T>: Iterator<Item=T>,
+        std::ops::RangeInclusive<T>: Iterator<Item = T>,
     {
-        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: right};
-        let mut hist = 
-            GenericHist::<FastSingleIntBinning::<T>, T>::new(binning);
-         
+        let binning = FastSingleIntBinning::<T> {
+            start: left,
+            end_inclusive: right,
+        };
+        let mut hist = GenericHist::<FastSingleIntBinning<T>, T>::new(binning);
+
         for (id, i) in (left..=right).enumerate() {
             assert!(hist.is_inside(i));
             assert_eq!(hist.is_inside(i), !hist.not_inside(i));
@@ -424,12 +405,11 @@ mod tests{
             assert_eq!(hist.distance(i), 0.0);
             hist.count_val(i).unwrap();
         }
-        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());   
+        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());
     }
 
     #[test]
-    fn hist_inside()
-    {
+    fn hist_inside() {
         //hist_test_generic_all_inside(20usize, 31usize);
         //hist_test_generic_all_inside(-23isize, 31isize);
         hist_test_generic_all_inside(-23i16, 31);
@@ -442,48 +422,61 @@ mod tests{
     }
 
     fn hist_test_generic_all_outside_extensive<T>(left: T, right: T)
-    where FastSingleIntBinning::<T>: Binning::<T>,
-        GenericHist::<FastSingleIntBinning::<T>, T>: Histogram,
+    where
+        FastSingleIntBinning<T>: Binning<T>,
+        GenericHist<FastSingleIntBinning<T>, T>: Histogram,
         T: PrimInt,
-        std::ops::Range<T>: Iterator<Item=T>,
-        std::ops::RangeInclusive<T>: Iterator<Item=T>,
+        std::ops::Range<T>: Iterator<Item = T>,
+        std::ops::RangeInclusive<T>: Iterator<Item = T>,
     {
-        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: right};
-        let hist = 
-            GenericHist::<FastSingleIntBinning::<T>, T>::new(binning);
-         
+        let binning = FastSingleIntBinning::<T> {
+            start: left,
+            end_inclusive: right,
+        };
+        let hist = GenericHist::<FastSingleIntBinning<T>, T>::new(binning);
+
         for i in T::min_value()..left {
             assert!(hist.not_inside(i));
             assert_eq!(hist.is_inside(i), !hist.not_inside(i));
-            assert!(matches!(hist.get_bin_index(i), Err(HistErrors::OutsideHist)));
+            assert!(matches!(
+                hist.get_bin_index(i),
+                Err(HistErrors::OutsideHist)
+            ));
             assert!(hist.distance(i) > 0.0);
         }
-        for i in right+T::one()..=T::max_value() {
+        for i in right + T::one()..=T::max_value() {
             assert!(hist.not_inside(i));
             assert_eq!(hist.is_inside(i), !hist.not_inside(i));
-            assert!(matches!(hist.get_bin_index(i), Err(HistErrors::OutsideHist)));
+            assert!(matches!(
+                hist.get_bin_index(i),
+                Err(HistErrors::OutsideHist)
+            ));
             assert!(hist.distance(i) > 0.0);
         }
-        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count()); 
+        assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());
     }
 
     fn binning_all_outside_extensive<T>(left: T, right: T)
-    where FastSingleIntBinning::<T>: Binning::<T>,
+    where
+        FastSingleIntBinning<T>: Binning<T>,
         T: PrimInt + Display,
-        std::ops::Range<T>: Iterator<Item=T>,
-        std::ops::RangeInclusive<T>: Iterator<Item=T> + Debug,
-        std::ops::RangeFrom<T>: Iterator<Item=T>,
+        std::ops::Range<T>: Iterator<Item = T>,
+        std::ops::RangeInclusive<T>: Iterator<Item = T> + Debug,
+        std::ops::RangeFrom<T>: Iterator<Item = T>,
     {
-        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: right};
-         
-        let mut last_dist = None; 
+        let binning = FastSingleIntBinning::<T> {
+            start: left,
+            end_inclusive: right,
+        };
+
+        let mut last_dist = None;
         for i in T::min_value()..left {
             assert!(binning.not_inside(i));
             assert_eq!(binning.is_inside(i), !binning.not_inside(i));
             assert!(binning.get_bin_index(i).is_none());
             let dist = binning.distance(i);
             assert!(dist > 0.0);
-            match last_dist{
+            match last_dist {
                 None => last_dist = Some(dist),
                 Some(d) => {
                     assert!(d > dist);
@@ -492,22 +485,21 @@ mod tests{
                 }
             }
         }
-        if let Some(d) = last_dist
-        {
+        if let Some(d) = last_dist {
             assert_eq!(d, 1.0);
         }
-        
+
         last_dist = None;
-        for (i, dist_counter) in (right+T::one()..=T::max_value()).zip(1_u64..) {
+        for (i, dist_counter) in (right + T::one()..=T::max_value()).zip(1_u64..) {
             assert!(binning.not_inside(i));
             assert_eq!(binning.is_inside(i), !binning.not_inside(i));
             assert!(binning.get_bin_index(i).is_none());
             let dist = binning.distance(i);
             assert!(dist > 0.0);
-            println!("{i}, {:?}", right+T::one()..=T::max_value());
+            println!("{i}, {:?}", right + T::one()..=T::max_value());
             let dist_counter_float: f64 = dist_counter.as_();
             assert_eq!(dist, dist_counter_float);
-            match last_dist{
+            match last_dist {
                 None => last_dist = Some(dist),
                 Some(d) => {
                     assert!(d < dist);
@@ -516,15 +508,16 @@ mod tests{
             }
         }
 
-        let binning = FastSingleIntBinning::<T>{start: left, end_inclusive: left};
+        let binning = FastSingleIntBinning::<T> {
+            start: left,
+            end_inclusive: left,
+        };
         assert_eq!(binning.get_bin_len(), 1);
         assert_eq!(binning.get_bin_index(left), Some(0));
-    
     }
 
     #[test]
-    fn hist_outside()
-    {
+    fn hist_outside() {
         hist_test_generic_all_outside_extensive(10u8, 20_u8);
         hist_test_generic_all_outside_extensive(-100, 100_i8);
         hist_test_generic_all_outside_extensive(-100, 100_i16);
@@ -532,8 +525,7 @@ mod tests{
     }
 
     #[test]
-    fn binning_outside()
-    {
+    fn binning_outside() {
         println!("0");
         binning_all_outside_extensive(0u8, 0_u8);
         println!("2");
@@ -545,19 +537,19 @@ mod tests{
     }
 
     #[test]
-    fn check_mul_div()
-    {
-        fn check(a: u8, b: u8, denominator: u8) -> Option<u8>
-        {
-            (a as u128 * b as u128 / denominator as u128).try_into().ok()
+    fn check_mul_div() {
+        fn check(a: u8, b: u8, denominator: u8) -> Option<u8> {
+            (a as u128 * b as u128 / denominator as u128)
+                .try_into()
+                .ok()
         }
 
-        for i in 0..255{
-            for j in 0..255{
-                for k in 1..255{
+        for i in 0..255 {
+            for j in 0..255 {
+                for k in 1..255 {
                     assert_eq!(
-                        check(i,j,k),
-                        checked_mul_div_u8(i,j,k),
+                        check(i, j, k),
+                        checked_mul_div_u8(i, j, k),
                         "Error in {i} {j} {k}"
                     );
                 }
@@ -566,18 +558,16 @@ mod tests{
     }
 
     #[test]
-    fn mul_testing()
-    {
-        use rand_pcg::Pcg64Mcg;
-        use rand::SeedableRng;
+    fn mul_testing() {
         use rand::distr::Uniform;
         use rand::prelude::*;
+        use rand::SeedableRng;
+        use rand_pcg::Pcg64Mcg;
         macro_rules! mul_t {
             (
                 $t:ty, $o:ty
             ) => {
-                
-                paste::item!{ fn [< mul_tests_ $t >]()
+                paste::item! { fn [< mul_tests_ $t >]()
                     {
                         let mut rng = Pcg64Mcg::seed_from_u64(314668);
                         let uni_one = Uniform::new_inclusive(1, $t::MAX).unwrap();
@@ -604,8 +594,8 @@ mod tests{
                         }
                     }
                 }
-            }
-        } 
+            };
+        }
         mul_t!(u8, u16);
         mul_tests_u8();
         mul_t!(u16, u64);
@@ -616,22 +606,17 @@ mod tests{
         mul_tests_i8();
         mul_t!(i32, i128);
         mul_tests_i32();
-    }  
-  
-    
-    
+    }
+
     #[test]
-    fn partion_test()
-    {
+    fn partion_test() {
         let n = NonZeroUsize::new(2).unwrap();
         let h = FastBinningU8::new_inclusive(0, u8::MAX);
-        for overlap in 0..10{
+        for overlap in 0..10 {
             let h_part = h.overlapping_partition(n, overlap).unwrap();
             assert_eq!(h.first_border(), h_part[0].first_border());
             assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
         }
-
-
 
         let h = FastBinningI8::new_inclusive(i8::MIN, i8::MAX);
         let h_part = h.overlapping_partition(n, 0).unwrap();
@@ -643,19 +628,18 @@ mod tests{
         assert_eq!(h.first_border(), h_part[0].first_border());
         assert_eq!(h.last_border(), h_part.last().unwrap().last_border());
 
-
-        let _ = h.overlapping_partition(NonZeroUsize::new(2000).unwrap(), 0).unwrap();
+        let _ = h
+            .overlapping_partition(NonZeroUsize::new(2000).unwrap(), 0)
+            .unwrap();
     }
 
     #[test]
-    fn overlapping_partition_test2()
-    {
-        use rand_pcg::Pcg64Mcg;
+    fn overlapping_partition_test2() {
         use rand::distr::Uniform;
         use rand::prelude::*;
+        use rand_pcg::Pcg64Mcg;
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
-        let uni = Uniform::new_inclusive(-100, 100)
-            .unwrap();
+        let uni = Uniform::new_inclusive(-100, 100).unwrap();
         for overlap in 0..=3 {
             for i in 0..100 {
                 let (left, right) = loop {
@@ -669,7 +653,7 @@ mod tests{
                         if (num_2 as isize - num_1 as isize) < (overlap as isize + 1) {
                             continue;
                         }
-                        break (num_1, num_2)
+                        break (num_1, num_2);
                     }
                 };
                 println!("iteration {i}");
@@ -690,21 +674,16 @@ mod tests{
                     "overlapping_partition_test2 - first border check"
                 );
 
-                for slice in overlapping.windows(2){
-                    assert!(
-                        slice[0].first_border() <= slice[1].first_border()
-                    );
-                    assert!(
-                        slice[0].last_border() <= slice[1].last_border()
-                    );
+                for slice in overlapping.windows(2) {
+                    assert!(slice[0].first_border() <= slice[1].first_border());
+                    assert!(slice[0].last_border() <= slice[1].last_border());
                 }
             }
         }
     }
 
     #[test]
-    fn hist_combine()
-    {
+    fn hist_combine() {
         let binning_left = FastBinningI8::new_inclusive(-5, 0);
         let binning_right = FastBinningI8::new_inclusive(-1, 2);
         let left = GenericHist::new(binning_left);
@@ -720,10 +699,8 @@ mod tests{
 
         assert_eq!(align, 4);
 
-        let left = FastBinningI8::new_inclusive(i8::MIN, 0)
-            .to_generic_hist();
-        let right = FastBinningI8::new_inclusive(0, i8::MAX)
-            .to_generic_hist();
+        let left = FastBinningI8::new_inclusive(i8::MIN, 0).to_generic_hist();
+        let right = FastBinningI8::new_inclusive(0, i8::MAX).to_generic_hist();
 
         let en = GenericHist::encapsulating_hist(&[&left, &right]).unwrap();
 
@@ -733,10 +710,8 @@ mod tests{
 
         assert_eq!(128, align);
 
-        let left = FastBinningI8::new_inclusive(i8::MIN, i8::MAX)
-            .to_generic_hist();
-        let small = FastBinningI8::new_inclusive(127, 127)
-            .to_generic_hist();
+        let left = FastBinningI8::new_inclusive(i8::MIN, i8::MAX).to_generic_hist();
+        let small = FastBinningI8::new_inclusive(127, 127).to_generic_hist();
 
         let align = left.align(&small).unwrap();
 
@@ -753,22 +728,21 @@ mod tests{
     }
 
     #[test]
-    fn unit_test_distance()
-    {
+    fn unit_test_distance() {
         // # bin width 1
         let binning = FastBinningI8::new_inclusive(-50, 50);
 
         let mut dist = binning.distance(i8::MIN);
-        for i in i8::MIN+1..-50{
+        for i in i8::MIN + 1..-50 {
             let new_dist = binning.distance(i);
             assert!(dist > new_dist);
             dist = new_dist;
         }
-        for i in -50..=50{
+        for i in -50..=50 {
             assert_eq!(binning.distance(i), 0.0);
         }
         dist = 0.0;
-        for i in 51..=i8::MAX{
+        for i in 51..=i8::MAX {
             let new_dist = binning.distance(i);
             assert!(dist < new_dist);
             dist = new_dist;

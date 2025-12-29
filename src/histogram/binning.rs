@@ -2,8 +2,7 @@ use super::*;
 use std::borrow::Borrow;
 
 #[cfg(feature = "serde_support")]
-use serde::{Serialize, Deserialize};
-
+use serde::{Deserialize, Serialize};
 
 mod binning_int_fast;
 pub use binning_int_fast::*;
@@ -15,8 +14,7 @@ pub use binning_int_multi::*;
 ///   but are capable of returning the bins in this representation on request
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub enum Bin<T>
-{
+pub enum Bin<T> {
     /// The bin consists of a single value. A value is inside the bin if it equals this value
     SingleValued(T),
     /// The bin is defined by two inclusive borders (left, right).
@@ -30,17 +28,16 @@ pub enum Bin<T>
     ExclusiveInclusive(T, T),
     /// The bin is defined by two exclusive borders (left, right).
     /// a value is inside the bin, if left < value < right
-    ExclusiveExclusive(T, T)
+    ExclusiveExclusive(T, T),
 }
-
 
 /// # Implements Binning
 /// Part of a histogram, but without the capability of counting stuff, i.e.,
-/// you can use this to iterate through the bins or to get the bin index that a certain value would 
+/// you can use this to iterate through the bins or to get the bin index that a certain value would
 /// correspond to, but it does not contain counters to track this.
-/// 
+///
 /// You can use this to create histograms, see [GenericHist] or [AtomicGenericHist]
-pub trait Binning<T>{
+pub trait Binning<T> {
     /// convert val to the respective binning index
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Option<usize>;
 
@@ -50,9 +47,9 @@ pub trait Binning<T>{
 
     /// # Iterates over all bins
     /// Note: Most (currently all) implementations use more efficient representations of the bins underneath,
-    ///     but are capable of returning the bins in this representation on request. 
+    ///     but are capable of returning the bins in this representation on request.
     ///     So it's better to use the native iterator instead, if you can.
-    fn bin_iter(&self) -> Box<dyn Iterator<Item=Bin<T>>>;
+    fn bin_iter(&self) -> Box<dyn Iterator<Item = Bin<T>>>;
 
     /// Does a value correspond to a valid bin?
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool;
@@ -69,7 +66,7 @@ pub trait Binning<T>{
 
     /// # True if last border is inclusive, false otherwise
     /// For most use cases this will return a constant value,
-    /// as this is likely only dependent on the underlying type and not 
+    /// as this is likely only dependent on the underlying type and not
     /// on something that changes dynamically
     fn last_border_is_inclusive(&self) -> bool;
 
@@ -79,19 +76,21 @@ pub trait Binning<T>{
     fn distance<V: Borrow<T>>(&self, val: V) -> f64;
 
     /// # Convert binning into [GenericHist]
-    /// Useful histogram for single threaded context's. 
+    /// Useful histogram for single threaded context's.
     /// Otherwise [AtomicGenericHist] might be more useful (see also [Binning::to_generic_atomic_hist])
     fn to_generic_hist(self) -> GenericHist<Self, T>
-    where Self: Sized
+    where
+        Self: Sized,
     {
         GenericHist::new(self)
     }
 
     /// # Convert binning into a [AtomicGenericHist]
-    /// Useful histogram if you want to create the histogram in parallel, but otherwise has less functionality 
+    /// Useful histogram if you want to create the histogram in parallel, but otherwise has less functionality
     /// than [GenericHist] (see also [Binning::to_generic_hist])
     fn to_generic_atomic_hist(self) -> AtomicGenericHist<Self, T>
-    where Self: Sized
+    where
+        Self: Sized,
     {
         AtomicGenericHist::new(self)
     }
@@ -108,10 +107,10 @@ pub trait BinDisplay {
     /// * if you are working with a specific type there is usually a more efficient implementation
     ///   that did not require the usage of dynamic traits (`dyn`) and that are thus more efficient,
     ///   consider using those instead
-    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=Self::BinEntry> + '_>;
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item = Self::BinEntry> + '_>;
 
     /// # For writing a bin
-    /// * How to write a bin to a file? If a bin consists, e.g., of an exclusive and inclusive border this 
+    /// * How to write a bin to a file? If a bin consists, e.g., of an exclusive and inclusive border this
     ///   might require the writing of two values. It could also be a single value instead.
     ///   It should be something the user expects from your binning, see write header
     fn write_bin<W: std::io::Write>(entry: &Self::BinEntry, writer: W) -> std::io::Result<()>;

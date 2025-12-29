@@ -1,45 +1,36 @@
-use{
+use super::binning::BinDisplay;
+use {
     crate::histogram::*,
     num_traits::{
-        Bounded,
-        int::*,
         cast::*,
         identities::*,
-        ops::{
-            checked::*, 
-            wrapping::*
-        }
+        int::*,
+        ops::{checked::*, wrapping::*},
+        Bounded,
     },
-    std::{
-        borrow::*,
-        ops::*,
-        num::*
-    }
+    std::{borrow::*, num::*, ops::*},
 };
-use super::binning::BinDisplay;
 
 #[cfg(feature = "serde_support")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// You have done something that can succeed or fail
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Outcome{
+pub enum Outcome {
     /// It worked :)
     Success,
     /// It did not work…
-    Failure
+    Failure,
 }
 
-impl Outcome{
+impl Outcome {
     /// Check if Outcome is success variant
-    pub fn is_success(self) -> bool
-    {
+    pub fn is_success(self) -> bool {
         self == Outcome::Success
     }
 
     /// Check if outcome is failure variant
-    pub fn is_failure(self) -> bool
-    {
+    pub fn is_failure(self) -> bool {
         self == Outcome::Failure
     }
 }
@@ -50,23 +41,24 @@ impl Outcome{
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct HistogramFast<T> {
-    left: T, 
+    left: T,
     right: T,
     hist: Vec<usize>,
 }
 
 impl<T> BinDisplay for HistogramFast<T>
-where 
-T: PrimInt + HasUnsignedVersion + Copy + std::fmt::Display + WrappingAdd,
-T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-    + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+where
+    T: PrimInt + HasUnsignedVersion + Copy + std::fmt::Display + WrappingAdd,
+    T::Unsigned: Bounded
+        + HasUnsignedVersion<LeBytes = T::LeBytes>
+        + WrappingAdd
+        + ToPrimitive
+        + Sub<Output = T::Unsigned>,
 {
     type BinEntry = T;
 
-    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item=Self::BinEntry> + '_>{
-        Box::new(
-            self.bin_iter()
-        )
+    fn display_bin_iter(&'_ self) -> Box<dyn Iterator<Item = Self::BinEntry> + '_> {
+        Box::new(self.bin_iter())
     }
 
     fn write_bin<W: std::io::Write>(entry: &Self::BinEntry, mut writer: W) -> std::io::Result<()> {
@@ -79,39 +71,39 @@ T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes>
 }
 
 impl<T> HistogramFast<T>
-where T: Copy
+where
+    T: Copy,
 {
     /// Get left border, inclusive
-    pub fn left(&self) -> T
-    {
+    pub fn left(&self) -> T {
         self.left
     }
 
     /// Get right border, inclusive
-    pub fn right(&self) -> T
-    {
+    pub fn right(&self) -> T {
         self.right
     }
 
     /// # Returns the range covered by the bins as a `RangeInclusive<T>`
-    pub fn range_inclusive(&self) -> RangeInclusive<T>
-    {
+    pub fn range_inclusive(&self) -> RangeInclusive<T> {
         self.left..=self.right
     }
 }
 
-impl<T> HistogramFast<T> 
-    where 
+impl<T> HistogramFast<T>
+where
     T: PrimInt + HasUnsignedVersion + WrappingAdd,
-    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-        + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+    T::Unsigned: Bounded
+        + HasUnsignedVersion<LeBytes = T::LeBytes>
+        + WrappingAdd
+        + ToPrimitive
+        + Sub<Output = T::Unsigned>,
 {
     /// # Create a new interval
     /// * same as `Self::new_inclusive(left, right - 1)` though with checks
     /// * That makes `left` an inclusive and `right` an exclusive border
-    pub fn new(left: T, right: T) -> Result<Self, HistErrors>
-    {
-        let right = match right.checked_sub(&T::one()){
+    pub fn new(left: T, right: T) -> Result<Self, HistErrors> {
+        let right = match right.checked_sub(&T::one()) {
             Some(res) => res,
             None => return Err(HistErrors::Underflow),
         };
@@ -122,28 +114,25 @@ impl<T> HistogramFast<T>
     /// * `Err` if `left > right`
     /// * `left` is inclusive border
     /// * `right` is inclusive border
-    pub fn new_inclusive(left: T, right: T) -> Result<Self, HistErrors>
-    {
+    pub fn new_inclusive(left: T, right: T) -> Result<Self, HistErrors> {
         if left > right {
             Err(HistErrors::OutsideHist)
         } else {
             let left_u = to_u(left);
             let right_u = to_u(right);
-            let size = match (right_u - left_u).to_usize(){
-                Some(val) => match val.checked_add(1){
+            let size = match (right_u - left_u).to_usize() {
+                Some(val) => match val.checked_add(1) {
                     Some(val) => val,
                     None => return Err(HistErrors::Overflow),
                 },
                 None => return Err(HistErrors::UsizeCastError),
             };
 
-            Ok(
-                Self{
-                    left,
-                    right,
-                    hist: vec![0; size],
-                }
-            )
+            Ok(Self {
+                left,
+                right,
+                hist: vec![0; size],
+            })
         }
     }
 
@@ -151,37 +140,35 @@ impl<T> HistogramFast<T>
     /// In HistogramFast is hit only when a value matches the corresponding bin exactly,
     /// which means there exists a map between bins and corresponding values that would hit them.
     /// So a bin is perfectly defined by one value. That is what we are iterating over here
-    /// 
+    ///
     /// This iterates over these values
     /// # Example
     /// ```
     /// use sampling::histogram::HistogramFast;
-    /// 
+    ///
     /// let hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
     /// let vec: Vec<u8> =  hist.bin_iter().collect();
     /// assert_eq!(&vec, &[2, 3, 4, 5]);
     /// ```
-    pub fn bin_iter(&self) -> impl Iterator<Item=T>
-    {
-        HistFastIterHelper{
+    pub fn bin_iter(&self) -> impl Iterator<Item = T> {
+        HistFastIterHelper {
             current: self.left,
             right: self.right,
-            invalid: false
+            invalid: false,
         }
-
     }
 
     /// # Iterator over all the bins
     /// In HistogramFast is hit only when a value matches the corresponding bin exactly,
     /// which means there exists a map between bins and corresponding values that would hit them.
-    /// 
+    ///
     /// This iterates over these values as well as the corresponding hit count (i.e., how often the corresponding bin was hit)
     /// # Item of Iterator
     /// `(value_corresponding_to_bin, number_of_hits)`
     /// # Example
     /// ```
     /// use sampling::histogram::HistogramFast;
-    /// 
+    ///
     /// let mut hist = HistogramFast::<u8>::new_inclusive(2, 5).unwrap();
     /// hist.increment(4).unwrap();
     /// hist.increment(5).unwrap();
@@ -189,20 +176,15 @@ impl<T> HistogramFast<T>
     /// let vec: Vec<(u8, usize)> =  hist.bin_hits_iter().collect();
     /// assert_eq!(&vec, &[(2, 0), (3, 0), (4, 1), (5, 2)]);
     /// ```
-    pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item=(T, usize)> + '_
-    {
-        self.bin_iter()
-            .zip(
-                self.hist
-                    .iter()
-                    .copied()
-            )
+    pub fn bin_hits_iter(&'_ self) -> impl Iterator<Item = (T, usize)> + '_ {
+        self.bin_iter().zip(self.hist.iter().copied())
     }
 
     /// checks if the range of two Histograms is equal, i.e.,
     /// if they have the same bin borders
     pub fn equal_range(&self, other: &Self) -> bool
-    where T: Eq
+    where
+        T: Eq,
     {
         self.left.eq(&other.left) && self.right.eq(&other.right)
     }
@@ -210,11 +192,12 @@ impl<T> HistogramFast<T>
     /// # Add other histogram to self
     /// * will fail if the ranges are not equal, i.e., if [equal_range](Self::equal_range)
     ///   returns false
-    /// * Otherwise the hit count of the bins of self will be increased 
-    ///   by the corresponding hit count of other. 
+    /// * Otherwise the hit count of the bins of self will be increased
+    ///   by the corresponding hit count of other.
     /// * other will be unchanged
     pub fn try_add(&mut self, other: &Self) -> Outcome
-    where T: Eq
+    where
+        T: Eq,
     {
         if self.equal_range(other) {
             self.hist
@@ -228,7 +211,7 @@ impl<T> HistogramFast<T>
     }
 
     #[inline]
-    /// # Increment hit count 
+    /// # Increment hit count
     /// If `val` is inside the histogram, the corresponding bin count will be increased
     /// by 1 and the index corresponding to the bin in returned: `Ok(index)`.
     /// Otherwise an Error is returned
@@ -242,28 +225,25 @@ impl<T> HistogramFast<T>
     /// # Increment hit count
     /// Increments the hit count of the bin corresponding to `val`.
     /// If no bin corresponding to `val` exists, nothing happens
-    pub fn increment_quiet<V: Borrow<T>>(&mut self, val: V)
-    {
+    pub fn increment_quiet<V: Borrow<T>>(&mut self, val: V) {
         let _ = self.increment(val);
     }
 }
 
-pub(crate) struct HistFastIterHelper<T>
-{
+pub(crate) struct HistFastIterHelper<T> {
     pub(crate) current: T,
     pub(crate) right: T,
     pub(crate) invalid: bool,
 }
 
 impl<T> Iterator for HistFastIterHelper<T>
-where 
+where
     T: PrimInt + WrappingAdd,
 {
     type Item = T;
 
     #[inline]
-    fn next(&mut self) -> Option<T>
-    {
+    fn next(&mut self) -> Option<T> {
         if self.invalid {
             return None;
         }
@@ -271,46 +251,36 @@ where
         let next = self.current.wrapping_add(&T::one());
         let current = std::mem::replace(&mut self.current, next);
         self.invalid = current == self.right;
-        Some(
-            current
-        )
-
+        Some(current)
     }
 }
 
-pub(crate) struct BinModIterHelper<T>
-{
+pub(crate) struct BinModIterHelper<T> {
     pub(crate) current: T,
     pub(crate) right: T,
     pub(crate) step_by: T,
     pub(crate) invalid: bool,
 }
 
-impl<T> BinModIterHelper<T>
-{
-    pub(crate) fn new_unchecked(left: T, right: T, step_by: T) -> Self
-    {
-        Self{
+impl<T> BinModIterHelper<T> {
+    pub(crate) fn new_unchecked(left: T, right: T, step_by: T) -> Self {
+        Self {
             current: left,
             right,
             step_by,
-            invalid: false
+            invalid: false,
         }
     }
 }
 
 impl<T> Iterator for BinModIterHelper<T>
-where 
-    T: Add::<T, Output=T> 
-        + Ord + Copy + WrappingAdd
-        + WrappingSub
-        + One,
+where
+    T: Add<T, Output = T> + Ord + Copy + WrappingAdd + WrappingSub + One,
 {
     type Item = RangeInclusive<T>;
 
     #[inline]
-    fn next(&mut self) -> Option<RangeInclusive<T>>
-    {
+    fn next(&mut self) -> Option<RangeInclusive<T>> {
         if self.invalid {
             return None;
         }
@@ -319,51 +289,58 @@ where
         let right = next.wrapping_sub(&T::one());
         self.invalid = right == self.right;
         let left = std::mem::replace(&mut self.current, next);
-        Some(
-            left..=right
-        )
-
+        Some(left..=right)
     }
 }
 
-impl<T> HistogramPartition for HistogramFast<T> 
-where T: PrimInt + CheckedSub + ToPrimitive + CheckedAdd + One + FromPrimitive
-    + HasUnsignedVersion + Bounded + WrappingAdd,
-T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes, Unsigned=T::Unsigned> 
-    + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned> + FromPrimitive + WrappingSub,
+impl<T> HistogramPartition for HistogramFast<T>
+where
+    T: PrimInt
+        + CheckedSub
+        + ToPrimitive
+        + CheckedAdd
+        + One
+        + FromPrimitive
+        + HasUnsignedVersion
+        + Bounded
+        + WrappingAdd,
+    T::Unsigned: Bounded
+        + HasUnsignedVersion<LeBytes = T::LeBytes, Unsigned = T::Unsigned>
+        + WrappingAdd
+        + ToPrimitive
+        + Sub<Output = T::Unsigned>
+        + FromPrimitive
+        + WrappingSub,
 {
-    fn overlapping_partition(&self, n: NonZeroUsize, overlap: usize) -> Result<Vec<Self>, HistErrors>
-    {
+    fn overlapping_partition(
+        &self,
+        n: NonZeroUsize,
+        overlap: usize,
+    ) -> Result<Vec<Self>, HistErrors> {
         let mut result = Vec::with_capacity(n.get());
         let size = self.bin_count() - 1;
         let denominator = n.get() + overlap;
         for c in 0..n.get() {
-            let left_distance = c.checked_mul(size)
+            let left_distance = c.checked_mul(size).ok_or(HistErrors::Overflow)? / denominator;
+
+            let left = to_u(self.left)
+                + T::Unsigned::from_usize(left_distance).ok_or(HistErrors::CastError)?;
+
+            let right_distance = (c + overlap + 1)
+                .checked_mul(size)
                 .ok_or(HistErrors::Overflow)?
                 / denominator;
-                    
-            let left = to_u(self.left) + T::Unsigned::from_usize(left_distance)
-                .ok_or(HistErrors::CastError)?;
-            
-            let right_distance = (c + overlap + 1).checked_mul(size)
-                .ok_or(HistErrors::Overflow)?
-                / denominator;
-            
-            let right = to_u(self.left) + T::Unsigned::from_usize(right_distance)
-                .ok_or(HistErrors::CastError)?;
-            
+
+            let right = to_u(self.left)
+                + T::Unsigned::from_usize(right_distance).ok_or(HistErrors::CastError)?;
+
             let left = from_u(left);
             let right = from_u(right);
 
             result.push(Self::new_inclusive(left, right)?);
-            if result.last()
-                .unwrap()
-                .hist
-                .is_empty()
-            {
+            if result.last().unwrap().hist.is_empty() {
                 return Err(HistErrors::IntervalWidthZero);
             }
-
         }
         Ok(result)
     }
@@ -395,10 +372,7 @@ pub type HistI16Fast = HistogramFast<i16>;
 /// Histogram for binning `i8` - alias for `HistogramFastiu8>`
 pub type HistI8Fast = HistogramFast<i8>;
 
-
-impl<T> Histogram for HistogramFast<T> 
-{
-
+impl<T> Histogram for HistogramFast<T> {
     #[inline]
     fn increment_index_by(&mut self, index: usize, count: usize) -> Result<(), HistErrors> {
         match self.hist.get_mut(index) {
@@ -406,7 +380,7 @@ impl<T> Histogram for HistogramFast<T>
             Some(val) => {
                 *val += count;
                 Ok(())
-            },
+            }
         }
     }
 
@@ -423,16 +397,18 @@ impl<T> Histogram for HistogramFast<T>
     #[inline]
     fn reset(&mut self) {
         // compiles to memset =)
-        self.hist
-            .iter_mut()
-            .for_each(|h| *h = 0);
+        self.hist.iter_mut().for_each(|h| *h = 0);
     }
-} 
+}
 
 impl<T> HistogramVal<T> for HistogramFast<T>
-where T: PrimInt + HasUnsignedVersion + WrappingAdd,
-    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-        + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+where
+    T: PrimInt + HasUnsignedVersion + WrappingAdd,
+    T::Unsigned: Bounded
+        + HasUnsignedVersion<LeBytes = T::LeBytes>
+        + WrappingAdd
+        + ToPrimitive
+        + Sub<Output = T::Unsigned>,
 {
     #[inline]
     fn first_border(&self) -> T {
@@ -456,8 +432,7 @@ where T: PrimInt + HasUnsignedVersion + WrappingAdd,
             } else {
                 val.saturating_sub(self.right)
             };
-            dist.to_f64()
-                .unwrap_or(f64::INFINITY)
+            dist.to_f64().unwrap_or(f64::INFINITY)
         } else {
             0.0
         }
@@ -466,23 +441,17 @@ where T: PrimInt + HasUnsignedVersion + WrappingAdd,
     #[inline(always)]
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         let val = *val.borrow();
-        if val <= self.right{
+        if val <= self.right {
             match val.checked_sub(&self.left) {
                 None => {
-                    let left = self.left.to_isize()
-                        .ok_or(HistErrors::CastError)?;
-                    let val = val.to_isize()
-                        .ok_or(HistErrors::CastError)?;
-                    match val.checked_sub(left){
+                    let left = self.left.to_isize().ok_or(HistErrors::CastError)?;
+                    let val = val.to_isize().ok_or(HistErrors::CastError)?;
+                    match val.checked_sub(left) {
                         None => Err(HistErrors::OutsideHist),
-                        Some(index) => {
-                            index.to_usize()
-                                .ok_or(HistErrors::OutsideHist)
-                        }
+                        Some(index) => index.to_usize().ok_or(HistErrors::OutsideHist),
                     }
-                },
-                Some(index) => index.to_usize()
-                    .ok_or(HistErrors::OutsideHist)
+                }
+                Some(index) => index.to_usize().ok_or(HistErrors::OutsideHist),
             }
         } else {
             Err(HistErrors::OutsideHist)
@@ -492,11 +461,8 @@ where T: PrimInt + HasUnsignedVersion + WrappingAdd,
     /// # Iterator over the bins
     /// * This iterator will always return SingleValued bins
     /// * Consider using `self.bin_iter()` instead, its more efficient
-    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item=Bin<T>> + '_>{
-        
-        let iter = self
-            .bin_iter()
-            .map(|bin| Bin::SingleValued(bin));
+    fn bin_enum_iter(&self) -> Box<dyn Iterator<Item = Bin<T>> + '_> {
+        let iter = self.bin_iter().map(|bin| Bin::SingleValued(bin));
         Box::new(iter)
     }
 
@@ -520,16 +486,16 @@ where T: PrimInt + HasUnsignedVersion + WrappingAdd,
     }
 }
 
-impl<T> HistogramIntervalDistance<T> for HistogramFast<T> 
-where Self: HistogramVal<T>,
-    T: PartialOrd + std::ops::Sub<Output=T> + NumCast + Copy
+impl<T> HistogramIntervalDistance<T> for HistogramFast<T>
+where
+    Self: HistogramVal<T>,
+    T: PartialOrd + std::ops::Sub<Output = T> + NumCast + Copy,
 {
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
         let val = val.borrow();
         if self.not_inside(val) {
             let num_bins_overlap = 1usize.max(self.bin_count() / overlap.get());
-            let dist = 
-            if *val < self.left { 
+            let dist = if *val < self.left {
                 self.left - *val
             } else {
                 *val - self.right
@@ -542,87 +508,102 @@ where Self: HistogramVal<T>,
 }
 
 impl<T> HistogramCombine for HistogramFast<T>
-    where   Self: HistogramVal<T>,
+where
+    Self: HistogramVal<T>,
     T: PrimInt + HasUnsignedVersion + WrappingAdd,
-    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-    + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+    T::Unsigned: Bounded
+        + HasUnsignedVersion<LeBytes = T::LeBytes>
+        + WrappingAdd
+        + ToPrimitive
+        + Sub<Output = T::Unsigned>,
 {
     fn encapsulating_hist<S>(hists: &[S]) -> Result<Self, HistErrors>
-    where S: Borrow<Self> {
+    where
+        S: Borrow<Self>,
+    {
         if hists.is_empty() {
             Err(HistErrors::EmptySlice)
         } else if hists.len() == 1 {
             let h = hists[0].borrow();
-            Ok(Self{
+            Ok(Self {
                 left: h.left,
                 right: h.right,
-                hist: vec![0; h.hist.len()]
+                hist: vec![0; h.hist.len()],
             })
         } else {
             let mut min = hists[0].borrow().left;
             let mut max = hists[0].borrow().right;
-            hists[1..].iter()
-                .for_each(
-                    |h|
-                    {
-                        let h = h.borrow();
-                        if h.left < min {
-                            min = h.left;
-                        }
-                        if h.right > max {
-                            max = h.right;
-                        }
-                    }
-                );
+            hists[1..].iter().for_each(|h| {
+                let h = h.borrow();
+                if h.left < min {
+                    min = h.left;
+                }
+                if h.right > max {
+                    max = h.right;
+                }
+            });
             Self::new_inclusive(min, max)
         }
     }
 
     fn align<S>(&self, right: S) -> Result<usize, HistErrors>
-    where S: Borrow<Self> {
+    where
+        S: Borrow<Self>,
+    {
         let right = right.borrow();
 
         if self.is_inside(right.left) {
             (to_u(right.left) - to_u(self.left))
                 .to_usize()
                 .ok_or(HistErrors::UsizeCastError)
-        } else { 
+        } else {
             Err(HistErrors::OutsideHist)
         }
     }
 }
 
 impl<T> IntervalOrder for HistogramFast<T>
-where T: PrimInt
+where
+    T: PrimInt,
 {
     fn left_compare(&self, other: &Self) -> std::cmp::Ordering {
-        let order =  self.left.cmp(&other.left);
+        let order = self.left.cmp(&other.left);
         if order.is_eq() {
-            return self.right.cmp(&other.right)
+            return self.right.cmp(&other.right);
         }
         order
     }
 }
 
-
-
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
     use rand::{distr::*, SeedableRng};
     use rand_pcg::Pcg64Mcg;
 
     fn hist_test_fast<T>(left: T, right: T)
-    where T: PrimInt + num_traits::Bounded + PartialOrd + CheckedSub + One 
-        + NumCast + Copy + FromPrimitive + HasUnsignedVersion + WrappingAdd,
-    std::ops::RangeInclusive<T>: Iterator<Item=T>,
-    T::Unsigned: Bounded + HasUnsignedVersion<LeBytes=T::LeBytes> 
-        + WrappingAdd + ToPrimitive + Sub<Output=T::Unsigned>
+    where
+        T: PrimInt
+            + num_traits::Bounded
+            + PartialOrd
+            + CheckedSub
+            + One
+            + NumCast
+            + Copy
+            + FromPrimitive
+            + HasUnsignedVersion
+            + WrappingAdd,
+        std::ops::RangeInclusive<T>: Iterator<Item = T>,
+        T::Unsigned: Bounded
+            + HasUnsignedVersion<LeBytes = T::LeBytes>
+            + WrappingAdd
+            + ToPrimitive
+            + Sub<Output = T::Unsigned>,
     {
         let mut hist = HistogramFast::<T>::new_inclusive(left, right).unwrap();
         assert!(hist.not_inside(T::max_value()));
         assert!(hist.not_inside(T::min_value()));
-        let two = unsafe{NonZeroUsize::new_unchecked(2)};
+        let two = unsafe { NonZeroUsize::new_unchecked(2) };
         for (id, i) in (left..=right).enumerate() {
             assert!(hist.is_inside(i));
             assert_eq!(hist.is_inside(i), !hist.not_inside(i));
@@ -639,15 +620,14 @@ mod tests{
         assert_eq!(hist.is_inside(rp1), !hist.not_inside(rp1));
         assert_eq!(hist.distance(lm1), 1.0);
         assert_eq!(hist.distance(rp1), 1.0);
-        let one = unsafe{NonZeroUsize::new_unchecked(1)};
+        let one = unsafe { NonZeroUsize::new_unchecked(1) };
         assert_eq!(hist.interval_distance_overlap(rp1, one), 1);
         assert_eq!(hist.interval_distance_overlap(lm1, one), 1);
         assert_eq!(hist.bin_enum_iter().count(), hist.bin_count());
     }
 
     #[test]
-    fn hist_fast()
-    {
+    fn hist_fast() {
         hist_test_fast(20usize, 31usize);
         hist_test_fast(-23isize, 31isize);
         hist_test_fast(-23i16, 31);
@@ -658,24 +638,19 @@ mod tests{
         hist_test_fast(-100i8, 100i8);
     }
 
-    
-
     #[test]
-    fn hist_creation()
-    {
+    fn hist_creation() {
         let _ = HistU8Fast::new_inclusive(0, u8::MAX).unwrap();
         let _ = HistI8Fast::new_inclusive(i8::MIN, i8::MAX).unwrap();
     }
 
     #[test]
-    fn partion_test()
-    {
+    fn partion_test() {
         let n = NonZeroUsize::new(2).unwrap();
         let h = HistU8Fast::new_inclusive(0, u8::MAX).unwrap();
         let h_part = h.overlapping_partition(n, 0).unwrap();
         assert_eq!(h.left, h_part[0].left);
         assert_eq!(h.right, h_part.last().unwrap().right);
-
 
         let h = HistI8Fast::new_inclusive(i8::MIN, i8::MAX).unwrap();
         let h_part = h.overlapping_partition(n, 0).unwrap();
@@ -687,16 +662,15 @@ mod tests{
         assert_eq!(h.left, h_part[0].left);
         assert_eq!(h.right, h_part.last().unwrap().right);
 
-
-        let _ = h.overlapping_partition(NonZeroUsize::new(2000).unwrap(), 0).unwrap();
+        let _ = h
+            .overlapping_partition(NonZeroUsize::new(2000).unwrap(), 0)
+            .unwrap();
     }
 
     #[test]
-    fn overlapping_partition_test2()
-    {
+    fn overlapping_partition_test2() {
         let mut rng = Pcg64Mcg::seed_from_u64(2314668);
-        let uni = Uniform::new_inclusive(-100, 100)
-            .unwrap();
+        let uni = Uniform::new_inclusive(-100, 100).unwrap();
         for overlap in 0..=3 {
             for _ in 0..100 {
                 let (left, right) = loop {
@@ -710,11 +684,13 @@ mod tests{
                         if (num_2 as isize - num_1 as isize) < (overlap as isize + 1) {
                             continue;
                         }
-                        break (num_1, num_2)
+                        break (num_1, num_2);
                     }
                 };
                 let hist_fast = HistI8Fast::new_inclusive(left, right).unwrap();
-                let overlapping = hist_fast.overlapping_partition(NonZeroUsize::new(3).unwrap(), overlap).unwrap();
+                let overlapping = hist_fast
+                    .overlapping_partition(NonZeroUsize::new(3).unwrap(), overlap)
+                    .unwrap();
 
                 assert_eq!(
                     overlapping.last().unwrap().last_border(),
@@ -730,9 +706,8 @@ mod tests{
     }
 
     #[test]
-    fn hist_combine()
-    {
-        let left = HistI8Fast::new_inclusive(-5,0).unwrap();
+    fn hist_combine() {
+        let left = HistI8Fast::new_inclusive(-5, 0).unwrap();
         let right = HistI8Fast::new_inclusive(-1, 2).unwrap();
 
         let en = HistI8Fast::encapsulating_hist(&[&left, &right]).unwrap();
@@ -774,20 +749,15 @@ mod tests{
     }
 
     #[test]
-    fn hist_try_add()
-    {
-        let mut first = HistU8Fast::new_inclusive(0, 23)
-            .unwrap();
-        let mut second = HistU8Fast::new_inclusive(0, 23)
-            .unwrap();
-        
-        for i in 0..=23{
-            first.increment(i)
-                .unwrap();
+    fn hist_try_add() {
+        let mut first = HistU8Fast::new_inclusive(0, 23).unwrap();
+        let mut second = HistU8Fast::new_inclusive(0, 23).unwrap();
+
+        for i in 0..=23 {
+            first.increment(i).unwrap();
         }
-        for i in 0..=11{
-            second.increment(i)
-                .unwrap();
+        for i in 0..=11 {
+            second.increment(i).unwrap();
         }
 
         let outcome = first.try_add(&second);
@@ -796,22 +766,20 @@ mod tests{
         let hist = first.hist();
 
         #[allow(clippy::needless_range_loop)]
-        for i in 0..=11{
+        for i in 0..=11 {
             assert_eq!(hist[i], 2);
         }
         #[allow(clippy::needless_range_loop)]
-        for i in 12..=23{
+        for i in 12..=23 {
             assert_eq!(hist[i], 1);
         }
 
-        let third = HistU8Fast::new(0,23)
-            .unwrap();
-            
+        let third = HistU8Fast::new(0, 23).unwrap();
+
         let outcome = first.try_add(&third);
         assert!(
             outcome.is_failure(),
             "Needs to be Err because ranges do not match"
         )
     }
-
 }

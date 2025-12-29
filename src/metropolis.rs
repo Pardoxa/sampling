@@ -5,7 +5,6 @@ mod metropolis;
 
 pub use metropolis::*;
 
-
 /// short for `Metropolis<E, R, S, Res, f64>`
 pub type MetF64<E, R, S, Res> = Metropolis<E, R, S, Res, f64>;
 /// short for `Metropolis<E, R, S, Res, f32>`

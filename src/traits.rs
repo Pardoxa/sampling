@@ -1,4 +1,3 @@
-
 /// # Create a markov chain by doing markov steps
 pub trait MarkovChain<S, Res> {
     /// * undo a markov step, return result-state
@@ -22,18 +21,15 @@ pub trait MarkovChain<S, Res> {
     #[inline]
     fn m_steps(&mut self, count: usize, steps: &mut Vec<S>) {
         steps.clear();
-        steps.extend((0..count)
-            .map(|_| self.m_step())
-        );
+        steps.extend((0..count).map(|_| self.m_step()));
     }
 
     /// # Markov steps without return
     /// * use this to perform multiple markov steps at once
     /// * only use this if you **know** that you do **not** want to undo the steps
-    /// * you cannot undo this steps, but therefore it does not need to allocate a vector 
+    /// * you cannot undo this steps, but therefore it does not need to allocate a vector
     ///   for undoing steps
-    fn m_steps_quiet(&mut self, count: usize)
-    {
+    fn m_steps_quiet(&mut self, count: usize) {
         for _ in 0..count {
             self.m_step();
         }
@@ -44,7 +40,8 @@ pub trait MarkovChain<S, Res> {
     ///   which can be more efficient then calculating it from scratch afterwards
     #[inline]
     fn m_step_acc<Acc, AccFn>(&mut self, acc: &mut Acc, mut acc_fn: AccFn) -> S
-    where AccFn: FnMut(&Self, &S, &mut Acc)
+    where
+        AccFn: FnMut(&Self, &S, &mut Acc),
     {
         let s = self.m_step();
         acc_fn(self, &s, acc);
@@ -55,21 +52,17 @@ pub trait MarkovChain<S, Res> {
     /// * this calculates something while performing the markov chain, e.g., the current energy
     ///   which can be more efficient then calculating it from scratch afterwards
     #[inline]
-    fn m_steps_acc<Acc, AccFn>
-    (
+    fn m_steps_acc<Acc, AccFn>(
         &mut self,
         count: usize,
         steps: &mut Vec<S>,
         acc: &mut Acc,
-        mut acc_fn: AccFn
-    )
-    where AccFn: FnMut(&Self, &S, &mut Acc)
+        mut acc_fn: AccFn,
+    ) where
+        AccFn: FnMut(&Self, &S, &mut Acc),
     {
         steps.clear();
-        steps.extend(
-            (0..count)
-                .map(|_| self.m_step_acc(acc, &mut acc_fn))
-        );
+        steps.extend((0..count).map(|_| self.m_step_acc(acc, &mut acc_fn)));
     }
 
     /// # Accumulating markov steps
@@ -78,9 +71,10 @@ pub trait MarkovChain<S, Res> {
     /// * quiet step, i.e., you will not be able to undo the step
     #[inline]
     fn m_steps_acc_quiet<Acc, AccFn>(&mut self, count: usize, acc: &mut Acc, mut acc_fn: AccFn)
-    where AccFn: FnMut(&Self, &S, &mut Acc)
+    where
+        AccFn: FnMut(&Self, &S, &mut Acc),
     {
-        for _ in 0..count{
+        for _ in 0..count {
             let _ = self.m_step_acc(acc, &mut acc_fn);
         }
     }
@@ -91,11 +85,7 @@ pub trait MarkovChain<S, Res> {
     /// * look at specific implementation of `undo_step`, every thing mentioned there applies to each step
     fn undo_steps(&mut self, steps: &[S], res: &mut Vec<Res>) {
         res.clear();
-        res.extend(
-            steps.iter()
-                .rev()
-                .map(|step| self.undo_step(step))
-        );
+        res.extend(steps.iter().rev().map(|step| self.undo_step(step)));
     }
 
     /// # Undo markov steps
@@ -103,35 +93,29 @@ pub trait MarkovChain<S, Res> {
     /// ## Important:
     /// * look at specific implementation of `undo_step_quiet`, every thing mentioned there applies to each step
     fn undo_steps_quiet(&mut self, steps: &[S]) {
-        steps.iter()
+        steps
+            .iter()
             .rev()
-            .for_each( |step| self.undo_step_quiet(step));
+            .for_each(|step| self.undo_step_quiet(step));
     }
 
-
     /// # Function called whenever the steps are accepted.
-    /// *You can use it to create the acceptance statistics if 
+    /// *You can use it to create the acceptance statistics if
     /// you move a variety of different moves
     /// * If you use the default implementation this will be a optimized out
     #[inline]
-    fn steps_accepted(&mut self, _steps: &[S])
-    {
-
-    }
+    fn steps_accepted(&mut self, _steps: &[S]) {}
 
     /// # Function called whenever the steps are rejected.
-    /// * You can use it to create the acceptance statistics if 
+    /// * You can use it to create the acceptance statistics if
     ///   you move a variety of different moves
     /// * If you use the default implementation this will be a optimized out
     #[inline]
-    fn steps_rejected(&mut self, _steps: &[S])
-    {
-
-    }
+    fn steps_rejected(&mut self, _steps: &[S]) {}
 }
 
 /// For easy sampling of your ensemble
-pub trait SimpleSample{
+pub trait SimpleSample {
     /// # Randomizes self according to  model
     /// * this is intended for creation of initial sample
     /// * used in [`simple_sample`](#method.simple_sample)
@@ -142,7 +126,8 @@ pub trait SimpleSample{
     /// 1) `f(self)`
     /// 2) `self.randomize()`
     fn simple_sample<F>(&mut self, times: usize, mut f: F)
-        where F: FnMut(&Self)
+    where
+        F: FnMut(&Self),
     {
         for _ in 0..times {
             f(self);
@@ -155,7 +140,8 @@ pub trait SimpleSample{
     /// 2) `self.randomize()`
     /// ## res is collected into Vector
     fn simple_sample_vec<F, G>(&mut self, times: usize, mut f: F) -> Vec<G>
-        where F: FnMut(&Self) -> G
+    where
+        F: FnMut(&Self) -> G,
     {
         let mut vec = Vec::with_capacity(times);
         for _ in 0..times {
@@ -168,7 +154,8 @@ pub trait SimpleSample{
 
 /// # Access internal random number generator
 pub trait HasRng<Rng>
-where Rng: rand::Rng
+where
+    Rng: rand::Rng,
 {
     /// # Access RNG
     /// If, for some reason, you want access to the internal random number generator: Here you go

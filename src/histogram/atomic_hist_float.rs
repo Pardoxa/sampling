@@ -1,68 +1,62 @@
-use{
+use {
     crate::histogram::*,
+    num_traits::{cast::*, float::*, identities::*},
     std::{borrow::*, num::*, sync::atomic::*},
-    num_traits::{float::*, cast::*, identities::*}
 };
 
 #[cfg(feature = "serde_support")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Generic Histogram struct
 #[derive(Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
-pub struct AtomicHistogramFloat<T>
-{
+pub struct AtomicHistogramFloat<T> {
     pub(crate) bin_borders: Vec<T>,
     pub(crate) hist: Vec<AtomicUsize>,
 }
 
-impl<T> From<HistogramFloat<T>> for AtomicHistogramFloat<T>
-{
-    fn from(other: HistogramFloat<T>) -> Self
-    {
-        let hist = other.hist
-            .into_iter()
-            .map(AtomicUsize::new)
-            .collect();
-        Self{
-            hist, 
-            bin_borders: other.bin_borders
+impl<T> From<HistogramFloat<T>> for AtomicHistogramFloat<T> {
+    fn from(other: HistogramFloat<T>) -> Self {
+        let hist = other.hist.into_iter().map(AtomicUsize::new).collect();
+        Self {
+            hist,
+            bin_borders: other.bin_borders,
         }
     }
 }
 
-impl<T> AtomicHistogramFloat<T>{
+impl<T> AtomicHistogramFloat<T> {
     /// # Returns reference to the underlying bin borders
     /// These are stored internally to find the correct bin via binary search.
     /// You can access them here if you want.
-    /// 
+    ///
     /// If you want to iterate over the bins, I recommend using [Self::bin_iter] instead
-    pub fn borders(&self) -> &[T]
-    {
+    pub fn borders(&self) -> &[T] {
         &self.bin_borders
     }
 }
 
 impl<T> AtomicHistogramFloat<T>
-where T: Copy {
-    fn get_right(&self) -> T
-    {
+where
+    T: Copy,
+{
+    fn get_right(&self) -> T {
         self.bin_borders[self.bin_borders.len() - 1]
     }
 }
 
-impl<T> AtomicHistogramFloat<T> 
-where T: Float + PartialOrd + FromPrimitive {
+impl<T> AtomicHistogramFloat<T>
+where
+    T: Float + PartialOrd + FromPrimitive,
+{
     /// # Create a new Histogram
     /// * right exclusive, left inclusive
     /// * if you want `right` to behave (almost) the same as an inclusive border,
     ///   consider using `new(left, right + T::EPSILON, bins)` (make sure, that adding Epsilon actually changes the value!)
-    pub fn new(left: T, right: T, bins: usize) -> Result<Self, HistErrors>
-    {
+    pub fn new(left: T, right: T, bins: usize) -> Result<Self, HistErrors> {
         if left >= right {
             return Err(HistErrors::IntervalWidthZero);
-        }
-        else if bins < 1 {
+        } else if bins < 1 {
             return Err(HistErrors::NoBins);
         }
         if !left.is_finite() || !right.is_finite() {
@@ -77,50 +71,42 @@ where T: Float + PartialOrd + FromPrimitive {
         let bin_size = (right - left) / bins_as_t;
         let hist = (0..bins).map(|_| AtomicUsize::new(0)).collect();
         let mut bin_borders = Vec::with_capacity(bins + 1);
-        bin_borders.extend((0..bins)
-            .map(|val| bin_size.mul_add(T::from_usize(val).unwrap(), left)) 
-        );
+        bin_borders
+            .extend((0..bins).map(|val| bin_size.mul_add(T::from_usize(val).unwrap(), left)));
         bin_borders.push(right);
-        Ok(
-            Self{
-                bin_borders,
-                hist
-            }
-        )
+        Ok(Self { bin_borders, hist })
     }
 
     /// Returns the length of the interval
-    pub fn interval_length(&self) -> T
-    {
+    pub fn interval_length(&self) -> T {
         self.get_right() - self.bin_borders[0]
     }
 
     /// # Iterator over all the bins
     /// In AtomicHistogramFloat a bin is defined by two values: The left border (inclusive)
     /// and the right border (exclusive)
-    /// 
+    ///
     /// Here you get an iterator which iterates over said borders.
-    /// The Iterator returns a borrowed Array of length two, where the first value is the left (inclusive) border 
+    /// The Iterator returns a borrowed Array of length two, where the first value is the left (inclusive) border
     /// and the second value is the right (exclusive) border
     /// ## Example
     /// ```
     /// use sampling::histogram::*;
-    /// 
+    ///
     /// let hist = AtomicHistogramFloat::<f32>::new(0.0, 1.0, 2).unwrap();
     /// let mut iter = hist.bin_iter();
     /// assert_eq!(iter.next(), Some(&[0.0, 0.5]));
     /// assert_eq!(iter.next(), Some(&[0.5, 1.0]));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn bin_iter(&self) -> impl Iterator<Item = &[T;2]>
-    {
+    pub fn bin_iter(&self) -> impl Iterator<Item = &[T; 2]> {
         BorderWindow::new(self.bin_borders.as_slice())
     }
 
     /// # Iterate over all bins
     /// In AtomicHistogramFloat a bin is defined by two values: The left border (inclusive)
     /// and the right border (exclusive)
-    /// 
+    ///
     /// This Iterator iterates over these values as well as the corresponding hit count (
     /// i.e., how often a bin was hit)
     /// ## Item of Iterator
@@ -128,33 +114,27 @@ where T: Float + PartialOrd + FromPrimitive {
     /// ## Example
     /// ```
     /// use sampling::histogram::*;
-    /// 
+    ///
     /// let mut hist = AtomicHistogramFloat::<f64>::new(0.0, 1.0, 2).unwrap();
-    /// 
+    ///
     /// hist.increment_quiet(0.5);
     /// hist.increment_quiet(0.71253782387);
-    /// 
+    ///
     /// let mut iter = hist.bin_hits_iter();
     /// assert_eq!(iter.next(), Some((&[0.0, 0.5], 0)));
     /// assert_eq!(iter.next(), Some((&[0.5, 1.0], 2)));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn bin_hits_iter(&self) -> impl Iterator<Item = (&[T;2], usize)>
-    {
+    pub fn bin_hits_iter(&self) -> impl Iterator<Item = (&[T; 2], usize)> {
         self.bin_iter()
-            .zip(
-                self.hist
-                    .iter()
-                    .map(|val| val.load(Ordering::Relaxed))
-            )
+            .zip(self.hist.iter().map(|val| val.load(Ordering::Relaxed)))
     }
 
     #[inline]
     /// # Increment hit count of bin
     /// This will increment the hit count of the bin corresponding to the value `val`.
     /// If the bin was valid it will return the index of the corresponding bin
-    pub fn increment<B: Borrow<T>>(&self, val: B)-> Result<usize, HistErrors>
-    {
+    pub fn increment<B: Borrow<T>>(&self, val: B) -> Result<usize, HistErrors> {
         self.count_val(val)
     }
 
@@ -162,14 +142,12 @@ where T: Float + PartialOrd + FromPrimitive {
     /// # Increment hit count
     /// Increments the hit count of the bin corresponding to `val`.
     /// If no bin corresponding to `val` exists, nothing happens
-    pub fn increment_quiet<B: Borrow<T>>(&self, val: B)
-    {
+    pub fn increment_quiet<B: Borrow<T>>(&self, val: B) {
         let _ = self.increment(val);
     }
 }
 
-impl<T> AtomicHistogram for AtomicHistogramFloat<T>
-{
+impl<T> AtomicHistogram for AtomicHistogramFloat<T> {
     #[inline(always)]
     fn bin_count(&self) -> usize {
         self.hist.len()
@@ -188,29 +166,24 @@ impl<T> AtomicHistogram for AtomicHistogramFloat<T>
             Some(val) => {
                 val.fetch_add(count, Ordering::SeqCst);
                 Ok(())
-            },
+            }
         }
     }
 
     #[inline]
     fn reset(&mut self) {
         // compiles down to memset :)
-        self.hist
-            .iter_mut()
-            .for_each(|h| *(h.get_mut()) = 0);
+        self.hist.iter_mut().for_each(|h| *(h.get_mut()) = 0);
     }
-
-
 }
 
 impl<T> AtomicHistogramVal<T> for AtomicHistogramFloat<T>
-where T: Float + Zero + NumCast{
-
-    fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>
-    {
+where
+    T: Float + Zero + NumCast,
+{
+    fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         let id = self.get_bin_index(val)?;
-        self.count_index(id)
-            .map(|_| id)
+        self.count_index(id).map(|_| id)
     }
 
     fn distance<V: Borrow<T>>(&self, val: V) -> f64 {
@@ -222,9 +195,7 @@ where T: Float + Zero + NumCast{
         } else if *val < self.first_border() {
             (self.first_border() - *val).to_f64().unwrap()
         } else {
-            (*val - self.get_right() + T::epsilon())
-                .to_f64()
-                .unwrap()
+            (*val - self.get_right() + T::epsilon()).to_f64().unwrap()
         }
     }
 
@@ -239,57 +210,46 @@ where T: Float + Zero + NumCast{
     }
 
     fn is_inside<V: Borrow<T>>(&self, val: V) -> bool {
-        *val.borrow() >= self.bin_borders[0] 
+        *val.borrow() >= self.bin_borders[0]
             && *val.borrow() < self.bin_borders[self.bin_borders.len() - 1]
     }
 
     fn not_inside<V: Borrow<T>>(&self, val: V) -> bool {
-        !(*val.borrow()).is_finite() 
-            || *val.borrow() < self.bin_borders[0] 
+        !(*val.borrow()).is_finite()
+            || *val.borrow() < self.bin_borders[0]
             || *val.borrow() >= self.bin_borders[self.bin_borders.len() - 1]
     }
 
-
-    fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors>
-    {
+    fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
         let val = val.borrow();
-        if !val.is_finite(){
+        if !val.is_finite() {
             Err(HistErrors::InvalidVal)
-        } 
-        else if self.is_inside(val)
-        {
-            let search_res = self.bin_borders.binary_search_by(
-                |v|
-                v.partial_cmp(val).expect("Should never be NaN")
-            );
-            match search_res
-            {
-                Result::Ok(index) => {
-                    Ok(index)
-                },
-                Result::Err(index_p1) => {
-                    Ok(index_p1 - 1)
-                }
+        } else if self.is_inside(val) {
+            let search_res = self
+                .bin_borders
+                .binary_search_by(|v| v.partial_cmp(val).expect("Should never be NaN"));
+            match search_res {
+                Result::Ok(index) => Ok(index),
+                Result::Err(index_p1) => Ok(index_p1 - 1),
             }
-        }
-        else {
+        } else {
             Err(HistErrors::OutsideHist)
-        } 
+        }
     }
 }
 
-impl<T> HistogramIntervalDistance<T> for AtomicHistogramFloat<T> 
-where T: Float + FromPrimitive + Zero + NumCast
+impl<T> HistogramIntervalDistance<T> for AtomicHistogramFloat<T>
+where
+    T: Float + FromPrimitive + Zero + NumCast,
 {
     fn interval_distance_overlap<V: Borrow<T>>(&self, val: V, overlap: NonZeroUsize) -> usize {
         let val = val.borrow();
-        
+
         debug_assert!(self.interval_length() > T::zero());
         debug_assert!(val.is_finite());
         if self.not_inside(val) {
             let num_bins_overlap = self.bin_count() / overlap.get();
-            let dist = 
-            if *val < self.first_border() { 
+            let dist = if *val < self.first_border() {
                 let tmp = self.first_border() - *val;
                 (tmp / self.interval_length()).floor()
             } else {
@@ -310,19 +270,16 @@ pub type AtomicHistF32 = AtomicHistogramFloat<f32>;
 /// Histogram for binning `f64` - alias for `HistogramFloat<f64>`
 pub type AtomicHistF64 = AtomicHistogramFloat<f64>;
 
-
 #[cfg(test)]
-mod tests{
-    use rand_pcg::Pcg64Mcg;
-    use rand::{distr::*, SeedableRng};
+mod tests {
     use super::*;
     use num_traits::Bounded;
+    use rand::{distr::*, SeedableRng};
+    use rand_pcg::Pcg64Mcg;
     #[test]
-    fn f64_hist()
-    {
+    fn f64_hist() {
         let rng = Pcg64Mcg::new(0xcafef00dd15ea5e5);
-        let dist = Uniform::new(f64::EPSILON, 1.0)
-            .unwrap();
+        let dist = Uniform::new(f64::EPSILON, 1.0).unwrap();
         let mut iter = dist.sample_iter(rng);
 
         for i in 1..100 {
@@ -333,56 +290,50 @@ mod tests{
 
             assert_eq!(left, hist.first_border(), "i={}", i);
             assert_eq!(right, hist.get_right(), "i={}", i);
-            assert_eq!(i+1, hist.borders().len(), "i={}", i);
-
+            assert_eq!(i + 1, hist.borders().len(), "i={}", i);
         }
     }
 
     fn hist_test_float<T>(left: T, right: T, bin_count: usize)
-    where T: Float + num_traits::Bounded + PartialOrd 
-        + One + NumCast + Copy + FromPrimitive + Bounded + std::fmt::Debug
-        + PartialOrd,
+    where
+        T: Float
+            + num_traits::Bounded
+            + PartialOrd
+            + One
+            + NumCast
+            + Copy
+            + FromPrimitive
+            + Bounded
+            + std::fmt::Debug
+            + PartialOrd,
     {
-
-        let hist_wrapped =  AtomicHistogramFloat::<T>::new(left, right, bin_count);
-        if hist_wrapped.is_err(){
+        let hist_wrapped = AtomicHistogramFloat::<T>::new(left, right, bin_count);
+        if hist_wrapped.is_err() {
             dbg!(&hist_wrapped);
         }
         let hist = hist_wrapped.unwrap();
         assert!(hist.not_inside(T::infinity()));
         assert!(hist.not_inside(T::nan()));
         let len = hist.borders().len();
-        
-        for (id, border) in hist.borders()
-            .iter()
-            .take(len - 1)
-            .enumerate()
-        {
+
+        for (id, border) in hist.borders().iter().take(len - 1).enumerate() {
             assert!(hist.is_inside(border));
             assert_eq!(hist.is_inside(border), !hist.not_inside(border));
             assert_eq!(hist.get_bin_index(border).unwrap(), id);
         }
-        
+
         let last_border = hist.borders()[len - 1];
         assert!(hist.not_inside(last_border));
         assert_eq!(hist.is_inside(last_border), !hist.not_inside(last_border));
         assert!(hist.get_bin_index(last_border).is_err());
-        
 
-        for (id, border) in hist.borders()
-            .iter()
-            .skip(1)
-            .enumerate()
-        {
+        for (id, border) in hist.borders().iter().skip(1).enumerate() {
             let mut m_epsilon = *border;
-            for mut i in 1..{
+            for mut i in 1.. {
                 if i > 100 {
                     i = i * i;
                 }
-                m_epsilon = T::epsilon().mul_add(
-                    T::from_isize(-i).unwrap(), 
-                    *border
-                );
+                m_epsilon = T::epsilon().mul_add(T::from_isize(-i).unwrap(), *border);
                 if m_epsilon < *border {
                     break;
                 }
@@ -390,7 +341,7 @@ mod tests{
             assert!(hist.is_inside(m_epsilon));
             assert_eq!(hist.get_bin_index(m_epsilon).unwrap(), id);
         }
-       
+
         assert_eq!(
             HistErrors::InvalidVal,
             AtomicHistogramFloat::<T>::new(T::nan(), right, bin_count).unwrap_err()
@@ -410,26 +361,21 @@ mod tests{
     }
 
     #[test]
-    fn hist_float()
-    { 
+    fn hist_float() {
         let mut rng = Pcg64Mcg::new(0xcafef00dd15ea5e5);
-        let dist = Uniform::new(1usize, 111)
-            .unwrap();
-        let mut iter = dist.sample_iter(
-            Pcg64Mcg::from_rng(&mut rng)
-        );
+        let dist = Uniform::new(1usize, 111).unwrap();
+        let mut iter = dist.sample_iter(Pcg64Mcg::from_rng(&mut rng));
         hist_test_float(20.0, 31.0, iter.next().unwrap());
         hist_test_float(-23.0f32, 31.1232f32, iter.next().unwrap());
         hist_test_float(-13.0f32, 31.4657f32, iter.next().unwrap());
         hist_test_float(1.0f64, 3f64, iter.next().unwrap());
 
-        let dist2 = Uniform::new(0.0, 76257f64)
-            .unwrap();
+        let dist2 = Uniform::new(0.0, 76257f64).unwrap();
         for _ in 0..10 {
-            let (left, right) = loop{
+            let (left, right) = loop {
                 let left = dist2.sample(&mut rng);
                 let right = left + dist2.sample(&mut rng);
-                if left.is_finite() && right.is_finite(){
+                if left.is_finite() && right.is_finite() {
                     break (left, right);
                 }
             };

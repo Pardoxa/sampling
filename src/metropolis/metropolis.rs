@@ -1,20 +1,19 @@
 use crate::Outcome;
 
-use{
-    crate::{MarkovChain, HasRng},
+use {
+    crate::{HasRng, MarkovChain},
+    num_traits::AsPrimitive,
     rand::Rng,
     std::marker::PhantomData,
-    num_traits::AsPrimitive
 };
 
 #[cfg(feature = "serde_support")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 /// Errors encountered during Metropolis Algorithm
-pub enum MetropolisError
-{
+pub enum MetropolisError {
     /// Energy function for current state of ensemble returns None
     InvalidState,
     /// Invalid nan encountered
@@ -40,8 +39,7 @@ pub enum MetropolisError
 ///   `min[1.0, exp{m_beta * (E_new - E(i))}]`
 /// * otherwise the new state will be rejected, meaning S(i + 1) = S(i).
 /// * the `measure` function is called: `measure(S(i + 1))`
-pub struct Metropolis<E, R, S, Res, T>
-{
+pub struct Metropolis<E, R, S, Res, T> {
     ensemble: E,
     rng: R,
     energy: T,
@@ -53,23 +51,21 @@ pub struct Metropolis<E, R, S, Res, T>
 }
 
 impl<R, E, S, Res, T> Metropolis<E, R, S, Res, T>
-where T: Copy + AsPrimitive<f64>
+where
+    T: Copy + AsPrimitive<f64>,
 {
-
     /// returns stored `m_beta` value (-&beta; for metropolis)
     pub fn m_beta(&self) -> f64 {
         self.m_beta
     }
 
     /// sets m_beta (minus beta). Is related to the temperature: m_beta = -1 / temperature
-    pub fn set_m_beta(&mut self, m_beta: f64)
-    {
+    pub fn set_m_beta(&mut self, m_beta: f64) {
         self.m_beta = m_beta;
     }
 
     /// sets m_beta according to m_beta = -1 / temperature
-    pub fn set_temperature(&mut self, temperature: f64)
-    {
+    pub fn set_temperature(&mut self, temperature: f64) {
         self.m_beta = -1.0 / temperature;
     }
 
@@ -83,16 +79,15 @@ where T: Copy + AsPrimitive<f64>
     /// # Important
     /// * It is very unlikely that you need this function - Only use it, if you know what you are doing
     /// ## Safety
-    /// This is not unsafe in the programming sense, but I chose to make it unsafe anyway to make the user 
-    /// acknowledge that this will result in a logical error for the algorithms if 
+    /// This is not unsafe in the programming sense, but I chose to make it unsafe anyway to make the user
+    /// acknowledge that this will result in a logical error for the algorithms if
     /// set to the incorrect energy
-    pub unsafe fn set_energy(&mut self, energy: T){
+    pub unsafe fn set_energy(&mut self, energy: T) {
         self.energy = energy;
     }
 
     /// returns reference to ensemble
-    pub fn ensemble(&self) -> &E
-    {
+    pub fn ensemble(&self) -> &E {
         &self.ensemble
     }
 
@@ -103,8 +98,7 @@ where T: Copy + AsPrimitive<f64>
     ///   the simulation!
     /// * The metropolis functions do not calculate the energy of the current state
     /// * Unsafe purely for logical reasons, in the programming sense this function didn't need to be unsafe
-    pub unsafe fn ensemble_mut(&mut self) -> &mut E
-    {
+    pub unsafe fn ensemble_mut(&mut self) -> &mut E {
         &mut self.ensemble
     }
 
@@ -130,8 +124,7 @@ where T: Copy + AsPrimitive<f64>
 
     /// * change the `stepsize`
     /// * returns Failure if you try to set stepsize to `0`, because that would be invalid
-    pub fn set_step_size(&mut self, step_size: usize) -> Outcome
-    {
+    pub fn set_step_size(&mut self, step_size: usize) -> Outcome {
         if step_size == 0 {
             Outcome::Failure
         } else {
@@ -139,15 +132,14 @@ where T: Copy + AsPrimitive<f64>
             Outcome::Success
         }
     }
-
 }
 
 impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
-    where R: Rng,
+where
+    R: Rng,
     E: MarkovChain<S, Res>,
     T: Copy + AsPrimitive<f64>,
 {
-
     /// # Create a new Metropolis struct - used for Metropolis simulations
     ///  
     /// |               | meaning                                                                      |
@@ -157,7 +149,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// | `energy`      | current energy of the ensemble - cannot be NAN, should match `energy_fn(ensemble)` (see `metropolis*` functions)  |
     /// | `m_beta`      | minus beta, has to be finite - used for acceptance, i.e., probability to accept a markov step from Energy E to Energy E_new is min[1.0, exp{m_beta * (E_new - E)}] |
     /// | `step_size`   | is used for each markov step, i.e., `ensemble.m_steps(stepsize)` is called   |
-    /// 
+    ///
     /// * will return Err if `energy` is nan or `m_beta` is not finite
     pub fn new_from_m_beta(
         rng: R,
@@ -165,27 +157,24 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
         energy: T,
         m_beta: f64,
         step_size: usize,
-    ) -> Result<Self, MetropolisError>
-    {
+    ) -> Result<Self, MetropolisError> {
         if (energy.as_()).is_nan() || m_beta.is_nan() {
             return Err(MetropolisError::NAN);
         }
-        if !m_beta.is_finite(){
+        if !m_beta.is_finite() {
             return Err(MetropolisError::InfinitBeta);
         }
         let steps = Vec::with_capacity(step_size);
-        Ok(
-            Self{
-                ensemble,
-                rng,
-                energy,
-                m_beta,
-                steps,
-                marker_res: PhantomData::<Res>,
-                counter: 0,
-                step_size,
-            }
-        )
+        Ok(Self {
+            ensemble,
+            rng,
+            energy,
+            m_beta,
+            steps,
+            marker_res: PhantomData::<Res>,
+            counter: 0,
+            step_size,
+        })
     }
 
     /// # Create a new Metropolis struct - used for Metropolis simulations
@@ -197,7 +186,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// | `energy`      | current energy of the ensemble - cannot be NAN, should match `energy_fn(ensemble)` (see `metropolis*` functions)  |
     /// | `temperature` | m_beta = -1.0/temperature. Used for acceptance, i.e., probability to accept a markov step from Energy E to Energy E_new is min[1.0, exp{m_beta * (E_new - E)}] |
     /// | `step_size`   | is used for each markov step, i.e., `ensemble.m_steps(stepsize)` is called   |
-    /// 
+    ///
     /// * will return Err if `energy` is nan or `m_beta` is not finite
     pub fn new_from_temperature(
         rng: R,
@@ -205,27 +194,21 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
         energy: T,
         temperature: f64,
         step_size: usize,
-    ) -> Result<Self, MetropolisError>
-    {
+    ) -> Result<Self, MetropolisError> {
         if temperature.is_nan() {
             return Err(MetropolisError::NAN);
         }
-        Self::new_from_m_beta(
-            rng,
-            ensemble,
-            energy,
-            -1.0 / temperature,
-            step_size,
-        )
+        Self::new_from_m_beta(rng, ensemble, energy, -1.0 / temperature, step_size)
     }
 
     /// # Change, which markov chain is used for the metropolis simulations
     /// * Use this if there are different ways to perform a markov chain for your problem
     ///   and you want to switch between them
     pub fn change_markov_chain<S2, Res2>(self) -> Metropolis<E, R, S2, Res2, T>
-        where E: MarkovChain<S2, Res2>
+    where
+        E: MarkovChain<S2, Res2>,
     {
-        Metropolis::<E, R, S2, Res2, T>{
+        Metropolis::<E, R, S2, Res2, T> {
             ensemble: self.ensemble,
             rng: self.rng,
             energy: self.energy,
@@ -240,28 +223,25 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// Perform a single Metropolis step
     #[inline(always)]
     unsafe fn metropolis_step_unsafe<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&mut E) -> Option<T>
+    where
+        Energy: FnMut(&mut E) -> Option<T>,
     {
-        self.metropolis_step_efficient_unsafe(
-            |ensemble, _, _|  energy_fn(ensemble) 
-        )
+        self.metropolis_step_efficient_unsafe(|ensemble, _, _| energy_fn(ensemble))
     }
 
     #[inline(always)]
     fn metropolis_step<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&E) -> Option<T>
+    where
+        Energy: FnMut(&E) -> Option<T>,
     {
-        unsafe {
-            self.metropolis_step_unsafe(
-                |ensemble| energy_fn(ensemble)
-            )
-        }
+        unsafe { self.metropolis_step_unsafe(|ensemble| energy_fn(ensemble)) }
     }
 
     /// Perform a single Metropolis step
     #[inline(always)]
     unsafe fn metropolis_step_efficient_unsafe<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&mut E, T, &[S]) -> Option<T>
+    where
+        Energy: FnMut(&mut E, T, &[S]) -> Option<T>,
     {
         self.counter = self.counter.wrapping_add(1);
         self.ensemble.m_steps(self.step_size, &mut self.steps);
@@ -269,10 +249,8 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
             None => {
                 self.ensemble.undo_steps_quiet(&self.steps);
                 return;
-            },
-            Some(e) => {
-                e
             }
+            Some(e) => e,
         };
 
         let a_prob = (self.m_beta * (new_energy.as_() - self.energy.as_())).exp();
@@ -289,15 +267,15 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// Perform a single Metropolis step
     #[inline(always)]
     fn metropolis_step_efficient<Energy>(&mut self, mut energy_fn: Energy)
-    where Energy: FnMut(&E, T, &[S]) -> Option<T>
+    where
+        Energy: FnMut(&E, T, &[S]) -> Option<T>,
     {
         unsafe {
-            self.metropolis_step_efficient_unsafe(
-                |ensemble, energy, steps| energy_fn(ensemble, energy, steps)
-            )
+            self.metropolis_step_efficient_unsafe(|ensemble, energy, steps| {
+                energy_fn(ensemble, energy, steps)
+            })
         }
     }
-
 
     /// # Metropolis Simulation
     /// * [see](#all-selfmetropolis-functions-do-the-following)
@@ -308,18 +286,17 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// # Note
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     ///   If nan is possible, please check for that beforehand and return `None` in that case
-    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense 
+    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense
     pub fn metropolis<Energy, Mes>(
         &mut self,
         step_target: usize,
         mut energy_fn: Energy,
         mut measure: Mes,
-    )
-        where Energy: FnMut(&E) -> Option<T>,
-        Mes: FnMut(&Self), 
+    ) where
+        Energy: FnMut(&E) -> Option<T>,
+        Mes: FnMut(&Self),
     {
-        for _ in self.counter..=step_target
-        {
+        for _ in self.counter..=step_target {
             self.metropolis_step(&mut energy_fn);
             measure(self);
         }
@@ -338,21 +315,20 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// # Safety
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     ///   If nan is possible, please check for that beforehand and return `None` in that case
-    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense 
-    /// * Note: I chose to make this function unsafe to force users to acknowledge the (purely logical) limitations 
-    ///   regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense
+    /// * Note: I chose to make this function unsafe to force users to acknowledge the (purely logical) limitations
+    ///   regarding the usage of the mutable ensemble. From a programming point of view this will not lead to
     ///   any undefined behavior or such regardless of if the user fulfills the requirements
     pub unsafe fn metropolis_unsafe<Energy, Mes>(
         &mut self,
         step_target: usize,
         mut energy_fn: Energy,
         mut measure: Mes,
-    )
-        where Energy: FnMut(&mut E) -> Option<T>,
-        Mes: FnMut(&mut Self), 
+    ) where
+        Energy: FnMut(&mut E) -> Option<T>,
+        Mes: FnMut(&mut Self),
     {
-        for _ in self.counter..=step_target
-        {
+        for _ in self.counter..=step_target {
             self.metropolis_step_unsafe(&mut energy_fn);
             measure(self);
         }
@@ -366,24 +342,22 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * after each acceptance/rejection, `measure` is called
     /// # Difference to [`self.metropolis`](#method.metropolis)
     /// * Function parameter of energy_fn: &ensemble, old_energy, &\[steps\] - that
-    ///   means, you should prefer this, if you can calculate the new energy more efficient 
+    ///   means, you should prefer this, if you can calculate the new energy more efficient
     ///   by accessing the old energy and the information about what the markov step changed
     /// # Note
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     ///   If nan is possible, please check for that beforehand and return `None` in that case
-    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense 
-    pub fn metropolis_efficient<Energy, Mes>
-    (
+    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense
+    pub fn metropolis_efficient<Energy, Mes>(
         &mut self,
         step_target: usize,
         mut energy_fn: Energy,
         mut measure: Mes,
-    )
-        where Energy: FnMut(&E, T, &[S]) -> Option<T>,
-        Mes: FnMut(&Self), 
+    ) where
+        Energy: FnMut(&E, T, &[S]) -> Option<T>,
+        Mes: FnMut(&Self),
     {
-        for _ in self.counter..=step_target
-        {
+        for _ in self.counter..=step_target {
             self.metropolis_step_efficient(&mut energy_fn);
             measure(self);
         }
@@ -397,24 +371,22 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * after each acceptance/rejection, `measure` is called
     /// # Difference to [`self.metropolis`](#method.metropolis)
     /// * Function parameter of energy_fn: &ensemble, old_energy, &\[steps\] - that
-    ///   means, you should prefer this, if you can calculate the new energy more efficient 
+    ///   means, you should prefer this, if you can calculate the new energy more efficient
     ///   by accessing the old energy and the information about what the markov step changed
     /// # Safety
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     ///   If nan is possible, please check for that beforehand and return `None` in that case
-    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense 
-    pub unsafe fn metropolis_efficient_unsafe<Energy, Mes>
-    (
+    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense
+    pub unsafe fn metropolis_efficient_unsafe<Energy, Mes>(
         &mut self,
         step_target: usize,
         mut energy_fn: Energy,
         mut measure: Mes,
-    )
-        where Energy: Fn(&mut E, T, &[S]) -> Option<T>,
-        Mes: FnMut(&mut Self), 
+    ) where
+        Energy: Fn(&mut E, T, &[S]) -> Option<T>,
+        Mes: FnMut(&mut Self),
     {
-        for _ in self.counter..=step_target
-        {
+        for _ in self.counter..=step_target {
             self.metropolis_step_efficient_unsafe(&mut energy_fn);
             measure(self);
         }
@@ -430,14 +402,14 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// # Note
     /// * I assume, that the energy_fn never returns `nan` (when cast as f64)
     ///   If nan is possible, please check for that beforehand and return `None` in that case
-    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense 
+    /// * Maybe do the same for infinity, it is unlikely, that an infinite energy makes sense
     pub fn metropolis_while<Energy, Mes, Cond>(
         &mut self,
         mut energy_fn: Energy,
         mut measure: Mes,
         mut condition: Cond,
-    )
-        where Energy: FnMut(&E) -> Option<T>,
+    ) where
+        Energy: FnMut(&E) -> Option<T>,
         Mes: FnMut(&Self),
         Cond: FnMut(&Self) -> bool,
     {
@@ -453,19 +425,19 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * `energy_fn` now works with a mutable reference of `E` (the ensemble).
     /// ## Note
     /// * prefer [`metropolis_while`](`crate::metropolis::Metropolis::metropolis_while`) as it is safer.
-    /// * the changing of the Ensemble must not affect subsequent Energy calculations - otherwise the 
+    /// * the changing of the Ensemble must not affect subsequent Energy calculations - otherwise the
     ///   logic of the algorithm breaks down
     /// ## Safety
-    /// * Note: I chose to make this function unsafe to force users to acknowledge the (purely logical) limitations 
-    ///   regarding the usage of the mutable ensemble. From a programming point of view this will not lead to 
+    /// * Note: I chose to make this function unsafe to force users to acknowledge the (purely logical) limitations
+    ///   regarding the usage of the mutable ensemble. From a programming point of view this will not lead to
     ///   any undefined behavior or such regardless of if the user fulfills the requirements
     pub unsafe fn metropolis_while_unsafe<Energy, Mes, Cond>(
         &mut self,
         mut energy_fn: Energy,
         mut measure: Mes,
         mut condition: Cond,
-    )
-        where Energy: FnMut(&mut E) -> Option<T>,
+    ) where
+        Energy: FnMut(&mut E) -> Option<T>,
         Mes: FnMut(&mut Self),
         Cond: FnMut(&mut Self) -> bool,
     {
@@ -484,8 +456,8 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
         mut energy_fn: Energy,
         mut measure: Mes,
         mut condition: Cond,
-    )
-        where Energy: FnMut(&E, T, &[S]) -> Option<T>,
+    ) where
+        Energy: FnMut(&E, T, &[S]) -> Option<T>,
         Mes: FnMut(&Self),
         Cond: FnMut(&Self) -> bool,
     {
@@ -499,7 +471,7 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
     /// * similar to [`metropolis_efficient_while`](`crate::metropolis::Metropolis::metropolis_efficient_while`)
     /// ## Difference
     /// * now `energy_fn` works with a mutable reference of the ensemble instead
-    /// * This is intended for usages in which the energy can be calculated much more efficiently using a 
+    /// * This is intended for usages in which the energy can be calculated much more efficiently using a
     ///   mutable reference than an immutable one
     /// ## Safety
     /// * Only use this, if it is absolutely necessary. The ensemble must not be changed in a way,
@@ -509,8 +481,8 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
         mut energy_fn: Energy,
         mut measure: Mes,
         mut condition: Cond,
-    )
-        where Energy: FnMut(&mut E, T, &[S]) -> Option<T>,
+    ) where
+        Energy: FnMut(&mut E, T, &[S]) -> Option<T>,
         Mes: FnMut(&mut Self),
         Cond: FnMut(&mut Self) -> bool,
     {
@@ -519,21 +491,17 @@ impl<E, R, S, Res, T> Metropolis<E, R, S, Res, T>
             measure(self);
         }
     }
-
-
 }
 
 impl<E, R, S, Res, T> HasRng<R> for Metropolis<E, R, S, Res, T>
-    where R: Rng
+where
+    R: Rng,
 {
     fn rng(&mut self) -> &mut R {
         &mut self.rng
     }
 
     fn swap_rng(&mut self, rng: &mut R) {
-        std::mem::swap(&mut self.rng,rng);
+        std::mem::swap(&mut self.rng, rng);
     }
 }
-
-
-

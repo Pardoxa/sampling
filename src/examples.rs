@@ -1,14 +1,14 @@
 //! Contains examples
 
 /// # Example Coin flips
-/// 
+///
 /// Lets assume we do n Coinflips and want to measure the probability for the number of times,
 /// this results in Head. This means, the number of times the coin flip returned head is the `energy`
 ///
 /// Of course, for this example there is an analytic solution.
-/// 
+///
 /// For the implementation of the coin flip sequence and Markov chain of it, please look in the [source code](../../../src/sampling/examples/coin_flips.rs.html)
-/// 
+///
 /// Now A detailed example for large deviation simulations with **comparison to analytical results**
 ///
 /// The files created in this example can be found below
@@ -25,19 +25,19 @@
 /// // length of coin flip sequence
 /// let n = 20;
 /// let interval_count = NonZeroUsize::new(3).unwrap();
-/// 
+///
 /// // create histogram. The result of our `energy` (number of heads) can be anything between 0 and n
 /// let hist = HistUsizeFast::new_inclusive(0, n).unwrap();
-/// 
+///
 /// // now the overlapping histograms for sampling
 /// // lets create 3 histograms. The parameter Overlap should be larger than 0. Normally, 1 is sufficient
 /// let hist_list = hist.overlapping_partition(interval_count, 1).unwrap();
-/// // alternatively you could also create the histograms in the desired interval. 
+/// // alternatively you could also create the histograms in the desired interval.
 /// // Just make sure, that they overlap
-/// 
+///
 /// // create rng to seed all other rngs
 /// let mut rng = Pcg64::seed_from_u64(834628956578);
-/// 
+///
 /// // now create ensembles (could be combined with wl creation)
 /// // note: You could also create one ensemble and clone it instead of creating different ones
 /// let ensembles: Vec<_> = (0..interval_count.get()).map(|_| {
@@ -46,14 +46,14 @@
 ///         Pcg64::from_rng(&mut rng)
 ///     )
 /// }).collect();
-/// 
-/// // Now the Wang Landau simulation. First create the struct 
+///
+/// // Now the Wang Landau simulation. First create the struct
 /// // (here as Vector, since we want to use 3 overlapping intervals)
 /// let mut wl_list: Vec<_> = ensembles.into_iter()
 ///     .zip(hist_list.into_iter())
 ///     .map(|(ensemble, histogram)| {
 ///         WangLandau1T::new(
-///             0.000001, // arbitrary threshold for `log_f`(see paper), 
+///             0.000001, // arbitrary threshold for `log_f`(see paper),
 ///                      // you have to try what is good for your model
 ///             ensemble,
 ///             Pcg64::from_rng(&mut rng),
@@ -62,30 +62,30 @@
 ///             100 // every 100 steps: check if WL can refine factor f
 ///         ).unwrap()
 ///     }).collect();
-/// 
+///
 /// // Now we have to initialize the wl with a valid state
 /// // as the simulation has to start in the interval one wants to measure.
 /// // Since the energy landscape is quite simple, here a greedy approach is good enough.
-/// 
+///
 /// wl_list.iter_mut()
 ///     .for_each(|wl|{
 ///         wl.init_greedy_heuristic(
 ///             |coin_seq| Some(coin_seq.head_count()),
-///             Some(10_000) // if no valid state is found after 10_000 
+///             Some(10_000) // if no valid state is found after 10_000
 ///                          // this returns an Err. If you do not want a step limit,
 ///                          // you can use None here
 ///         ).expect("Unable to find valid state within 10_000 steps!");
 ///     });
-/// 
-/// // Now our ensemble is initialized. Time for the Wang Landau Simulation. 
+///
+/// // Now our ensemble is initialized. Time for the Wang Landau Simulation.
 /// // You can do that in different ways.
 /// // I will show this by doing it differently for our three intervals
-/// 
+///
 /// // First, the simplest one. Just simulate until the threshold for `log_f` is reached
 /// wl_list[0].wang_landau_convergence(
 ///     |coin_seq| Some(coin_seq.head_count())
 /// );
-/// 
+///
 /// // Secondly, I only have a limited amount of time.
 /// // Lets say, I have 1 minute at most.
 /// let start_time = std::time::Instant::now();
@@ -93,33 +93,33 @@
 ///     |coin_seq| Some(coin_seq.head_count()),
 ///     |_| start_time.elapsed().as_secs() <= 60
 /// );
-/// 
+///
 /// // Or lets say, I want to limit the number of steps to 100_000
 /// wl_list[2].wang_landau_while(
 ///     |coin_seq| Some(coin_seq.head_count()),
-///     |state| state.step_counter() <= 100_000 
+///     |state| state.step_counter() <= 100_000
 /// );
-/// 
+///
 /// // Now, lets see if our last two simulations did indeed finish:
 /// // This one did
 /// assert!(wl_list[1].is_finished());
 /// // This simulation did not finish
 /// assert!(!wl_list[2].is_finished());
-/// 
+///
 /// // If a simulation did not finish, you could, e.g., store the state (`wl_list[2]`) using serde.
 /// // Then you could continue the simulation later on.
 /// // I recommend the crate `bincode` for storing
-/// 
+///
 /// // lets resume the simulation for now
 /// wl_list[2].wang_landau_convergence(
 ///     |coin_seq| Some(coin_seq.head_count())
 /// );
 /// // it finished
 /// assert!(wl_list[2].is_finished());
-/// 
+///
 /// // Since our simulations did all finish, lets see what our distribution looks like
 /// // Lets glue them together. We use our original histogram for that.
-/// let mut glue_job = 
+/// let mut glue_job =
 ///     GlueJob::new_from_slice(&wl_list, LogBase::Base10);
 /// let mut glued = glue_job
 ///     .average_merged_and_aligned()
@@ -128,35 +128,35 @@
 /// // now, lets print our result
 /// glued.set_stat_write_verbosity(GlueWriteVerbosity::AccumulatedStats);
 /// glued.write(std::io::stdout()).unwrap();
-/// 
+///
 /// // or store it into a file
 /// let file = File::create("coin_flip_log_density.dat").unwrap();
 /// let buf = BufWriter::new(file);
 /// glued.write(buf).unwrap();
-/// 
+///
 /// // now, lets check if our results are actually any good.
 /// // lets compare that to the analytical result
-/// 
+///
 /// // Since the library I am going to use lets me directly calculate the natural
 /// // logaritm of the probability, I now switch the base of our glue results
 /// glued.switch_base();
 /// let ln_prob = glued.glued();
-/// 
+///
 /// // Then create the `true` results:
 /// let binomial = Binomial::new(0.5, n as u64).unwrap();
-/// 
+///
 /// let ln_prob_true: Vec<_> = (0..=n)
 ///     .map(|k| binomial.ln_pmf(k as u64))
 ///     .collect();
-/// 
+///
 /// // lets write that in a file, so we can use gnuplot to plot the result
 /// let comp_file = File::create("coin_flip_compare.dat").unwrap();
 /// let mut buf = BufWriter::new(comp_file);
-/// 
+///
 /// // lets also calculate the maximum difference between the two solutions
 /// let mut max_ln_dif = std::f64::NEG_INFINITY;
 /// let mut max_dif = std::f64::NEG_INFINITY;
-/// 
+///
 /// writeln!(buf, "#head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif").unwrap();
 /// for (index, (numeric, analytic)) in ln_prob.iter().zip(ln_prob_true.iter()).enumerate()
 /// {
@@ -166,34 +166,34 @@
 ///     max_dif = dif.abs().max(max_dif);
 ///     writeln!(buf, "{} {:e} {:e} {:e} {:e}", index, numeric, analytic, ln_dif, dif).unwrap();
 /// }
-/// 
+///
 /// println!("Max_ln_dif = {}", max_ln_dif);
 /// println!("Max_dif = {}", max_dif);
-/// 
-/// // in this case, the max difference of the natural logarithms 
+///
+/// // in this case, the max difference of the natural logarithms
 /// // of the probabilities is smaller than 0.03
 /// assert!(max_ln_dif < 0.03);
 /// // and the max absolute difference is smaller than 0.0009
 /// assert!(max_dif < 0.0009);
-/// 
+///
 /// // But we can do better. Lets refine the results with entropic sampling
 /// // first, convert the wl simulations in entropic sampling simulations
 /// let mut entropic_list: Vec<_> = wl_list
 ///     .into_iter()
 ///     .map(|wl| EntropicSampling::from_wl(wl).unwrap())
 ///     .collect();
-/// 
-/// 
+///
+///
 /// // Now, while doing that, lets also create a heatmap.
-/// // Lets say, we want to see, how the number of times `Head` occurred in the sequence 
+/// // Lets say, we want to see, how the number of times `Head` occurred in the sequence
 /// // correlates to the maximum number of `Heads` in a row in that sequence.
-/// 
+///
 /// // In this case, the heatmap is symmetric and we already have a histogram of correct sice
 /// let mut heatmap = HeatmapU::new(
 ///     hist.clone(),
 ///     hist.clone()
 /// );
-/// 
+///
 /// entropic_list.iter_mut()
 ///     .for_each(|entr|{
 ///         entr.entropic_sampling(
@@ -206,40 +206,40 @@
 ///             }
 ///         )
 ///     });
-/// 
+///
 /// // Now, lets see our refined results:
-/// let mut glue_job = 
+/// let mut glue_job =
 ///     GlueJob::new_from_slice(&entropic_list, LogBase::Base10);
 /// // Note that the library also allows you to mix REWL, REES, Entropic and Wanglandau simulations
 /// // with the GlueJob, if you deem it necessary. We won't do that here though
-/// 
+///
 /// // after creating the GlueJob we need to do the merging:
 /// let mut glued = glue_job
 ///     .average_merged_and_aligned()
 ///     .expect("Unable to glue results. Look at error message");
 /// // to also write Statistics of the simulation as comments
 /// glued.set_stat_write_verbosity(GlueWriteVerbosity::IntervalStatsAndAccumulatedStats);
-/// 
+///
 /// // lets store our result
 /// let file = File::create("coin_flip_log_density_entropic.dat").unwrap();
 /// let buf = BufWriter::new(file);
 /// glued.write(buf).unwrap();
-/// 
+///
 /// // now, lets compare with the analytical results again
 /// // Again, calculate to base e
 /// // (Note that we could have calculated to base e directly by choosing so in the GlueJob)
 /// glued.switch_base();
 /// let ln_prob = glued.glued();
-/// 
-/// 
+///
+///
 /// // lets write that in a file, so we can use gnuplot to plot the result
 /// let comp_file = File::create("coin_flip_compare_entr.dat").unwrap();
 /// let mut buf = BufWriter::new(comp_file);
-/// 
+///
 /// // lets also calculate the maximum difference between the two solutions
 /// let mut max_ln_dif = std::f64::NEG_INFINITY;
 /// let mut max_dif = std::f64::NEG_INFINITY;
-/// 
+///
 /// writeln!(buf, "#head_count Numeric_ln_prob Analytic_ln_prob ln_dif dif").unwrap();
 /// for (index, (numeric, analytic)) in ln_prob.iter().zip(ln_prob_true.iter()).enumerate()
 /// {
@@ -249,32 +249,32 @@
 ///     max_dif = dif.abs().max(max_dif);
 ///     writeln!(buf, "{} {:e} {:e} {:e} {:e}", index, numeric, analytic, ln_dif, dif).unwrap();
 /// }
-/// 
+///
 /// println!("Max_ln_dif = {}", max_ln_dif);
 /// println!("Max_dif = {}", max_dif);
-/// 
-/// // in this case, the max difference of the natural logarithms 
+///
+/// // in this case, the max difference of the natural logarithms
 /// //of the probabilities is smaller than 0.026
 /// assert!(max_ln_dif < 0.026);
 /// // and the max absolut difference is smaller than 0.0007
 /// assert!(max_dif < 0.0007);
-/// 
-/// // That would be the final result for our probability 
-/// // density than. As you can see, it is very very 
+///
+/// // That would be the final result for our probability
+/// // density than. As you can see, it is very very
 /// // close to the analytical result.
-/// 
+///
 /// // Now, lets see, how our heatmap looks:
 /// let mut settings = GnuplotSettings::new();
 /// settings.x_label("#Heads")
 ///     .y_label("Max heads in row")
 ///     .terminal(GnuplotTerminal::PDF("heatmap_coin_flips".to_owned()));
-/// 
+///
 /// // lets normalize coloumwise
 /// // This way, the scale of our heatmap tells us the conditional probability
 /// // P(Number of heads in a rom | number of heads) of how many heads in a row were
 /// // part of that sequence given the total number of heads that occurred in the sequence
 /// let heatmap = heatmap.heatmap_normalized_columns();
-/// 
+///
 /// // now create gnuplot file
 /// let file = File::create("coin_heatmap.gp").unwrap();
 /// let buf = BufWriter::new(file);
@@ -282,12 +282,12 @@
 ///     buf,
 ///     settings
 /// ).unwrap();
-/// 
+///
 /// // now you can use gnuplot to plot the heatmap
 /// ```
 /// # Created files:
 /// * `coin_flip_log_density.dat`
-/// ```txt 
+/// ```txt
 /// #bin log_merged interval_0 interval_1 interval_2
 /// #log: Base10
 /// #Accumulated Stats of 3 Intervals
@@ -443,7 +443,7 @@
 /// 20 -1.3853708232453112e1 -1.3862943611198906e1 9.235378745794165e-3 8.848339504323986e-9
 /// ```
 /// * `coin_heatmap.gp`
-/// 
+///
 /// If you want to see how it looks like, you can copy the file and use `gnuplot coin_heatmap.gp`
 /// ```gp
 /// set t pdf
@@ -480,16 +480,16 @@
 /// 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 9.891625423032532e-2 0e0
 /// 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 0e0 1e0
 /// EOD
-/// splot $data matrix with image t "" 
+/// splot $data matrix with image t ""
 /// set output
 /// ```
-/// 
+///
 /// # Example: Replica exchange wang landau
 /// * The same example as above, but with replica exchange wang landau
 /// * [see explanaition of the model](#example-coin-flips)
 /// ```
-/// 
-/// #[cfg(feature="replica_exchange")] // feature is activated by default - you do not need this line 
+///
+/// #[cfg(feature="replica_exchange")] // feature is activated by default - you do not need this line
 /// { // neither do you need this brackets, I need them for the unit tests to work if the feature is deactivated
 /// use rand::SeedableRng;
 /// use rand_pcg::Pcg64;
@@ -512,10 +512,10 @@
 /// // lets create 3 histograms. The parameter overlap here must be larger than 0. Normally, 2 should be good
 /// let hist_list = hist.overlapping_partition(interval_count, 2).unwrap();
 /// let rng = Pcg64::seed_from_u64(19756556678);
-/// 
+///
 /// // create an ensemble
 /// let ensemble = CoinFlipSequence::new(n, rng);
-/// 
+///
 /// // create the replica exchange simulation builder. Note: There are different methods for this
 /// let rewl_builder = RewlBuilder::from_ensemble(
 ///     ensemble,                           // the ensemble
@@ -526,11 +526,11 @@
 ///     0.000001                            // Threshold for the simulation
 /// ).unwrap();
 ///
-/// // Note: You can now change the sweep size and the step sizes for the different 
+/// // Note: You can now change the sweep size and the step sizes for the different
 /// // intervals independently.
 /// // Use the `rewl_builder.step_sizes_mut()` and `rewl_builder.sweep_sizes.mut()` respecively
 /// // The indices in the slices corresponds to the interval(index)
-/// 
+///
 /// // uses greedy heuristik to find valid starting point.
 /// // (fastest, if the ensembles are already at their respective valid starting points)
 /// // Note: there are different heuristics. You have to try them out to see, which works best for your problem
@@ -538,7 +538,7 @@
 ///     .greedy_build(
 ///         |e| Some(e.head_count()) // energy function. It is a logical error to use a different energy function later on
 ///     );
-/// 
+///
 /// // lets say, we want to limit our simulation to roughly 40 minutes at most
 /// let start = Instant::now();
 /// let seconds = 40 * 60; // seconds in 40 minutes
@@ -548,7 +548,7 @@
 ///     |e| Some(e.head_count()), // energy function. has to be the same as used above
 ///     |_| start.elapsed().as_secs() < seconds // simulation is allowed to run while this is true
 /// );
-/// // note, the above simulation could take slightly longer than 40 * 60 seconds, 
+/// // note, the above simulation could take slightly longer than 40 * 60 seconds,
 /// // because the condition is only checked after each sweep.
 /// // In this case however, the simulation will likely finish in a few seconds anyway,
 /// // and since the simulation is finished before the condition is false, it will not matter
@@ -556,10 +556,10 @@
 /// // now lets get the result of the simulation:
 /// let glued = rewl.derivative_merged_log_prob_and_aligned()
 ///     .unwrap();
-/// // This is the logarithm (here base e, you can call glued.switch_base() for base 10) 
+/// // This is the logarithm (here base e, you can call glued.switch_base() for base 10)
 /// // of the probability density (or density of states)
 /// let ln_prob = glued.glued();
-/// 
+///
 ///
 /// // For this example, we know the exact result. Lets calculate it to compare
 /// let binomial = Binomial::new(0.5, n as u64).unwrap();
@@ -578,7 +578,7 @@
 ///     let val_real = val.1.exp();
 ///     max_difference = f64::max((val_simulation - val_real).abs(), max_difference);
 ///     max_ln_difference = f64::max(max_ln_difference, (val.0-val.1).abs());
-/// 
+///
 ///     let frac = val_simulation / val_real;
 ///     frac_difference_max = frac_difference_max.max(frac);
 ///     frac_difference_min = frac_difference_min.min(frac);
@@ -594,30 +594,30 @@
 /// assert!((frac_difference_max - 1.0).abs() < 0.01);
 /// // and underestimated the result by under 1 %
 /// assert!((frac_difference_min - 1.0).abs() < 0.01);
-/// 
-/// 
-/// // Note: to get even better results, you can decrease the threshold 
+///
+///
+/// // Note: to get even better results, you can decrease the threshold
 /// // I used 2.5E-6. Often it is good to use between 1E-6 and 1E-8
-/// // I used a larger threshold, since this is also a doc test and 
+/// // I used a larger threshold, since this is also a doc test and
 /// // should run in under 5 minutes in Debug mode
 /// // (on my machine it takes about 30 seconds in debug mode and under 2 seconds in release mode)
-/// 
+///
 /// // if you want to see, how good the intervals align, you can do the following
 /// let file = File::create("coin_flip_rewl.dat").unwrap();
 /// let buf = BufWriter::new(file);
-/// 
+///
 /// let mut glued = rewl.derivative_merged_log_prob_and_aligned().unwrap();
-/// // set verbosity for write, if you are interested in Statistics of 
+/// // set verbosity for write, if you are interested in Statistics of
 /// // the simulation
 /// glued.set_stat_write_verbosity(GlueWriteVerbosity::AccumulatedStats);
 /// // write to buf
 /// glued.write(buf).unwrap();
 /// // and now you can plot the file, e.g., with gnuplot
-/// 
+///
 /// println!("Total time: {}", begin.elapsed().as_secs());
 /// }
 /// ```
-/// 
+///
 /// To plot it, use gnuplot with
 /// ```gp
 /// set format y "e^{%.0f}"
@@ -625,7 +625,7 @@
 /// set xlabel "Number of heads"
 /// p "coin_flip_rewl.dat" u 1:2 t "merged", for[i=3:5] "" u 1:i t "interval ".(i-3)
 /// ```
-/// 
+///
 /// The resulting file is "coin_flip_rewl.dat"
 /// ```dat
 /// #bin log_merged interval_0 interval_1 interval_2
