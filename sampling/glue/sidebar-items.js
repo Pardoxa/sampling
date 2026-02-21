@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GlueErrors","GlueWriteVerbosity","LogBase","SimProgress","SimulationType"],"fn":["average_merged_and_aligned","derivative_merged_and_aligned","norm_log10_sum_to_1"],"mod":["derivative"],"struct":["GlueEntry","GlueJob","GlueStats","Glued","IntervalSimStats"],"trait":["GlueAble"]};

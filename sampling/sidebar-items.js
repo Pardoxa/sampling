@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bootstrap","entropic_sampling","examples","glue","heatmap","histogram","metropolis","rees","rewl","traits","wang_landau"]};

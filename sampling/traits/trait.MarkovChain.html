@@ -1,0 +1,117 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Create a markov chain by doing markov steps"><title>MarkovChain in sampling::traits - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sampling" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">MarkovChain</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../sampling/index.html">sampling</a><span class="version">0.3.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Markov<wbr>Chain</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#create-a-markov-chain-by-doing-markov-steps" title="Create a markov chain by doing markov steps">Create a markov chain by doing markov steps</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.m_step" title="m_step">m_step</a></li><li><a href="#tymethod.undo_step" title="undo_step">undo_step</a></li><li><a href="#tymethod.undo_step_quiet" title="undo_step_quiet">undo_step_quiet</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.m_step_acc" title="m_step_acc">m_step_acc</a></li><li><a href="#method.m_steps" title="m_steps">m_steps</a></li><li><a href="#method.m_steps_acc" title="m_steps_acc">m_steps_acc</a></li><li><a href="#method.m_steps_acc_quiet" title="m_steps_acc_quiet">m_steps_acc_quiet</a></li><li><a href="#method.m_steps_quiet" title="m_steps_quiet">m_steps_quiet</a></li><li><a href="#method.steps_accepted" title="steps_accepted">steps_accepted</a></li><li><a href="#method.steps_rejected" title="steps_rejected">steps_rejected</a></li><li><a href="#method.undo_steps" title="undo_steps">undo_steps</a></li><li><a href="#method.undo_steps_quiet" title="undo_steps_quiet">undo_steps_quiet</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In sampling::<wbr>traits</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">sampling</a>::<wbr><a href="index.html">traits</a></div><h1>Trait <span class="trait">Markov<wbr>Chain</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/sampling/traits.rs.html#2-115">Source</a> </span></div><pre class="rust item-decl"><code>pub trait MarkovChain&lt;S, Res&gt; {
+    // Required methods
+    fn <a href="#tymethod.undo_step" class="fn">undo_step</a>(&amp;mut self, step: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>) -&gt; Res;
+<span class="item-spacer"></span>    fn <a href="#tymethod.undo_step_quiet" class="fn">undo_step_quiet</a>(&amp;mut self, step: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>);
+<span class="item-spacer"></span>    fn <a href="#tymethod.m_step" class="fn">m_step</a>(&amp;mut self) -&gt; S;
+
+    // Provided methods
+    fn <a href="#method.m_steps" class="fn">m_steps</a>(&amp;mut self, count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>, steps: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;S&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.m_steps_quiet" class="fn">m_steps_quiet</a>(&amp;mut self, count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.m_step_acc" class="fn">m_step_acc</a>&lt;Acc, AccFn&gt;(&amp;mut self, acc: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>, acc_fn: AccFn) -&gt; S
+       <span class="where">where AccFn: <a class="trait" href="https://doc.rust-lang.org/1.93.1/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Self, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>)</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.m_steps_acc" class="fn">m_steps_acc</a>&lt;Acc, AccFn&gt;(
+        &amp;mut self,
+        count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>,
+        steps: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;S&gt;,
+        acc: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>,
+        acc_fn: AccFn,
+    )
+       <span class="where">where AccFn: <a class="trait" href="https://doc.rust-lang.org/1.93.1/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Self, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>)</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.m_steps_acc_quiet" class="fn">m_steps_acc_quiet</a>&lt;Acc, AccFn&gt;(
+        &amp;mut self,
+        count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>,
+        acc: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>,
+        acc_fn: AccFn,
+    )
+       <span class="where">where AccFn: <a class="trait" href="https://doc.rust-lang.org/1.93.1/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Self, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>)</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.undo_steps" class="fn">undo_steps</a>(&amp;mut self, steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>, res: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Res&gt;) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.undo_steps_quiet" class="fn">undo_steps_quiet</a>(&amp;mut self, steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.steps_accepted" class="fn">steps_accepted</a>(&amp;mut self, _steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.steps_rejected" class="fn">steps_rejected</a>(&amp;mut self, _steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="create-a-markov-chain-by-doing-markov-steps"><a class="doc-anchor" href="#create-a-markov-chain-by-doing-markov-steps">§</a>Create a markov chain by doing markov steps</h2></div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.undo_step" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#6">Source</a><h4 class="code-header">fn <a href="#tymethod.undo_step" class="fn">undo_step</a>(&amp;mut self, step: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>) -&gt; Res</h4></section></summary><div class="docblock"><ul>
+<li>undo a markov step, return result-state</li>
+<li>if you want to undo more than one step
+see <a href="#method.undo_steps"><code>undo_steps</code></a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.undo_step_quiet" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#10">Source</a><h4 class="code-header">fn <a href="#tymethod.undo_step_quiet" class="fn">undo_step_quiet</a>(&amp;mut self, step: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>)</h4></section></summary><div class="docblock"><ul>
+<li>undo a markov, <strong>panic</strong> on invalid result state</li>
+<li>for undoing multiple steps see <a href="#method.undo_steps_quiet"><code>undo_steps_quiet</code></a></li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.m_step" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#15">Source</a><h4 class="code-header">fn <a href="#tymethod.m_step" class="fn">m_step</a>(&amp;mut self) -&gt; S</h4></section></summary><div class="docblock"><h5 id="markov-step"><a class="doc-anchor" href="#markov-step">§</a>Markov step</h5>
+<ul>
+<li>use this to perform a markov step step</li>
+<li>for doing multiple markov steps at once, use <a href="#method.m_steps"><code>m_steps</code></a></li>
+</ul>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.m_steps" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#22-25">Source</a><h4 class="code-header">fn <a href="#method.m_steps" class="fn">m_steps</a>(&amp;mut self, count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>, steps: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;S&gt;)</h4></section></summary><div class="docblock"><h5 id="markov-steps"><a class="doc-anchor" href="#markov-steps">§</a>Markov steps</h5>
+<ul>
+<li>use this to perform multiple markov steps at once</li>
+<li>steps can be used to undo the steps with <code>self.undo_steps(steps)</code></li>
+<li><code>steps</code> will be emptied before step is performed</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.m_steps_quiet" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#32-36">Source</a><h4 class="code-header">fn <a href="#method.m_steps_quiet" class="fn">m_steps_quiet</a>(&amp;mut self, count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>)</h4></section></summary><div class="docblock"><h5 id="markov-steps-without-return"><a class="doc-anchor" href="#markov-steps-without-return">§</a>Markov steps without return</h5>
+<ul>
+<li>use this to perform multiple markov steps at once</li>
+<li>only use this if you <strong>know</strong> that you do <strong>not</strong> want to undo the steps</li>
+<li>you cannot undo this steps, but therefore it does not need to allocate a vector
+for undoing steps</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.m_step_acc" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#42-49">Source</a><h4 class="code-header">fn <a href="#method.m_step_acc" class="fn">m_step_acc</a>&lt;Acc, AccFn&gt;(&amp;mut self, acc: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>, acc_fn: AccFn) -&gt; S<div class="where">where
+    AccFn: <a class="trait" href="https://doc.rust-lang.org/1.93.1/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Self, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>),</div></h4></section></summary><div class="docblock"><h5 id="accumulating-markov-step"><a class="doc-anchor" href="#accumulating-markov-step">§</a>Accumulating markov step</h5>
+<ul>
+<li>this calculates something while performing the markov chain, e.g., the current energy,
+which can be more efficient then calculating it from scratch afterwards</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.m_steps_acc" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#55-66">Source</a><h4 class="code-header">fn <a href="#method.m_steps_acc" class="fn">m_steps_acc</a>&lt;Acc, AccFn&gt;(
+    &amp;mut self,
+    count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>,
+    steps: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;S&gt;,
+    acc: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>,
+    acc_fn: AccFn,
+)<div class="where">where
+    AccFn: <a class="trait" href="https://doc.rust-lang.org/1.93.1/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Self, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>),</div></h4></section></summary><div class="docblock"><h5 id="accumulating-markov-steps"><a class="doc-anchor" href="#accumulating-markov-steps">§</a>Accumulating markov steps</h5>
+<ul>
+<li>this calculates something while performing the markov chain, e.g., the current energy
+which can be more efficient then calculating it from scratch afterwards</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.m_steps_acc_quiet" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#73-80">Source</a><h4 class="code-header">fn <a href="#method.m_steps_acc_quiet" class="fn">m_steps_acc_quiet</a>&lt;Acc, AccFn&gt;(
+    &amp;mut self,
+    count: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.usize.html">usize</a>,
+    acc: <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>,
+    acc_fn: AccFn,
+)<div class="where">where
+    AccFn: <a class="trait" href="https://doc.rust-lang.org/1.93.1/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(&amp;Self, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;S</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.reference.html">&amp;mut Acc</a>),</div></h4></section></summary><div class="docblock"><h5 id="accumulating-markov-steps-1"><a class="doc-anchor" href="#accumulating-markov-steps-1">§</a>Accumulating markov steps</h5>
+<ul>
+<li>this calculates something while performing the markov chain, e.g., the current energy
+which can be more efficient then calculating it from scratch afterwards</li>
+<li>quiet step, i.e., you will not be able to undo the step</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.undo_steps" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#86-89">Source</a><h4 class="code-header">fn <a href="#method.undo_steps" class="fn">undo_steps</a>(&amp;mut self, steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>, res: &amp;mut <a class="struct" href="https://doc.rust-lang.org/1.93.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Res&gt;)</h4></section></summary><div class="docblock"><h5 id="undo-markov-steps"><a class="doc-anchor" href="#undo-markov-steps">§</a>Undo markov steps</h5>
+<ul>
+<li>Note: uses undo_step in correct order and returns result</li>
+</ul>
+<h6 id="important"><a class="doc-anchor" href="#important">§</a>Important:</h6>
+<ul>
+<li>look at specific implementation of <code>undo_step</code>, every thing mentioned there applies to each step</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.undo_steps_quiet" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#95-100">Source</a><h4 class="code-header">fn <a href="#method.undo_steps_quiet" class="fn">undo_steps_quiet</a>(&amp;mut self, steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>)</h4></section></summary><div class="docblock"><h5 id="undo-markov-steps-1"><a class="doc-anchor" href="#undo-markov-steps-1">§</a>Undo markov steps</h5>
+<ul>
+<li>Note: uses <code>undo_step_quiet</code> in correct order</li>
+</ul>
+<h6 id="important-1"><a class="doc-anchor" href="#important-1">§</a>Important:</h6>
+<ul>
+<li>look at specific implementation of <code>undo_step_quiet</code>, every thing mentioned there applies to each step</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.steps_accepted" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#107">Source</a><h4 class="code-header">fn <a href="#method.steps_accepted" class="fn">steps_accepted</a>(&amp;mut self, _steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>)</h4></section></summary><div class="docblock"><h5 id="function-called-whenever-the-steps-are-accepted"><a class="doc-anchor" href="#function-called-whenever-the-steps-are-accepted">§</a>Function called whenever the steps are accepted.</h5>
+<p>*You can use it to create the acceptance statistics if
+you move a variety of different moves</p>
+<ul>
+<li>If you use the default implementation this will be a optimized out</li>
+</ul>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.steps_rejected" class="method"><a class="src rightside" href="../../src/sampling/traits.rs.html#114">Source</a><h4 class="code-header">fn <a href="#method.steps_rejected" class="fn">steps_rejected</a>(&amp;mut self, _steps: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.slice.html">[S]</a>)</h4></section></summary><div class="docblock"><h5 id="function-called-whenever-the-steps-are-rejected"><a class="doc-anchor" href="#function-called-whenever-the-steps-are-rejected">§</a>Function called whenever the steps are rejected.</h5>
+<ul>
+<li>You can use it to create the acceptance statistics if
+you move a variety of different moves</li>
+<li>If you use the default implementation this will be a optimized out</li>
+</ul>
+</div></details></div><h2 id="dyn-compatibility" class="section-header">Dyn Compatibility<a href="#dyn-compatibility" class="anchor">§</a></h2><div class="dyn-compatibility-info"><p>This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.93.1/reference/items/traits.html#dyn-compatibility">dyn compatible</a>.</p><p><i>In older versions of Rust, dyn compatibility was called "object safety", so this trait is not object safe.</i></p></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-MarkovChain%3CCoinFlipMove,+()%3E-for-CoinFlipSequence%3CR%3E" class="impl"><a class="src rightside" href="../../src/sampling/examples/coin_flips.rs.html#118-208">Source</a><a href="#impl-MarkovChain%3CCoinFlipMove,+()%3E-for-CoinFlipSequence%3CR%3E" class="anchor">§</a><h3 class="code-header">impl&lt;R&gt; <a class="trait" href="trait.MarkovChain.html" title="trait sampling::traits::MarkovChain">MarkovChain</a>&lt;<a class="struct" href="../examples/coin_flips/struct.CoinFlipMove.html" title="struct sampling::examples::coin_flips::CoinFlipMove">CoinFlipMove</a>, <a class="primitive" href="https://doc.rust-lang.org/1.93.1/std/primitive.unit.html">()</a>&gt; for <a class="struct" href="../examples/coin_flips/struct.CoinFlipSequence.html" title="struct sampling::examples::coin_flips::CoinFlipSequence">CoinFlipSequence</a>&lt;R&gt;<div class="where">where
+    R: <a class="trait" href="https://rust-random.github.io/rand/rand/rng/trait.Rng.html" title="trait rand::rng::Rng">Rng</a>,</div></h3></section></div><script src="../../trait.impl/sampling/traits/trait.MarkovChain.js" async></script></section></div></main></body></html>
