@@ -15,7 +15,7 @@ keywords = [
 ]
 license = "MIT OR Apache-2.0"
 categories = ["science", "mathematics"]
-documentation = "https://docs.rs/sampling/0.2.0"
+documentation = "https://docs.rs/sampling/0.3.0"
 homepage = "https://www.yfeld.de"
 exclude = [
     ".github/*",

@@ -78,7 +78,7 @@ where
     fn push_glue_entry_ignoring(&self, job: &mut GlueJob<Hist>, ignore_idx: &[usize]) {
         if !ignore_idx.contains(&0) {
             let mut missing_steps = 0;
-            if self.step_count() >= self.step_goal() {
+            if self.step_count() < self.step_goal() {
                 missing_steps = (self.step_goal() - self.step_count()) as u64;
             }
             let rejected = self.total_entr_steps_rejected() as u64;
