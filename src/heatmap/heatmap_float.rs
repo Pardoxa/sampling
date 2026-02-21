@@ -275,9 +275,14 @@ where
     }
 
     /// # Normalizes self
-    /// * Afterwards sum over all entries (within numerical precision) should be 1.0
+    /// * Afterwards sum over all entries (within numerical precision) should be 1.0.
+    /// * Exception: If the sum over all entries is zero, the entries remain unchanged
     pub fn normalize_total(&mut self) {
         let sum = self.heatmap.iter().sum::<f64>();
+
+        if sum == 0.0 {
+            return;
+        }
 
         self.heatmap.iter_mut().for_each(|val| *val /= sum);
     }

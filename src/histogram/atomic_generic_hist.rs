@@ -94,18 +94,13 @@ where
     B: Binning<T>,
 {
     fn get_bin_index<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
-        let index = self
-            .binning
+        self.binning
             .get_bin_index(val)
-            .ok_or(HistErrors::OutsideHist)?;
-        self.count_index(index).map(|_| index)
+            .ok_or(HistErrors::OutsideHist)
     }
 
     fn count_val<V: Borrow<T>>(&self, val: V) -> Result<usize, HistErrors> {
-        let index = self
-            .binning
-            .get_bin_index(val)
-            .ok_or(HistErrors::OutsideHist)?;
+        let index = self.get_bin_index(val)?;
         self.count_index(index).map(|_| index)
     }
 

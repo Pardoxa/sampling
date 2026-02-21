@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.1
+* Fixed bug in `push_glue_entry_ignoring` where the missing steps were calculated wrongly
+* Fixed bug in `AtomicGenericHist` where get_index mistakenly incremented the index
+* Fixed bug in `interval_distance_overlap` where an overlap larger than the bin count could lead to a divide by zero
+* Fixed bug in Binning, where it would sometimes truncate instead of saturating at usize::MAX
+* Trying to glue empty intervals could lead to a panic -> fixed now
+
 ## v0.3.0
 * Updating rand to ^0.9.0 -> making required updates to sampling
 * Note: Switching to the new rand may lead to other randomness than before, i.e., both should be statistically sound but the same seed may lead to different results in the different library versions

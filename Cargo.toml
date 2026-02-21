@@ -1,6 +1,6 @@
 [package]
 name = "sampling"
-version = "0.3.0"
+version = "0.3.1"
 rust-version = "1.80.0"
 authors = ["Yannick Feld <yannick.feld@uol.de>"]
 edition = "2021"
@@ -15,7 +15,7 @@ keywords = [
 ]
 license = "MIT OR Apache-2.0"
 categories = ["science", "mathematics"]
-documentation = "https://docs.rs/sampling/0.3.0"
+documentation = "https://docs.rs/sampling/0.3.1"
 homepage = "https://www.yfeld.de"
 exclude = [
     ".github/*",

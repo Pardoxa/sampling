@@ -206,7 +206,7 @@ macro_rules! impl_binning {
             #[inline(always)]
             fn get_bin_len(&self) -> usize
             {
-                (self.bins_m1() as usize).saturating_add(1)
+                (self.bins_m1().try_into().unwrap_or(usize::MAX)).saturating_add(1)
             }
 
             /// # Get the respective bin index
@@ -214,7 +214,7 @@ macro_rules! impl_binning {
             #[inline(always)]
             fn get_bin_index<V: Borrow<$t>>(&self, val: V) -> Option<usize>{
                 self.get_bin_index_native(val)
-                    .map(|v| v as usize)
+                    .map(|v| v.try_into().unwrap_or(usize::MAX))
             }
 
             /// Does a value correspond to a valid bin?

@@ -719,7 +719,17 @@ mod tests {
         let h_x = HistUsizeFast::new_inclusive(0, 10).unwrap();
         let h_y = HistU8Fast::new_inclusive(0, 6).unwrap();
 
+        let y_len = h_y.bin_count();
+        let x_len = h_x.bin_count();
+
         let mut heatmap = HeatmapUsize::new(h_x, h_y);
+
+        for y in 0..y_len + 100 {
+            let row = heatmap.get_row(y);
+            if let Some(row) = row {
+                assert_eq!(x_len, row.len());
+            }
+        }
 
         let mut rng = Pcg64::seed_from_u64(27456487);
         let x_distr = Uniform::new_inclusive(0, 10_usize).unwrap();

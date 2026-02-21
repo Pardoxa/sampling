@@ -4,6 +4,12 @@ use rand::{seq::*, Rng};
 /// returns reduced value + variance (estimated error is sqrt of variance)
 /// Note, that you can use [bootstrap_copyable]
 /// if your `N1` implements Copy
+///
+/// # Panics
+/// Panics if `data` is empty, because the bootstrap sample draws from `data`.
+///
+/// # Notes
+/// If `samples == 0`, the returned mean/variance will be NaN/inf due to division by zero.
 pub fn bootstrap<F, R, N1>(mut rng: R, samples: usize, data: &[N1], reduction: F) -> (f64, f64)
 where
     F: Fn(&[&N1]) -> f64,
@@ -30,6 +36,12 @@ where
 
 /// Similar to [bootstrap] but for stuff that implements `Copy`. Likely more efficient in these cases
 /// returns reduced value + variance (estimated error is sqrt of variance)
+///
+/// # Panics
+/// Panics if `data` is empty, because the bootstrap sample draws from `data`.
+///
+/// # Notes
+/// If `samples == 0`, the returned mean/variance will be NaN/inf due to division by zero.
 pub fn bootstrap_copyable<F, R, N1>(
     mut rng: R,
     samples: usize,

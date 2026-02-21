@@ -262,7 +262,8 @@ where
         debug_assert!(self.interval_length() > T::zero());
         debug_assert!(val.is_finite());
         if self.not_inside(val) {
-            let num_bins_overlap = self.bin_count() / overlap.get();
+            let bin_count = self.bin_count();
+            let num_bins_overlap = bin_count / overlap.get().min(bin_count);
             let dist = if *val < self.first_border() {
                 let tmp = self.first_border() - *val;
                 (tmp / self.interval_length()).floor()

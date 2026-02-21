@@ -63,7 +63,7 @@ where
                 let mut proposed_replica_exchanges = 0;
                 for w in walker {
                     if !w.is_finished() {
-                        let missing = w.step_threshold() - w.step_count();
+                        let missing = w.step_threshold().saturating_sub(w.step_count());
                         if missing > missing_steps {
                             missing_steps = missing;
                         }

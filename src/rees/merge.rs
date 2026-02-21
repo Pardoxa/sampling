@@ -15,8 +15,14 @@ where
     let mut merged_log_prob = vec![f64::NAN; e_hist.bin_count()];
 
     if merge_points.is_empty() {
+        merged_log_prob = match log_prob.into_iter().next() {
+            Some(prob) => prob,
+            None => {
+                //No interval present! Nothing to do!
+                return (Vec::new(), e_hist);
+            }
+        };
         // Nothing to merge - only one interval present
-        merged_log_prob = log_prob.into_iter().next().unwrap();
         norm_ln_prob(&mut merged_log_prob);
         return (merged_log_prob, e_hist);
     }
