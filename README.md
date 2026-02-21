@@ -18,7 +18,7 @@ The Documentation of the working branch can be found [here](https://pardoxa.gith
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-sampling = "0.3.0"
+sampling = "0.3.1"
 # for feature "serde_support" (enabled by default) also use
 serde = { version = "1.0", features = ["derive"] }
 ```
@@ -42,7 +42,7 @@ If you want to minimize build time and space requirements upon building,
 you can disable default features and only enable what you need, e.g.
 ```toml
 [dependencies]
-sampling = { version = "0.3.0", default-features = false, features=["replica_exchange"]  }
+sampling = { version = "0.3.1", default-features = false, features=["replica_exchange"]  }
 ``` 
 
 # Notes
